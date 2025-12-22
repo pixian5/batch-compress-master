@@ -1,0 +1,62 @@
+{
+  "format": 1,
+  "restore": {
+    "D:\\0桌面应用\\0批量压缩2108\\批量压缩.csproj": {}
+  },
+  "projects": {
+    "D:\\0桌面应用\\0批量压缩2108\\批量压缩.csproj": {
+      "version": "1.0.0",
+      "restore": {
+        "projectUniqueName": "D:\\0桌面应用\\0批量压缩2108\\批量压缩.csproj",
+        "projectName": "批量压缩",
+        "projectPath": "D:\\0桌面应用\\0批量压缩2108\\批量压缩.csproj",
+        "packagesPath": "C:\\Users\\Administrator\\.nuget\\packages\\",
+        "outputPath": "D:\\0桌面应用\\0批量压缩2108\\obj\\",
+        "projectStyle": "PackageReference",
+        "configFilePaths": [
+          "C:\\Users\\Administrator\\AppData\\Roaming\\NuGet\\NuGet.Config",
+          "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+        ],
+        "originalTargetFrameworks": [
+          "net6.0-windows7.0"
+        ],
+        "sources": {
+          "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+          "http://go.microsoft.com/fwlink/?LinkID=206669": {},
+          "http://www.cnblogs.com/cmt/p/nuget-mirror.html": {},
+          "https://api.nuget.org/v3/index.json": {}
+        },
+        "frameworks": {
+          "net6.0-windows7.0": {
+            "targetAlias": "net6.0-windows",
+            "projectReferences": {}
+          }
+        }
+      },
+      "frameworks": {
+        "net6.0-windows7.0": {
+          "targetAlias": "net6.0-windows",
+          "imports": [
+            "net461",
+            "net462",
+            "net47",
+            "net471",
+            "net472",
+            "net48"
+          ],
+          "assetTargetFallback": true,
+          "warn": true,
+          "frameworkReferences": {
+            "Microsoft.NETCore.App": {
+              "privateAssets": "all"
+            },
+            "Microsoft.WindowsDesktop.App.WindowsForms": {
+              "privateAssets": "none"
+            }
+          },
+          "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\6.0.100-preview.7.21379.14\\RuntimeIdentifierGraph.json"
+        }
+      }
+    }
+  }
+}

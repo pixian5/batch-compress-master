@@ -1,0 +1,10 @@
+# 排除 Visual Studio 生成的文件和文件夹
+.git/
+.vs/
+bin/
+b/
+# 排除日志文件
+*.log
+
+# 排除 NuGet 包
+*.nupkg

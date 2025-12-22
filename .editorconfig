@@ -1,0 +1,13 @@
+﻿[*.cs]
+
+# CA1416: 验证平台兼容性
+dotnet_diagnostic.CA1416.severity = none
+
+# CS8602: 解引用可能出现空引用。
+dotnet_diagnostic.CS8602.severity = none
+
+# CA1806: 不要忽略方法结果
+dotnet_diagnostic.CA1806.severity = none
+
+# CA1305: 指定 IFormatProvider
+dotnet_diagnostic.CA1305.severity = none

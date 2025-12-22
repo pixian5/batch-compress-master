@@ -1,0 +1,11 @@
+is_global = true
+build_property.ApplicationManifest = Properties\app.manifest
+build_property.StartupObject = 批量压缩.Program
+build_property.ApplicationDefaultFont = 
+build_property.ApplicationHighDpiMode = 
+build_property.ApplicationUseCompatibleTextRendering = 
+build_property.ApplicationVisualStyles = 
+build_property.RootNamespace = 批量压缩
+build_property.ProjectDir = D:\0批量压缩2111\
+build_property.EnableComHosting = 
+build_property.EnableGeneratedComInterfaceComImportInterop = 

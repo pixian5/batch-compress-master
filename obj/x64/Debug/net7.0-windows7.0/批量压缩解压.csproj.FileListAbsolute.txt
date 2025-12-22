@@ -1,0 +1,14 @@
+D:\0批量压缩2111\bin\x64\Debug\net7.0-windows7.0\批量压缩与解压.exe
+D:\0批量压缩2111\bin\x64\Debug\net7.0-windows7.0\批量压缩与解压.deps.json
+D:\0批量压缩2111\bin\x64\Debug\net7.0-windows7.0\批量压缩与解压.runtimeconfig.json
+D:\0批量压缩2111\bin\x64\Debug\net7.0-windows7.0\批量压缩与解压.dll
+D:\0批量压缩2111\bin\x64\Debug\net7.0-windows7.0\批量压缩与解压.pdb
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩.Properties.Resources.resources
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩.Mainform.resources
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩解压.csproj.GenerateResource.cache
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩解压.GeneratedMSBuildEditorConfig.editorconfig
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩解压.csproj.CoreCompileInputs.cache
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩解压.sourcelink.json
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩与解压.dll
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩与解压.pdb
+D:\0批量压缩2111\obj\x64\Debug\net7.0-windows7.0\批量压缩解压.genruntimeconfig.cache
