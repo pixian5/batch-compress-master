@@ -8,3 +8,4 @@ b/
 
 # 排除 NuGet 包
 *.nupkg
+.DS_Store
