@@ -2,10 +2,14 @@
 .git/
 .vs/
 bin/
-b/
+obj/
 # 排除日志文件
 *.log
 
 # 排除 NuGet 包
 *.nupkg
 .DS_Store
+
+# 排除用户特定文件
+*.user
+*.suo
