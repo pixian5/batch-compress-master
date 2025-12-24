@@ -166,25 +166,36 @@ public partial class MainWindowViewModel : ViewModelBase
         });
     }
     
+    // Callbacks for file browsing (set by the View)
+    public Func<Task>? BrowseSourceRequested { get; set; }
+    public Func<Task>? BrowseOutputRequested { get; set; }
+    public Func<Task>? BrowseTextFileRequested { get; set; }
+    
     [RelayCommand]
     private async Task BrowseSourceAsync()
     {
-        // This will need to be called from the View with the actual TopLevel
-        // For now, just a placeholder
+        if (BrowseSourceRequested != null)
+        {
+            await BrowseSourceRequested();
+        }
     }
     
     [RelayCommand]
     private async Task BrowseOutputAsync()
     {
-        // This will need to be called from the View with the actual TopLevel
-        // For now, just a placeholder
+        if (BrowseOutputRequested != null)
+        {
+            await BrowseOutputRequested();
+        }
     }
     
     [RelayCommand]
     private async Task BrowseTextFileAsync()
     {
-        // This will need to be called from the View with the actual TopLevel
-        // For now, just a placeholder
+        if (BrowseTextFileRequested != null)
+        {
+            await BrowseTextFileRequested();
+        }
     }
     
     [RelayCommand]

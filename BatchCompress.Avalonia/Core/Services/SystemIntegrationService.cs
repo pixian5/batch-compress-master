@@ -51,7 +51,7 @@ public class SystemIntegrationService : ISystemIntegration
                 var clipboard = desktop.MainWindow?.Clipboard;
                 if (clipboard != null)
                 {
-                    return await clipboard.GetTextAsync();
+                    return await clipboard.GetTextAsync() ?? string.Empty;
                 }
             }
         }
