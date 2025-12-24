@@ -376,7 +376,7 @@ namespace 批量压缩
                 // 处理密码
                 if (!isRandomPassword && !string.IsNullOrEmpty(password))
                 {
-                    mm_p = "-p" + password;
+                    password = password;
                 }
 
                 // 高级功能
@@ -392,7 +392,7 @@ namespace 批量压缩
                         //});
 
                         password = MyMd5.MD5UTF878(name + "592ptt1314") + MyMd5.MD5UTF878(name + "592pnn1314");
-                        mm_p = "-p" + password;
+                        
                     }
 
                     // 分卷大小
@@ -453,7 +453,7 @@ namespace 批量压缩
                 }
 
                 // 执行的rar命令
-                string shellArguments = $@"A -ep1 -IBCK {shouldSkip} -SCf ""{saveRarFullName}"" ""{oldFullName}"" {enclosure} {mm_p} {notice} {volume} {raRate} -rr{rec} {quickOpen} {tmp} {check} {exception} {solid} {cite}";
+                string shellArguments = $@"A -ep1 -IBCK {shouldSkip} -SCf ""{saveRarFullName}"" ""{oldFullName}"" {enclosure} -p""{password}"" {notice} {volume} {raRate} -rr{rec} {quickOpen} {tmp} {check} {exception} {solid} {cite}";
 
                 // 在UI线程更新命令显示
                 this.Invoke((MethodInvoker)delegate
@@ -901,7 +901,7 @@ namespace 批量压缩
                     i++; // 跳到下一行获取密码
                 }
 
-                string pw = readPwFromNextLine ? rtbSourceLines[i] : "密码获取失败";
+                string password = readPwFromNextLine ? rtbSourceLines[i] : "密码获取失败";
 
                 if (name.Contains(".part"))     //判断是不是分卷文件，给予不同密码
                 {
@@ -924,20 +924,20 @@ namespace 批量压缩
                         });
                         if ((txtOrRtb == 1) && Cbpw.Checked)         //随机密码
                         {
-                            pw = MyMd5.MD5UTF878(namePart + "592ptt1314") + MyMd5.MD5UTF878(namePart + "592pnn1314");
+                            password = MyMd5.MD5UTF878(namePart + "592ptt1314") + MyMd5.MD5UTF878(namePart + "592pnn1314");
                             this.Invoke((MethodInvoker)delegate
                             {
-                                rtbOk.AppendText(namePart + "\n" + pw + "\n");
+                                rtbOk.AppendText(namePart + "\n" + password + "\n");
                             });
                         }
                     }
                 }
                 else if ((txtOrRtb == 1) && Cbpw.Checked) //不是分卷文件，启用随机密码
                 {
-                    pw = MyMd5.MD5UTF878(name + "592ptt1314") + MyMd5.MD5UTF878(name + "592pnn1314");
+                    password = MyMd5.MD5UTF878(name + "592ptt1314") + MyMd5.MD5UTF878(name + "592pnn1314");
                     this.Invoke((MethodInvoker)delegate
                     {
-                        rtbOk.AppendText(name + "\n" + pw + "\n");
+                        rtbOk.AppendText(name + "\n" + password + "\n");
                     });
                 }
 
@@ -954,7 +954,7 @@ namespace 批量压缩
                 // 执行的rar命令， -y表示全部确认
                 //$ 符号启用字符串内插，允许你在字符串中嵌入表达式，用 {} 包裹。
                 //@ 符号创建逐字字符串文本，使得字符串中的反斜杠 \ 不再作为转义字符，而是被视为普通字符。唯一的例外是双引号 "，你需要使用两个连续的双引号 "" 来表示一个实际的双引号字符。
-                string shellArguments = string.Format(@$"-IBCK x {existFile} -p""{pw}"" ""{file}"" ""{savePath}""");
+                string shellArguments = string.Format(@$"-IBCK x {existFile} -p""{password}"" ""{file}"" ""{savePath}""");
 
                 // 在UI线程更新命令显示
                 this.Invoke((MethodInvoker)delegate
@@ -1110,7 +1110,7 @@ namespace 批量压缩
                 }
                 else
                 {
-                    progressInfo.Message = "555，解压失败了：\n" + file + "\n" + pw + "\n" + RarTips(dcr);
+                    progressInfo.Message = "555，解压失败了：\n" + file + "\n" + password + "\n" + RarTips(dcr);
                     progressInfo.IsError = true;
                     failFile++;
                     progressInfo.FailCount = failFile;
