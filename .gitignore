@@ -13,3 +13,4 @@ obj/
 # 排除用户特定文件
 *.user
 *.suo
+.DS_Store
