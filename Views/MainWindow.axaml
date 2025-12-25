@@ -43,8 +43,8 @@
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <TextBlock Text="目的地：" VerticalAlignment="Center" Width="100"/>
                         <Button Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
-                        <Button Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
                         <TextBox Text="{Binding OutputPath}" Width="400"/>
+                        <Button Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
                         <TextBlock Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
                     </StackPanel>
                 </StackPanel>
