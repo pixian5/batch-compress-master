@@ -53,11 +53,11 @@
             
             <!-- Options Section -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="10">
-                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
+                <Grid ColumnDefinitions="*">
                     <!-- Left Column: Compression Options -->
                     <Expander Grid.Column="0" Header="压缩选项" FontWeight="Bold" FontSize="14" IsExpanded="False">
-                        <StackPanel Spacing="8">
-                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,5">
+                        <StackPanel Spacing="15">
+                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,5"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,5"/>
@@ -109,44 +109,40 @@
                                 <!-- Row 4 -->
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="临时目录：" VerticalAlignment="Center" Margin="0,0,10,5"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,5"/>
+                                
+                                <!-- Row 5: Add Enclosures -->
+                                <CheckBox Grid.Row="5" Grid.Column="0" Content="添加附件" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,5"/>
                             </Grid>
+                            
+                            <!-- Enclosure List -->
+                            <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,5">
+                                <TextBlock Text="附件目录列表（每行一个）：" Margin="0,5,0,5"/>
+                                <TextBox Text="{Binding EnclosureList}" Height="80" AcceptsReturn="True" TextWrapping="Wrap"
+                                         IsEnabled="{Binding AddEnclosures}"/>
+                            </StackPanel>
+                            
+                            <!-- Post-Processing Options -->
+                            <Border BorderBrush="LightGray" BorderThickness="1" Padding="10" CornerRadius="5">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="后处理选项" FontWeight="Bold" FontSize="14"/>
+                                    
+                                    <StackPanel Orientation="Horizontal" Spacing="15">
+                                        <CheckBox Content="处理后删除源" IsChecked="{Binding DeleteSourceAfter}"/>
+                                        <CheckBox Content="处理后移动源" IsChecked="{Binding MoveSourceAfter}"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Orientation="Horizontal" Spacing="15">
+                                        <CheckBox Content="完成后关机" IsChecked="{Binding ShutdownAfterComplete}"/>
+                                    </StackPanel>
+                                    
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <TextBlock Text="最大处理大小(GB)：" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding MaxSizeGB}" Width="80"/>
+                                    </StackPanel>
+                                </StackPanel>
+                            </Border>
                         </StackPanel>
                     </Expander>
-                    
-                    <!-- Middle Column: Attachment Options -->
-                    <StackPanel Grid.Column="1" Spacing="8">
-                        <TextBlock Text="附件选项" FontWeight="Bold" FontSize="14"/>
-                        
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <CheckBox Content="添加附件" IsChecked="{Binding AddEnclosures}"/>
-                        </StackPanel>
-                        
-                        <!-- Enclosure List -->
-                        <StackPanel IsVisible="{Binding AddEnclosures}">
-                            <TextBlock Text="附件目录列表（每行一个）：" Margin="0,5,0,5"/>
-                            <TextBox Text="{Binding EnclosureList}" Height="80" AcceptsReturn="True" TextWrapping="Wrap"
-                                     IsEnabled="{Binding AddEnclosures}"/>
-                        </StackPanel>
-                    </StackPanel>
-                    
-                    <!-- Right Column: Post-Processing Options -->
-                    <StackPanel Grid.Column="2" Spacing="8">
-                        <TextBlock Text="后处理选项" FontWeight="Bold" FontSize="14"/>
-                        
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <CheckBox Content="处理后删除源" IsChecked="{Binding DeleteSourceAfter}"/>
-                            <CheckBox Content="处理后移动源" IsChecked="{Binding MoveSourceAfter}"/>
-                        </StackPanel>
-                        
-                        <StackPanel Orientation="Horizontal" Spacing="15">
-                            <CheckBox Content="完成后关机" IsChecked="{Binding ShutdownAfterComplete}"/>
-                        </StackPanel>
-                        
-                        <StackPanel Orientation="Horizontal" Spacing="10">
-                            <TextBlock Text="最大处理大小(GB)：" VerticalAlignment="Center"/>
-                            <TextBox Text="{Binding MaxSizeGB}" Width="80"/>
-                        </StackPanel>
-                    </StackPanel>
                 </Grid>
             </Border>
             
