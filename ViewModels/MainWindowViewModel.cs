@@ -29,6 +29,8 @@ public partial class MainWindowViewModel : ViewModelBase
     
     public string BrowseSourceButtonText => SourceMode == 0 ? "选txt" : "选择来源";
     
+    public bool IsFromTxtMode => SourceMode == 0;
+    
     [ObservableProperty]
     private string _sourcePath = string.Empty;
     

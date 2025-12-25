@@ -34,19 +34,19 @@
                         
                         <!-- Save File Path -->
                         <TextBlock Grid.Row="1" Grid.Column="0" Text="待压缩/解压文件保存路径：" VerticalAlignment="Center"
-                                   IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                                   IsVisible="{Binding IsFromTxtMode}"/>
                         <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SaveFilePath}" Width="400" Watermark="保存路径" VerticalAlignment="Center"
-                                 IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                                 IsVisible="{Binding IsFromTxtMode}"/>
                         <Button Grid.Row="1" Grid.Column="4" Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100" VerticalAlignment="Center"
-                                IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                                IsVisible="{Binding IsFromTxtMode}"/>
                         
                         <!-- Text File Path (for mode 0) -->
                         <TextBlock Grid.Row="2" Grid.Column="0" Text="TXT文件路径：" VerticalAlignment="Center" 
-                                   IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                                   IsVisible="{Binding IsFromTxtMode}"/>
                         <Button Grid.Row="2" Grid.Column="1" Content="选择TXT" Command="{Binding BrowseTextFileCommand}"
-                                IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                                IsVisible="{Binding IsFromTxtMode}"/>
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding TextFilePath}"
-                                 IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                                 IsVisible="{Binding IsFromTxtMode}"/>
                         
                         <!-- Output Path -->
                         <TextBlock Grid.Row="3" Grid.Column="0" Text="目的地：" VerticalAlignment="Center"/>
