@@ -87,7 +87,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _moveSourceAfter = false;
     
     [ObservableProperty]
-    private bool _addEnclosures = false;
+    private bool _addEnclosures = true;
     
     [ObservableProperty]
     private string _enclosureList = string.Empty;
