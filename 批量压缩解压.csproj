@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0-windows10.0</TargetFramework>
+    <TargetFramework>net8.0-windows7.0</TargetFramework>
     <OutputType>WinExe</OutputType>
     <RootNamespace>批量压缩</RootNamespace>
     <AssemblyName>批量压缩与解压</AssemblyName>
@@ -11,7 +11,6 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <ApplicationHighDpiMode>SystemAware</ApplicationHighDpiMode>
     <ForceDesignerDpiUnaware>true</ForceDesignerDpiUnaware>
-    <EnableWindowsTargeting>true</EnableWindowsTargeting>
   </PropertyGroup>
   <PropertyGroup>
     <ApplicationIcon>压缩.ico</ApplicationIcon>
@@ -40,7 +39,7 @@
     <EnableNETAnalyzers>False</EnableNETAnalyzers>
     <AnalysisLevel>none</AnalysisLevel>
     <UseWPF>False</UseWPF>
-    <SupportedOSPlatformVersion>10.0.26100.1</SupportedOSPlatformVersion>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <PlatformTarget>AnyCPU</PlatformTarget>
