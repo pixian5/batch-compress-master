@@ -57,6 +57,22 @@
                     <!-- Left Column: Compression Options -->
                     <Expander Grid.Column="0" Header="压缩选项" FontWeight="Bold" FontSize="14" IsExpanded="False">
                         <StackPanel Spacing="15">
+                
+                            <Border BorderBrush="LightGray" BorderThickness="1" Padding="10" CornerRadius="5">
+                                <StackPanel Spacing="8">
+                                    <TextBlock Text="密码查询" FontWeight="Bold" FontSize="14"/>
+                                    <StackPanel Orientation="Horizontal" Spacing="10">
+                                        <TextBlock Text="文件名（不含扩展名）：" VerticalAlignment="Center"/>
+                                        <TextBox Text="{Binding PasswordQueryFileName}" Width="200"/>
+                                        <Button Content="查询密码" Command="{Binding QueryPasswordCommand}" Width="100"/>
+                                        <Button Content="确认密码/解锁" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="120"/>
+                                    </StackPanel>
+                                    <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
+                                    <TextBlock Text="（已复制到剪贴板）" FontSize="10" Foreground="Gray" 
+                                               IsVisible="{Binding PasswordQueryResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
+                                </StackPanel>
+                            </Border>
+                            
                             <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,5"/>
@@ -187,21 +203,6 @@
                 </StackPanel>
             </Border>
             
-            <!-- Password Query Section -->
-            <Border BorderBrush="Gray" BorderThickness="1" Padding="10">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="密码查询" FontWeight="Bold" FontSize="14"/>
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="文件名（不含扩展名）：" VerticalAlignment="Center"/>
-                        <TextBox Text="{Binding PasswordQueryFileName}" Width="200"/>
-                        <Button Content="查询密码" Command="{Binding QueryPasswordCommand}" Width="100"/>
-                        <Button Content="确认密码/解锁" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="120"/>
-                    </StackPanel>
-                    <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
-                    <TextBlock Text="（已复制到剪贴板）" FontSize="10" Foreground="Gray" 
-                               IsVisible="{Binding PasswordQueryResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
-                </StackPanel>
-            </Border>
             
             <!-- Log Sections -->
             <TabControl Height="300">
