@@ -29,16 +29,41 @@ public partial class MainWindow : Window
     
     private async Task BrowseSourceAsync()
     {
-        var options = new FolderPickerOpenOptions
-        {
-            Title = "选择来源文件夹",
-            AllowMultiple = false
-        };
+        if (DataContext is not MainWindowViewModel viewModel)
+            return;
         
-        var folders = await StorageProvider.OpenFolderPickerAsync(options);
-        if (folders.Count > 0 && DataContext is MainWindowViewModel viewModel)
+        if (viewModel.SourceMode == 0) // 从txt读取要解压的文件
         {
-            viewModel.SourcePath = folders[0].Path.LocalPath;
+            var options = new FilePickerOpenOptions
+            {
+                Title = "选择TXT文件",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType("文本文件") { Patterns = new[] { "*.txt" } },
+                    new FilePickerFileType("所有文件") { Patterns = new[] { "*.*" } }
+                }
+            };
+            
+            var files = await StorageProvider.OpenFilePickerAsync(options);
+            if (files.Count > 0)
+            {
+                viewModel.SourcePath = files[0].Path.LocalPath;
+            }
+        }
+        else // 压缩此文件夹内所有文件
+        {
+            var options = new FolderPickerOpenOptions
+            {
+                Title = "选择来源文件夹",
+                AllowMultiple = false
+            };
+            
+            var folders = await StorageProvider.OpenFolderPickerAsync(options);
+            if (folders.Count > 0)
+            {
+                viewModel.SourcePath = folders[0].Path.LocalPath;
+            }
         }
     }
     
