@@ -55,63 +55,63 @@
             <Border BorderBrush="Gray" BorderThickness="1" Padding="10">
                 <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
                     <!-- Left Column: Compression Options -->
-                    <StackPanel Grid.Column="0" Spacing="8">
-                        <TextBlock Text="压缩选项" FontWeight="Bold" FontSize="14"/>
-                        
-                        <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,5">
-                            <!-- Row 0 -->
-                            <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,5"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,5"/>
-                            
-                            <CheckBox Grid.Row="0" Grid.Column="2" Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="20,0,10,5"/>
-                            <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
-                                     Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,5"/>
-                            
-                            <!-- Row 1 -->
-                            <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩率：" VerticalAlignment="Center" Margin="0,0,10,5"/>
-                            <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,5">
-                                <ComboBoxItem Content="不压缩"/>
-                                <ComboBoxItem Content="轻度"/>
-                                <ComboBoxItem Content="快速"/>
-                                <ComboBoxItem Content="标准"/>
-                                <ComboBoxItem Content="较好"/>
-                                <ComboBoxItem Content="最佳"/>
-                            </ComboBox>
-                            
-                            <CheckBox Grid.Row="1" Grid.Column="2" Content="固实" IsChecked="{Binding SolidArchive}" Margin="20,0,10,5"/>
-                            <CheckBox Grid.Row="1" Grid.Column="3" Content="快速打开" IsChecked="{Binding QuickOpen}" Margin="0,0,0,5"/>
-                            
-                            <!-- Row 2 -->
-                            <CheckBox Grid.Row="2" Grid.Column="0" Content="分卷" IsChecked="{Binding EnableVolume}" Margin="0,0,10,5"/>
-                            <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,5">
-                                <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
-                                <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="80" IsEnabled="{Binding EnableVolume}">
-                                    <ComboBoxItem Content="GB"/>
-                                    <ComboBoxItem Content="MB"/>
-                                    <ComboBoxItem Content="KB"/>
+                    <Expander Grid.Column="0" Header="压缩选项" FontWeight="Bold" FontSize="14" IsExpanded="False">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto" Margin="0,5">
+                                <!-- Row 0 -->
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                                
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="20,0,10,5"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
+                                         Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,5"/>
+                                
+                                <!-- Row 1 -->
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩率：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,5">
+                                    <ComboBoxItem Content="不压缩"/>
+                                    <ComboBoxItem Content="轻度"/>
+                                    <ComboBoxItem Content="快速"/>
+                                    <ComboBoxItem Content="标准"/>
+                                    <ComboBoxItem Content="较好"/>
+                                    <ComboBoxItem Content="最佳"/>
                                 </ComboBox>
-                            </StackPanel>
-                            
-                            <TextBlock Grid.Row="2" Grid.Column="2" Text="已存在：" VerticalAlignment="Center" Margin="20,0,10,5"/>
-                            <ComboBox Grid.Row="2" Grid.Column="3" SelectedIndex="{Binding ExistingFileMode}" Width="120" HorizontalAlignment="Left" Margin="0,0,0,5">
-                                <ComboBoxItem Content="跳过"/>
-                                <ComboBoxItem Content="更新"/>
-                                <ComboBoxItem Content="覆盖"/>
-                            </ComboBox>
-                            
-                            <!-- Row 3 -->
-                            <CheckBox Grid.Row="3" Grid.Column="0" Content="启用注释" IsChecked="{Binding EnableComment}" Margin="0,0,10,5"/>
-                            <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="200" 
-                                     IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,5"/>
-                            
-                            <CheckBox Grid.Row="3" Grid.Column="2" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,10,5"/>
-                            <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,5"/>
-                            
-                            <!-- Row 4 -->
-                            <TextBlock Grid.Row="4" Grid.Column="0" Text="临时目录：" VerticalAlignment="Center" Margin="0,0,10,5"/>
-                            <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,5"/>
-                        </Grid>
-                    </StackPanel>
+                                
+                                <CheckBox Grid.Row="1" Grid.Column="2" Content="固实" IsChecked="{Binding SolidArchive}" Margin="20,0,10,5"/>
+                                <CheckBox Grid.Row="1" Grid.Column="3" Content="快速打开" IsChecked="{Binding QuickOpen}" Margin="0,0,0,5"/>
+                                
+                                <!-- Row 2 -->
+                                <CheckBox Grid.Row="2" Grid.Column="0" Content="分卷" IsChecked="{Binding EnableVolume}" Margin="0,0,10,5"/>
+                                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,5">
+                                    <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
+                                    <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="80" IsEnabled="{Binding EnableVolume}">
+                                        <ComboBoxItem Content="GB"/>
+                                        <ComboBoxItem Content="MB"/>
+                                        <ComboBoxItem Content="KB"/>
+                                    </ComboBox>
+                                </StackPanel>
+                                
+                                <TextBlock Grid.Row="2" Grid.Column="2" Text="已存在：" VerticalAlignment="Center" Margin="20,0,10,5"/>
+                                <ComboBox Grid.Row="2" Grid.Column="3" SelectedIndex="{Binding ExistingFileMode}" Width="120" HorizontalAlignment="Left" Margin="0,0,0,5">
+                                    <ComboBoxItem Content="跳过"/>
+                                    <ComboBoxItem Content="更新"/>
+                                    <ComboBoxItem Content="覆盖"/>
+                                </ComboBox>
+                                
+                                <!-- Row 3 -->
+                                <CheckBox Grid.Row="3" Grid.Column="0" Content="启用注释" IsChecked="{Binding EnableComment}" Margin="0,0,10,5"/>
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="200" 
+                                         IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                                
+                                <CheckBox Grid.Row="3" Grid.Column="2" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,10,5"/>
+                                <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,5"/>
+                                
+                                <!-- Row 4 -->
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="临时目录：" VerticalAlignment="Center" Margin="0,0,10,5"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,5"/>
+                            </Grid>
+                        </StackPanel>
+                    </Expander>
                     
                     <!-- Middle Column: Attachment Options -->
                     <StackPanel Grid.Column="1" Spacing="8">
