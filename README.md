@@ -1,159 +1,302 @@
-# 批量压缩解压工具
+# 批量压缩解压工具 - Avalonia 跨平台版本
 
-## 📚 完整文档
+这是批量压缩解压工具的跨平台重写版本，使用 Avalonia UI 框架构建，支持 Windows、Linux 和 macOS。
 
-本项目提供了详细的文档，涵盖所有方面：
+## 功能特性
 
-- **[📖 文档索引](DOCUMENTATION_INDEX.md)** - 所有文档的总览和使用指南
-- **[🏗️ 架构文档](ARCHITECTURE.md)** - 项目架构和技术设计详解
-- **[🖥️ UI文档](UI_DOCUMENTATION.md)** - 完整的用户界面说明（每个按钮、流程、步骤）
-- **[🔧 重构指南](REFACTORING_GUIDE.md)** - 代码重构和现代化建议
-- **[👨‍💻 开发者指南](DEVELOPER_GUIDE.md)** - 开发环境、构建、调试、贡献指南
-- **[⚡ 快速参考](QUICK_REFERENCE.md)** - 常用操作速查手册
+### 核心功能
+- ✅ 批量压缩文件和文件夹到 RAR/ZIP 格式
+- ✅ 批量解压 RAR/ZIP 文件
+- ✅ 支持从文件夹或文本文件加载待处理列表
+- ✅ MD5 基于的随机密码生成
+- ✅ 自定义密码支持
+- ✅ 分卷压缩支持
+- ✅ 固实压缩选项
+- ✅ 多级压缩率选择（不压缩、轻度、标准、最佳等）
+- ✅ 密码查询功能
+- ✅ 高级功能解锁机制
 
-**文档总计**: 52,000+ 字符，涵盖100%功能和代码
+### 跨平台特性
+- ✅ 跨平台 UI（Avalonia UI）
+- ✅ 跨平台压缩引擎集成（RAR/UnRAR）
+- ✅ 跨平台文件对话框
+- ✅ 跨平台剪贴板支持
+- ✅ 跨平台文件夹打开功能
+- ✅ 跨平台系统通知（计划中）
 
-## 🚀 快速开始
+### 压缩选项
+- 压缩率：不压缩、轻度、快速、标准、较好、最佳
+- 固实压缩：减小文件大小
+- 分卷压缩：支持 GB/MB/KB 单位
+- 已存在文件处理：跳过、更新、覆盖
+- 快速打开选项
+- 压缩包校验
+- 注释文件支持
+- 临时目录设置
 
-### 压缩文件
-1. 点击【从哪儿来】选择源文件夹
-2. 点击【到哪儿去】选择目标文件夹
-3. 勾选【随机密码】
-4. 点击【压缩！】
+### 后处理选项
+- 处理后删除源文件
+- 处理后移动源文件到【已压缩】/【已解压】目录
+- 跳过已处理的文件
+- 添加附件/联系方式目录
+- 处理大小限制
+- 完成后关机（仅 Windows）
 
-### 解压文件
-1. 选择"从此txt读取"，点击【选txt】选择包含文件名和密码的txt
-2. 点击【到哪儿去】选择解压目标
-3. 点击【解压！】
+## 系统要求
 
-详细使用说明请查看 **[快速参考指南](QUICK_REFERENCE.md)**
+### Windows
+- Windows 7 或更高版本
+- .NET 9.0 运行时
+- WinRAR 已安装（用于压缩/解压）
 
-## ✨ 最新优化
+### Linux
+- 任何现代 Linux 发行版
+- .NET 9.0 运行时
+- rar 或 unrar 命令行工具已安装
 
-1. **UI与后台处理分离** - 使用异步任务处理，确保UI不会在压缩/解压过程中冻结
-2. **进度报告** - 实时显示压缩/解压进度
-3. **操作可取消** - 添加取消按钮，支持中断长时间运行的操作
-4. **多线程支持** - 利用Task和异步/等待模式提高性能
-5. **稳定性增强** - 适当的错误处理和资源管理
-6. **完整文档** - 详细的架构、UI、重构和开发文档
+### macOS
+- macOS 10.13 或更高版本
+- .NET 9.0 运行时
+- rar 或 unrar 命令行工具已安装（可通过 Homebrew 安装）
 
-## 🎯 主要功能
+## 安装依赖
 
-### 压缩功能
-- ✅ 批量压缩文件或文件夹
-- ✅ 随机密码生成或自定义密码
-- ✅ 5级压缩率可调（不压缩到极限压缩）
-- ✅ 固实压缩支持
-- ✅ 分卷压缩（可自定义大小）
-- ✅ 支持多种格式（RAR, ZIP等）
-- ✅ 压缩后处理（删除/移动源文件）
+### 安装 .NET 9.0
+从 [Microsoft .NET 下载页面](https://dotnet.microsoft.com/download/dotnet/9.0) 下载并安装 .NET 9.0 运行时。
 
-### 解压功能
-- ✅ 批量解压文件
-- ✅ 自动处理分卷文件
-- ✅ 密码管理（从txt或随机生成）
-- ✅ 解压后处理（删除/移动源文件）
+### 安装 RAR/UnRAR
 
-### 用户体验
-- ✅ 实时进度显示
-- ✅ 支持操作取消
-- ✅ 系统托盘集成
-- ✅ 拖放支持
-- ✅ 详细日志输出
+**Windows:**
+下载并安装 [WinRAR](https://www.winrar.com/)
 
-详细功能列表请查看 **[UI文档](UI_DOCUMENTATION.md)**
-
-## 📋 系统要求
-
-- **操作系统**: Windows 7/8/10/11 (x64)
-- **依赖软件**: WinRAR 5.0 或更高版本
-- **运行时**: .NET 8.0 Runtime
-- **权限**: 管理员权限
-
-## 🛠️ 开发环境
-
-- Windows操作系统
-- Visual Studio 2022或更高版本
-- .NET 8.0 SDK
-- WinRAR 5.0+
-
-详细环境配置请查看 **[开发者指南](DEVELOPER_GUIDE.md)**
-
-## 📦 编译说明
-
-### 使用 Visual Studio
-1. 打开项目解决方案 `批量压缩.sln`
-2. 选择 Debug 或 Release 配置
-3. 点击"生成" → "生成解决方案" (Ctrl+Shift+B)
-
-### 使用命令行
+**Linux (Ubuntu/Debian):**
 ```bash
-# 恢复依赖
-dotnet restore
-
-# 构建项目
-dotnet build -c Release
-
-# 发布应用
-dotnet publish -c Release -r win-x64
+sudo apt-get update
+sudo apt-get install rar unrar
 ```
 
-详细构建说明请查看 **[开发者指南 - 构建项目](DEVELOPER_GUIDE.md#构建项目)**
+**Linux (Fedora/RHEL):**
+```bash
+sudo dnf install rar unrar
+```
 
-## 🏗️ 项目架构
+**macOS (Homebrew):**
+```bash
+brew install rar
+# 或者只安装 unrar
+brew install unrar
+```
 
-本项目采用 Windows Forms + 异步编程模式：
+## 构建和运行
 
-- **Program.cs** - 应用入口，管理员权限处理
-- **批量压缩解压文件.cs** - 主窗体和业务逻辑
-- **API.cs** - WinRAR API 封装
-- **md5.cs** - 密码生成工具
-- **Win32Utility.cs** - Windows API 工具
+### 从源代码构建
 
-详细架构说明请查看 **[架构文档](ARCHITECTURE.md)**
+1. 克隆仓库
+```bash
+git clone https://github.com/pixian5/batch-compress-master.git
+cd batch-compress-master
+```
 
-## 🤝 贡献指南
+2. 进入 Avalonia 项目目录
+```bash
+cd BatchCompress.Avalonia
+```
 
-欢迎贡献！请遵循以下步骤：
+3. 恢复 NuGet 包
+```bash
+dotnet restore
+```
 
-1. Fork 本仓库
-2. 创建特性分支 (`git checkout -b feature/AmazingFeature`)
-3. 提交更改 (`git commit -m 'feat: Add some AmazingFeature'`)
-4. 推送到分支 (`git push origin feature/AmazingFeature`)
-5. 打开 Pull Request
+4. 构建项目
+```bash
+dotnet build
+```
 
-详细贡献指南请查看 **[开发者指南 - 代码贡献](DEVELOPER_GUIDE.md#代码贡献)**
+5. 运行应用
+```bash
+dotnet run
+```
 
-## 📝 提交规范
+### 发布独立应用
 
-使用 [Conventional Commits](https://www.conventionalcommits.org/) 规范：
-- `feat`: 新功能
-- `fix`: 修复bug
-- `docs`: 文档更新
-- `refactor`: 代码重构
-- `test`: 测试相关
+**Windows (x64):**
+```bash
+dotnet publish -c Release -r win-x64 --self-contained
+```
 
-## 🔄 重构计划
+**Linux (x64):**
+```bash
+dotnet publish -c Release -r linux-x64 --self-contained
+```
 
-项目有详细的重构计划，包括：
-- 代码重组和分层
-- 提取工具类
-- 配置管理
-- 国际化支持
-- 单元测试
-- MVVM架构
+**macOS (x64):**
+```bash
+dotnet publish -c Release -r osx-x64 --self-contained
+```
 
-详细重构计划请查看 **[重构指南](REFACTORING_GUIDE.md)**
+**macOS (ARM64):**
+```bash
+dotnet publish -c Release -r osx-arm64 --self-contained
+```
 
-## 📞 联系方式
+发布的应用将位于 `bin/Release/net9.0/{runtime}/publish/` 目录。
 
-- **邮件**: qgkc520@Gmail.com
-- **微信**: i17269637581
-- **QQ**: 2027123419
-- **Issues**: [GitHub Issues](https://github.com/pixian5/batch-compress-master/issues)
+## 使用方法
 
-## 📄 许可证
+### 批量压缩
 
+1. 选择来源模式：
+   - **从文件夹压缩**：选择包含要压缩的文件/文件夹的目录
+   - **从 TXT 读取**：使用文本文件指定文件名和密码
 
-## 🙏 致谢
+2. 设置输出目录
 
+3. 配置压缩选项：
+   - 扩展名（rar、zip 等）
+   - 是否使用随机密码
+   - 压缩率
+   - 是否固实压缩
+   - 分卷大小（可选）
+   - 已存在文件的处理方式
+
+4. 点击 **压缩** 按钮开始
+
+### 批量解压
+
+1. 选择来源模式：
+   - **从文件夹解压**：选择包含压缩包的目录
+   - **从 TXT 读取**：使用文本文件指定文件名和密码
+
+2. 设置输出目录
+
+3. 配置选项：
+   - 是否使用随机密码（如果压缩时使用了）
+   - 已存在文件的处理方式
+   - 后处理选项
+
+4. 点击 **解压** 按钮开始
+
+### 密码查询
+
+如果使用了随机密码压缩，可以通过密码查询功能找回密码：
+
+1. 在"文件名（不含扩展名）"输入框输入文件名
+2. 点击 **查询密码** 按钮
+3. 密码将显示并自动复制到剪贴板
+
+### TXT 文件格式
+
+当使用"从 TXT 读取"模式时，文本文件格式如下：
+```
+文件1
+密码1
+文件2
+密码2
+```
+
+奇数行是文件名（不含扩展名），偶数行是对应的密码。
+
+## 技术架构
+
+### 项目结构
+```
+BatchCompress.Avalonia/
+├── Core/
+│   ├── Interfaces/          # 接口定义
+│   │   ├── IArchiveEngine.cs
+│   │   └── ISystemIntegration.cs
+│   ├── Models/              # 数据模型
+│   │   └── OperationModels.cs
+│   └── Services/            # 业务逻辑服务
+│       ├── BatchOperationService.cs
+│       ├── PasswordUtility.cs
+│       ├── RarArchiveEngine.cs
+│       └── SystemIntegrationService.cs
+├── ViewModels/              # MVVM 视图模型
+│   ├── MainWindowViewModel.cs
+│   └── ViewModelBase.cs
+├── Views/                   # UI 视图
+│   ├── MainWindow.axaml
+│   └── MainWindow.axaml.cs
+├── App.axaml               # 应用程序定义
+├── App.axaml.cs
+└── Program.cs              # 程序入口
+```
+
+### 关键技术
+
+- **UI 框架**: Avalonia UI 11.3.10
+- **MVVM 框架**: CommunityToolkit.Mvvm
+- **目标框架**: .NET 9.0
+- **压缩引擎**: RAR/WinRAR 命令行工具
+- **密码算法**: MD5 哈希（兼容原版）
+
+### 跨平台抽象
+
+应用使用接口抽象了平台特定功能：
+
+- `IArchiveEngine`: 压缩/解压缩引擎接口
+- `ISystemIntegration`: 系统集成功能（文件夹打开、剪贴板、通知等）
+
+这使得可以轻松为不同平台实现不同的后端，同时保持相同的 UI 和业务逻辑。
+
+## 与原版 WinForms 版本的差异
+
+### 已实现
+- 所有核心压缩/解压功能
+- 所有密码功能（随机密码、自定义密码、查询密码）
+- 所有压缩选项（压缩率、固实、分卷等）
+- 文件列表管理
+- 进度显示和日志
+- 跨平台支持
+
+### 计划实现
+- 系统托盘图标
+- 桌面通知/气泡提示
+- 拖放文件支持
+- 热键支持
+- 更完善的错误处理
+
+### 简化/移除的功能
+- UAC 提权（不需要，跨平台不适用）
+- Windows 特定的注册表操作（已改为跨平台路径搜索）
+- 一些 Windows 特定的 UI 提示功能
+
+## 开发
+
+### 前置条件
+- .NET 9.0 SDK
+- 任何支持 C# 的 IDE（Visual Studio、Visual Studio Code、JetBrains Rider）
+
+### 运行调试
+```bash
+cd BatchCompress.Avalonia
+dotnet run
+```
+
+### 添加新功能
+
+1. 定义接口（如果需要跨平台抽象）
+2. 在 `Core/Services` 中实现业务逻辑
+3. 在 `ViewModels` 中添加 ViewModel 逻辑
+4. 在 `Views` 中更新 UI
+
+## 许可证
+
+与原项目相同的许可证。
+
+## 贡献
+
+欢迎贡献！请提交 Pull Request 或创建 Issue。
+
+## 鸣谢
+
+- 原始 WinForms 版本作者
+- Avalonia UI 团队
+- .NET 社区
+
+## 联系方式
+
+- Email: qgkc520@Gmail.com
+- QQ: 2027123419
+- 微信: i17269637581
