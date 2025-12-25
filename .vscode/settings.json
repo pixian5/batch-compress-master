@@ -1,0 +1,20 @@
+{
+  "files.exclude": {
+    "**/old": true,
+    "**/bin": true,
+    "**/obj": true,
+    "**/.ai": true,
+    "**/.idea": true
+  },
+  "search.exclude": {
+    "**/old": true,
+    "**/bin": true,
+    "**/obj": true,
+    "**/.ai": true,
+    "**/.idea": true
+  },
+  "omnisharp.excludePaths": [
+    "old"
+  ],
+  "dotnet.defaultSolution": "BatchCompress.Avalonia.csproj"
+}

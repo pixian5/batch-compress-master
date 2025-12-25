@@ -87,7 +87,10 @@ _ReSharper*/
 *.sln.iml
 
 # Visual Studio code
-.vscode/
+# .vscode/ - Uncomment to ignore VSCode settings
 
 # macOS
 .DS_Store
+
+# Old WinForm project
+old/
