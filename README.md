@@ -97,22 +97,17 @@ git clone https://github.com/pixian5/batch-compress-master.git
 cd batch-compress-master
 ```
 
-2. 进入 Avalonia 项目目录
-```bash
-cd BatchCompress.Avalonia
-```
-
-3. 恢复 NuGet 包
+2. 恢复 NuGet 包
 ```bash
 dotnet restore
 ```
 
-4. 构建项目
+3. 构建项目
 ```bash
 dotnet build
 ```
 
-5. 运行应用
+4. 运行应用
 ```bash
 dotnet run
 ```
@@ -200,7 +195,6 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 
 ### 项目结构
 ```
-BatchCompress.Avalonia/
 ├── Core/
 │   ├── Interfaces/          # 接口定义
 │   │   ├── IArchiveEngine.cs
@@ -218,9 +212,12 @@ BatchCompress.Avalonia/
 ├── Views/                   # UI 视图
 │   ├── MainWindow.axaml
 │   └── MainWindow.axaml.cs
+├── Assets/                  # 资源文件
+│   └── avalonia-logo.ico
 ├── App.axaml               # 应用程序定义
 ├── App.axaml.cs
-└── Program.cs              # 程序入口
+├── Program.cs              # 程序入口
+└── BatchCompress.Avalonia.csproj  # 项目文件
 ```
 
 ### 关键技术
