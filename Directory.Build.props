@@ -1,0 +1,7 @@
+<Project>
+  <ItemGroup>
+    <Compile Remove="old\**\*.cs" />
+    <EmbeddedResource Remove="old\**\*.resx" />
+    <None Remove="old\**\*" />
+  </ItemGroup>
+</Project>

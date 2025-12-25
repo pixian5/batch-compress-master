@@ -16,5 +16,5 @@
   "omnisharp.excludePaths": [
     "old"
   ],
-  "dotnet.defaultSolution": "BatchCompress.Avalonia.csproj"
+  "dotnet.defaultSolution": "BatchCompress.Avalonia.sln"
 }

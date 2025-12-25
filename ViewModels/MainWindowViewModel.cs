@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.IO;
@@ -51,10 +51,10 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _solidArchive = true;
     
     [ObservableProperty]
-    private bool _enableVolume = false;
+    private bool _enableVolume = true;
     
     [ObservableProperty]
-    private string _volumeSize = "4";
+    private string _volumeSize = "20";
     
     [ObservableProperty]
     private int _volumeUnit = 0; // 0=G, 1=M, 2=K
@@ -69,7 +69,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _testArchive = false;
     
     [ObservableProperty]
-    private bool _enableComment = false;
+    private bool _enableComment = true;
     
     [ObservableProperty]
     private string _commentFilePath = ".\\注释.txt";

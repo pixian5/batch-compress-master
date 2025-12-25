@@ -82,7 +82,7 @@
                         <CheckBox Grid.Row="2" Grid.Column="0" Content="分卷" IsChecked="{Binding EnableVolume}" Margin="0,0,10,5"/>
                         <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,5">
                             <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
-                            <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="60" IsEnabled="{Binding EnableVolume}">
+                            <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="80" IsEnabled="{Binding EnableVolume}">
                                 <ComboBoxItem Content="GB"/>
                                 <ComboBoxItem Content="MB"/>
                                 <ComboBoxItem Content="KB"/>
