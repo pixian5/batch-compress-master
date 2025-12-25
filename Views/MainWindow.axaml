@@ -35,19 +35,10 @@
                         </StackPanel>
                         
                         <!-- Mode 0 Specific Fields -->
-                        <StackPanel Spacing="10" VerticalAlignment="Center" IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
-                            <!-- Save File Path -->
-                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <TextBlock Text="待压缩/解压文件保存路径：" Width="200"/>
-                                <TextBox Text="{Binding SaveFilePath}" Width="400" Watermark="保存路径"/>
-                                <Button Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100"/>
-                            </StackPanel>
-                            <!-- Text File Path -->
-                            <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <TextBlock Text="TXT文件路径：" Width="200"/>
-                                <Button Content="选择TXT" Command="{Binding BrowseTextFileCommand}" Width="80"/>
-                                <TextBox Text="{Binding TextFilePath}" Width="350"/>
-                            </StackPanel>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
+                            <TextBlock Text="待压缩/解压文件保存路径：" Width="200"/>
+                            <TextBox Text="{Binding SaveFilePath}" Width="400" Watermark="保存路径"/>
+                            <Button Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100"/>
                         </StackPanel>
                         
                         <!-- Output Path -->
