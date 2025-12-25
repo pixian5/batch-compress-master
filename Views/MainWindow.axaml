@@ -28,8 +28,8 @@
                             <ComboBoxItem Content="从txt读取要解压的文件："/>
                             <ComboBoxItem Content="压缩此文件夹内所有文件："/>
                         </ComboBox>
-                        <Button Content="选择来源" Command="{Binding BrowseSourceCommand}" Width="100"/>
                         <TextBox Text="{Binding SourcePath}" Width="400" Watermark="来源路径"/>
+                        <Button Content="选择来源" Command="{Binding BrowseSourceCommand}" Width="100"/>
                     </StackPanel>
                     
                     <!-- Text File Path (for mode 0) -->
