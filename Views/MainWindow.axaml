@@ -22,31 +22,31 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
                     
-                    <!-- Source Mode Selection -->
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <ComboBox SelectedIndex="{Binding SourceMode}" Width="200">
+                    <!-- Source and Destination Grid for alignment -->
+                    <Grid ColumnDefinitions="200,60,400,100,Auto" RowDefinitions="Auto,Auto,Auto">
+                        <!-- Source Mode Selection -->
+                        <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}">
                             <ComboBoxItem Content="从txt读取要解压的文件："/>
                             <ComboBoxItem Content="压缩此文件夹内所有文件："/>
                         </ComboBox>
-                        <TextBox Text="{Binding SourcePath}" Width="400" Watermark="来源路径"/>
-                        <Button Content="选择来源" Command="{Binding BrowseSourceCommand}" Width="100"/>
-                    </StackPanel>
-                    
-                    <!-- Text File Path (for mode 0) -->
-                    <StackPanel Orientation="Horizontal" Spacing="10" IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
-                        <TextBlock Text="TXT文件路径：" VerticalAlignment="Center" Width="100"/>
-                        <Button Content="选择TXT" Command="{Binding BrowseTextFileCommand}" Width="100"/>
-                        <TextBox Text="{Binding TextFilePath}" Width="400"/>
-                    </StackPanel>
-                    
-                    <!-- Output Path -->
-                    <StackPanel Orientation="Horizontal" Spacing="10">
-                        <TextBlock Text="目的地：" VerticalAlignment="Center" Width="100"/>
-                        <Button Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
-                        <TextBox Text="{Binding OutputPath}" Width="400"/>
-                        <Button Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
-                        <TextBlock Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
-                    </StackPanel>
+                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SourcePath}" Watermark="来源路径"/>
+                        <Button Grid.Row="0" Grid.Column="3" Content="选择来源" Command="{Binding BrowseSourceCommand}"/>
+                        
+                        <!-- Text File Path (for mode 0) -->
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="TXT文件路径：" VerticalAlignment="Center" 
+                                   IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                        <Button Grid.Row="1" Grid.Column="1" Content="选择TXT" Command="{Binding BrowseTextFileCommand}"
+                                IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding TextFilePath}"
+                                 IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
+                        
+                        <!-- Output Path -->
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="目的地：" VerticalAlignment="Center"/>
+                        <Button Grid.Row="2" Grid.Column="1" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}"/>
+                        <Button Grid.Row="2" Grid.Column="3" Content="选择目录" Command="{Binding BrowseOutputCommand}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
+                    </Grid>
                 </StackPanel>
             </Border>
             
