@@ -53,7 +53,7 @@
             
             <!-- Options Section -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="10">
-                <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                <Grid ColumnDefinitions="*,*,*" ColumnSpacing="10">
                     <!-- Left Column: Compression Options -->
                     <StackPanel Grid.Column="0" Spacing="8">
                         <TextBlock Text="压缩选项" FontWeight="Bold" FontSize="14"/>
@@ -113,8 +113,24 @@
                         </Grid>
                     </StackPanel>
                     
-                    <!-- Right Column: Post-Processing Options -->
+                    <!-- Middle Column: Attachment Options -->
                     <StackPanel Grid.Column="1" Spacing="8">
+                        <TextBlock Text="附件选项" FontWeight="Bold" FontSize="14"/>
+                        
+                        <StackPanel Orientation="Horizontal" Spacing="15">
+                            <CheckBox Content="添加附件" IsChecked="{Binding AddEnclosures}"/>
+                        </StackPanel>
+                        
+                        <!-- Enclosure List -->
+                        <StackPanel IsVisible="{Binding AddEnclosures}">
+                            <TextBlock Text="附件目录列表（每行一个）：" Margin="0,5,0,5"/>
+                            <TextBox Text="{Binding EnclosureList}" Height="80" AcceptsReturn="True" TextWrapping="Wrap"
+                                     IsEnabled="{Binding AddEnclosures}"/>
+                        </StackPanel>
+                    </StackPanel>
+                    
+                    <!-- Right Column: Post-Processing Options -->
+                    <StackPanel Grid.Column="2" Spacing="8">
                         <TextBlock Text="后处理选项" FontWeight="Bold" FontSize="14"/>
                         
                         <StackPanel Orientation="Horizontal" Spacing="15">
@@ -123,20 +139,12 @@
                         </StackPanel>
                         
                         <StackPanel Orientation="Horizontal" Spacing="15">
-                            <CheckBox Content="添加附件" IsChecked="{Binding AddEnclosures}"/>
                             <CheckBox Content="完成后关机" IsChecked="{Binding ShutdownAfterComplete}"/>
                         </StackPanel>
                         
                         <StackPanel Orientation="Horizontal" Spacing="10">
                             <TextBlock Text="最大处理大小(GB)：" VerticalAlignment="Center"/>
                             <TextBox Text="{Binding MaxSizeGB}" Width="80"/>
-                        </StackPanel>
-                        
-                        <!-- Enclosure List -->
-                        <StackPanel IsVisible="{Binding AddEnclosures}">
-                            <TextBlock Text="附件目录列表（每行一个）：" Margin="0,5,0,5"/>
-                            <TextBox Text="{Binding EnclosureList}" Height="80" AcceptsReturn="True" TextWrapping="Wrap"
-                                     IsEnabled="{Binding AdvancedFeaturesUnlocked}"/>
                         </StackPanel>
                     </StackPanel>
                 </Grid>
