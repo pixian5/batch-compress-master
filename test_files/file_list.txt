@@ -1,0 +1,6 @@
+/Users/x/code/trae/compress/test_files/test_file_1.txt
+password1
+/Users/x/code/trae/compress/test_files/test_file_2.txt
+password2
+/Users/x/code/trae/compress/test_files/test_file_3.txt
+password3

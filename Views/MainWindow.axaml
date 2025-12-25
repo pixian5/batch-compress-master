@@ -22,42 +22,43 @@
                 <StackPanel Spacing="8">
                     <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
                     
-                    <!-- Source and Destination Grid for alignment -->
-                    <Grid ColumnDefinitions="200,60,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
+                    <!-- Source and Destination Layout -->
+                    <StackPanel Spacing="10">
                         <!-- Source Mode Selection -->
-                        <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}">
-                            <ComboBoxItem Content="从txt读取要解压的文件："/>
-                            <ComboBoxItem Content="压缩此文件夹内所有文件："/>
-                        </ComboBox>
-                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SourcePath}" Watermark="来源路径" Width="400"/>
-                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="{Binding BrowseSourceButtonText}"/>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <ComboBox SelectedIndex="{Binding SourceMode}" Width="200">
+                                <ComboBoxItem Content="从txt读取要解压的文件："/>
+                                <ComboBoxItem Content="压缩此文件夹内所有文件："/>
+                            </ComboBox>
+                            <TextBox Text="{Binding SourcePath}" Watermark="来源路径" Width="400"/>
+                            <Button Command="{Binding BrowseSourceCommand}" Width="100" Content="{Binding BrowseSourceButtonText}"/>
+                        </StackPanel>
                         
                         <!-- Mode 0 Specific Fields -->
-                        <StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="6" Spacing="5" VerticalAlignment="Center"
-                                    IsVisible="{Binding IsFromTxtMode}">
+                        <StackPanel Spacing="10" VerticalAlignment="Center" IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}">
                             <!-- Save File Path -->
                             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <TextBlock Text="待压缩/解压文件保存路径：" VerticalAlignment="Center"/>
-                                <TextBox Text="{Binding SaveFilePath}" Width="400" Watermark="保存路径" VerticalAlignment="Center"/>
-                                <Button Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100" VerticalAlignment="Center"/>
+                                <TextBlock Text="待压缩/解压文件保存路径：" Width="200"/>
+                                <TextBox Text="{Binding SaveFilePath}" Width="400" Watermark="保存路径"/>
+                                <Button Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100"/>
                             </StackPanel>
-                            
-                            <!-- Text File Path (for mode 0) -->
+                            <!-- Text File Path -->
                             <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                                <TextBlock Text="TXT文件路径：" VerticalAlignment="Center"/>
-                                <Button Content="选择TXT" Command="{Binding BrowseTextFileCommand}" Width="80" VerticalAlignment="Center"/>
-                                <TextBox Text="{Binding TextFilePath}" Width="350" VerticalAlignment="Center"/>
+                                <TextBlock Text="TXT文件路径：" Width="200"/>
+                                <Button Content="选择TXT" Command="{Binding BrowseTextFileCommand}" Width="80"/>
+                                <TextBox Text="{Binding TextFilePath}" Width="350"/>
                             </StackPanel>
                         </StackPanel>
                         
                         <!-- Output Path -->
-                        <TextBlock Grid.Row="3" Grid.Column="0" Text="目的地：" VerticalAlignment="Center"/>
-                        <Button Grid.Row="3" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" 
-                                HorizontalAlignment="Right" Width="60" VerticalAlignment="Center"/>
-                        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding OutputPath}" VerticalAlignment="Center" Width="400"/>
-                        <Button Grid.Row="3" Grid.Column="4" Content="选择目录" Command="{Binding BrowseOutputCommand}" VerticalAlignment="Center" Width="100"/>
-                        <TextBlock Grid.Row="3" Grid.Column="5" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
-                    </Grid>
+                        <StackPanel Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
+                            <TextBlock Text="目的地：" Width="200"/>
+                            <Button Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Right"/>
+                            <TextBox Text="{Binding OutputPath}" Width="400"/>
+                            <Button Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
+                            <TextBlock Text="{Binding OutputSizeText}" Foreground="Blue"/>
+                        </StackPanel>
+                    </StackPanel>
                 </StackPanel>
             </Border>
             
