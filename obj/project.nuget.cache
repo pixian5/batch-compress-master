@@ -1,13 +1,10 @@
 {
   "version": 2,
-  "dgSpecHash": "Ef5A7Aks5xU=",
+  "dgSpecHash": "IiNv2iOYGbs=",
   "success": true,
-  "projectFilePath": "D:\\0批量压缩50418\\批量压缩解压.csproj",
+  "projectFilePath": "/Users/x/code/trae/compress/批量压缩解压.csproj",
   "expectedPackageFiles": [
-    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.windowsdesktop.app.ref\\8.0.22\\microsoft.windowsdesktop.app.ref.8.0.22.nupkg.sha512",
-    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netcore.app.ref\\8.0.22\\microsoft.netcore.app.ref.8.0.22.nupkg.sha512",
-    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.aspnetcore.app.ref\\8.0.22\\microsoft.aspnetcore.app.ref.8.0.22.nupkg.sha512",
-    "C:\\Users\\Administrator\\.nuget\\packages\\microsoft.netcore.app.host.win-x64\\8.0.22\\microsoft.netcore.app.host.win-x64.8.0.22.nupkg.sha512"
+    "/Users/x/.nuget/packages/microsoft.windowsdesktop.app.ref/10.0.1/microsoft.windowsdesktop.app.ref.10.0.1.nupkg.sha512"
   ],
   "logs": []
 }
