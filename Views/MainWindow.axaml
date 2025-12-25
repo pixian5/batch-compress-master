@@ -41,11 +41,14 @@
                                  IsVisible="{Binding SourceMode, Converter={x:Static ObjectConverters.Equal}, ConverterParameter=0}"/>
                         
                         <!-- Output Path -->
-                        <TextBlock Grid.Row="2" Grid.Column="0" Text="目的地：" VerticalAlignment="Center"/>
-                        <Button Grid.Row="2" Grid.Column="1" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}"/>
-                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}"/>
-                        <Button Grid.Row="2" Grid.Column="3" Content="选择目录" Command="{Binding BrowseOutputCommand}"/>
-                        <TextBlock Grid.Row="2" Grid.Column="4" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
+                        <Grid Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5" ColumnDefinitions="200,60,400,100,Auto">
+                            <TextBlock Grid.Column="0" Text="目的地：" VerticalAlignment="Center"/>
+                            <Button Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" 
+                                    HorizontalAlignment="Right" Width="60" VerticalAlignment="Center"/>
+                            <TextBox Grid.Column="2" Text="{Binding OutputPath}" VerticalAlignment="Center"/>
+                            <Button Grid.Column="3" Content="选择目录" Command="{Binding BrowseOutputCommand}" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="4" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
+                        </Grid>
                     </Grid>
                 </StackPanel>
             </Border>
