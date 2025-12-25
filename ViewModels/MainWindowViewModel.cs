@@ -24,10 +24,16 @@ public partial class MainWindowViewModel : ViewModelBase
     private CancellationTokenSource? _cancellationTokenSource;
     
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     private int _sourceMode; // 0 = from text file, 1 = from folder
+    
+    public string BrowseSourceButtonText => SourceMode == 0 ? "选txt" : "选择来源";
     
     [ObservableProperty]
     private string _sourcePath = string.Empty;
+    
+    [ObservableProperty]
+    private string _saveFilePath = string.Empty;
     
     [ObservableProperty]
     private string _outputPath = string.Empty;
@@ -170,6 +176,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public Func<Task>? BrowseSourceRequested { get; set; }
     public Func<Task>? BrowseOutputRequested { get; set; }
     public Func<Task>? BrowseTextFileRequested { get; set; }
+    public Func<Task>? BrowseSaveFileRequested { get; set; }
     
     [RelayCommand]
     private async Task BrowseSourceAsync()
@@ -195,6 +202,15 @@ public partial class MainWindowViewModel : ViewModelBase
         if (BrowseTextFileRequested != null)
         {
             await BrowseTextFileRequested();
+        }
+    }
+    
+    [RelayCommand]
+    private async Task BrowseSaveFileAsync()
+    {
+        if (BrowseSaveFileRequested != null)
+        {
+            await BrowseSaveFileRequested();
         }
     }
     
