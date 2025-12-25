@@ -1,7 +1,10 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
@@ -24,138 +27,436 @@ public class RarArchiveEngine : IArchiveEngine
     
     private string? FindRarExecutable()
     {
-        // Platform-specific RAR executable search
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        var candidates = GetCandidatePaths().ToList();
+
+        Debug.WriteLine($"[RAR] OS={RuntimeInformation.OSDescription}");
+        Debug.WriteLine($"[RAR] BaseDirectory={AppContext.BaseDirectory}");
+        Debug.WriteLine($"[RAR] Candidates({candidates.Count}): {string.Join(" | ", candidates)}");
+
+        foreach (var candidate in candidates)
         {
-            return FindRarOnWindows();
+            var normalized = NormalizeCandidate(candidate);
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                continue;
+            }
+
+            if (TryValidateRarExecutable(normalized, out var validationMessage))
+            {
+                Debug.WriteLine($"[RAR] Selected: {normalized}");
+                return normalized;
+            }
+
+            if (!string.IsNullOrWhiteSpace(validationMessage))
+            {
+                Debug.WriteLine($"[RAR] Reject: {normalized} ({validationMessage})");
+            }
         }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            return FindRarOnLinux();
-        }
-        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            return FindRarOnMacOS();
-        }
-        
+
+        Debug.WriteLine("[RAR] Not found");
         return null;
     }
     
-    private string? FindRarOnWindows()
+
+    private IEnumerable<string> GetCandidatePaths()
     {
-        // Try registry first (original method)
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            foreach (var p in GetWindowsCandidates())
+            {
+                yield return p;
+            }
+            yield break;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            foreach (var p in GetMacCandidates())
+            {
+                yield return p;
+            }
+            yield break;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            foreach (var p in GetLinuxCandidates())
+            {
+                yield return p;
+            }
+            yield break;
+        }
+    }
+
+    private IEnumerable<string> GetWindowsCandidates()
+    {
+        // 1) 程序运行目录下的 winrar 目录
+        var winrarDir = Path.Combine(AppContext.BaseDirectory, "winrar");
+        yield return Path.Combine(winrarDir, "rar.exe");
+        yield return Path.Combine(winrarDir, "winrar.exe");
+
+        // 2) 注册表 App Paths（HKLM/HKCU）
+        foreach (var p in EnumerateAppPathsFromRegistry("rar.exe"))
+        {
+            yield return p;
+        }
+        foreach (var p in EnumerateAppPathsFromRegistry("winrar.exe"))
+        {
+            yield return p;
+        }
+
+        // 3) 默认安装目录
+        yield return @"C:\Program Files\WinRAR\rar.exe";
+        yield return @"C:\Program Files\WinRAR\winrar.exe";
+        yield return @"C:\Program Files (x86)\WinRAR\rar.exe";
+        yield return @"C:\Program Files (x86)\WinRAR\winrar.exe";
+    }
+
+    private IEnumerable<string> EnumerateAppPathsFromRegistry(string exeName)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            yield break;
+        }
+
+        string subKey = $@"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\{exeName}";
+        var hives = new[]
+        {
+            Microsoft.Win32.RegistryHive.LocalMachine,
+            Microsoft.Win32.RegistryHive.CurrentUser
+        };
+
+        foreach (var hive in hives)
+        {
+            string? defaultValue = null;
+            string? pathValue = null;
+
+            try
+            {
+                using var baseKey = Microsoft.Win32.RegistryKey.OpenBaseKey(hive, Microsoft.Win32.RegistryView.Registry64);
+                using var key = baseKey.OpenSubKey(subKey);
+                if (key == null)
+                {
+                    continue;
+                }
+
+                // 默认值可能是完整路径
+                defaultValue = key.GetValue("")?.ToString();
+
+                // Path 值可能是目录
+                pathValue = key.GetValue("Path")?.ToString();
+            }
+            catch
+            {
+                // ignore
+            }
+
+            if (!string.IsNullOrWhiteSpace(defaultValue))
+            {
+                yield return defaultValue;
+            }
+
+            if (!string.IsNullOrWhiteSpace(pathValue))
+            {
+                yield return Path.Combine(pathValue, exeName);
+            }
+        }
+    }
+
+    private IEnumerable<string> GetMacCandidates()
+    {
+        // 1) 程序运行目录
+        yield return Path.Combine(AppContext.BaseDirectory, "rar");
+
+        // 2) 固定路径（避免 Finder 启动 PATH 不完整）
+        yield return "/opt/homebrew/bin/rar";
+        yield return "/usr/local/bin/rar";
+        yield return "/usr/bin/rar";
+
+        // 3) PATH/which
+        var which = ExecuteCommandCaptureAll("which", "rar", timeoutMs: 2000);
+        if (!string.IsNullOrWhiteSpace(which.Output))
+        {
+            var firstLine = which.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(firstLine))
+            {
+                yield return firstLine.Trim();
+            }
+        }
+
+        // 4) 用户目录兜底
+        yield return ExpandHome("~/rar/rar");
+        yield return ExpandHome("~/.local/bin/rar");
+    }
+
+    private IEnumerable<string> GetLinuxCandidates()
+    {
+        // 1) 程序运行目录：rarlinux
+        yield return Path.Combine(AppContext.BaseDirectory, "rarlinux");
+
+        // 2) 固定路径
+        yield return "/usr/bin/rar";
+        yield return "/usr/local/bin/rar";
+        yield return "/bin/rar";
+
+        // 3) PATH/which
+        var which = ExecuteCommandCaptureAll("which", "rar", timeoutMs: 2000);
+        if (!string.IsNullOrWhiteSpace(which.Output))
+        {
+            var firstLine = which.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
+            if (!string.IsNullOrWhiteSpace(firstLine))
+            {
+                yield return firstLine.Trim();
+            }
+        }
+
+        // 4) 用户目录兜底
+        yield return ExpandHome("~/rar/rar");
+        yield return ExpandHome("~/.local/bin/rar");
+    }
+
+    private static string ExpandHome(string path)
+    {
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return path;
+        }
+
+        if (!path.StartsWith("~/", StringComparison.Ordinal))
+        {
+            return path;
+        }
+
+        var home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+        if (string.IsNullOrWhiteSpace(home))
+        {
+            return path;
+        }
+
+        return Path.Combine(home, path.Substring(2));
+    }
+
+    private static string? NormalizeCandidate(string candidate)
+    {
+        if (string.IsNullOrWhiteSpace(candidate))
+        {
+            return null;
+        }
+
+        var trimmed = candidate.Trim();
+        if (trimmed.StartsWith('"') && trimmed.EndsWith('"') && trimmed.Length >= 2)
+        {
+            trimmed = trimmed.Substring(1, trimmed.Length - 2);
+        }
+        return trimmed;
+    }
+
+    private bool TryValidateRarExecutable(string path, out string message)
+    {
+        message = string.Empty;
+
+        try
+        {
+            if (!File.Exists(path))
+            {
+                message = "文件不存在";
+                return false;
+            }
+
+            if ((File.GetAttributes(path) & FileAttributes.Directory) != 0)
+            {
+                message = "不是文件";
+                return false;
+            }
+
+            if (OperatingSystem.IsWindows())
+            {
+                var ext = Path.GetExtension(path);
+                if (!ext.Equals(".exe", StringComparison.OrdinalIgnoreCase))
+                {
+                    message = "非 exe 文件";
+                    return false;
+                }
+            }
+            else
+            {
+                // macOS/Linux：检查执行位；若是程序目录内的文件，允许尝试自动修复权限
+                if (!IsUnixExecutable(path))
+                {
+                    if (IsUnderBaseDirectory(path) && TryFixUnixExecutablePermission(path))
+                    {
+                        // retry
+                    }
+                    else
+                    {
+                        message = "不可执行（建议 chmod +x）";
+                        return false;
+                    }
+                }
+            }
+
+            // 运行校验：rar -?，2 秒
+            var result = ExecuteCommandCaptureAll(path, "-?", timeoutMs: 2000);
+            if (!result.Started)
+            {
+                message = "无法启动进程";
+                return false;
+            }
+
+            if (result.TimedOut)
+            {
+                message = "运行校验超时";
+                return false;
+            }
+
+            if (result.ExitCode != 0 && result.ExitCode != 1)
+            {
+                message = $"运行校验返回码异常：{result.ExitCode}";
+                return false;
+            }
+
+            var output = (result.Output + "\n" + result.Error).Trim();
+            if (string.IsNullOrWhiteSpace(output))
+            {
+                message = "运行校验无输出";
+                return false;
+            }
+
+            var lower = output.ToLowerInvariant();
+            bool ok = lower.Contains("rar") || lower.Contains("winrar") || lower.Contains("copyright") || lower.Contains("usage");
+            if (!ok)
+            {
+                message = "运行校验输出不匹配";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            message = $"校验异常：{ex.Message}";
+            return false;
+        }
+    }
+
+    private static bool IsUnderBaseDirectory(string path)
+    {
+        try
+        {
+            var baseDir = Path.GetFullPath(AppContext.BaseDirectory);
+            var full = Path.GetFullPath(path);
+            return full.StartsWith(baseDir, StringComparison.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private static bool IsUnixExecutable(string path)
+    {
         try
         {
             if (OperatingSystem.IsWindows())
             {
-                using var key = Microsoft.Win32.Registry.LocalMachine.OpenSubKey(
-                    @"SOFTWARE\Microsoft\Windows\CurrentVersion\App Paths\winrar.exe");
-                
-                if (key != null)
-                {
-                    var path = key.GetValue("Path")?.ToString();
-                    if (!string.IsNullOrEmpty(path))
-                    {
-                        var rarPath = Path.Combine(path, "winrar.exe");
-                        if (File.Exists(rarPath))
-                        {
-                            return rarPath;
-                        }
-                    }
-                }
+                return true;
             }
+
+            var mode = File.GetUnixFileMode(path);
+            return (mode & (UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute)) != 0;
         }
-        catch { }
-        
-        // Try common installation paths
-        string[] commonPaths = {
-            @"C:\Program Files\WinRAR\winrar.exe",
-            @"C:\Program Files (x86)\WinRAR\winrar.exe"
-        };
-        
-        foreach (var path in commonPaths)
+        catch
         {
-            if (File.Exists(path))
-            {
-                return path;
-            }
+            return false;
         }
-        
-        return null;
     }
-    
-    private string? FindRarOnLinux()
-    {
-        // Try to find rar/unrar in PATH
-        string[] commands = { "rar", "unrar" };
-        
-        foreach (var cmd in commands)
-        {
-            var result = ExecuteCommand("which", cmd);
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                return result.Trim();
-            }
-        }
-        
-        return null;
-    }
-    
-    private string? FindRarOnMacOS()
-    {
-        // Similar to Linux, check PATH
-        string[] commands = { "rar", "unrar" };
-        
-        foreach (var cmd in commands)
-        {
-            var result = ExecuteCommand("which", cmd);
-            if (!string.IsNullOrWhiteSpace(result))
-            {
-                return result.Trim();
-            }
-        }
-        
-        // Check Homebrew installation path
-        string[] homebrewPaths = {
-            "/usr/local/bin/rar",
-            "/usr/local/bin/unrar",
-            "/opt/homebrew/bin/rar",
-            "/opt/homebrew/bin/unrar"
-        };
-        
-        foreach (var path in homebrewPaths)
-        {
-            if (File.Exists(path))
-            {
-                return path;
-            }
-        }
-        
-        return null;
-    }
-    
-    private string ExecuteCommand(string command, string arguments)
+
+    private static bool TryFixUnixExecutablePermission(string path)
     {
         try
         {
-            var psi = new ProcessStartInfo
+            if (OperatingSystem.IsWindows())
             {
-                FileName = command,
+                return false;
+            }
+
+            var mode = File.GetUnixFileMode(path);
+            var newMode = mode | UnixFileMode.UserExecute | UnixFileMode.GroupExecute | UnixFileMode.OtherExecute;
+            if (newMode == mode)
+            {
+                return true;
+            }
+
+            File.SetUnixFileMode(path, newMode);
+            return true;
+        }
+        catch
+        {
+            return false;
+        }
+    }
+
+    private sealed class CommandResult
+    {
+        public bool Started { get; init; }
+        public bool TimedOut { get; init; }
+        public int ExitCode { get; init; }
+        public string Output { get; init; } = string.Empty;
+        public string Error { get; init; } = string.Empty;
+    }
+
+    private static CommandResult ExecuteCommandCaptureAll(string fileName, string arguments, int timeoutMs)
+    {
+        try
+        {
+            using var process = new Process();
+            process.StartInfo = new ProcessStartInfo
+            {
+                FileName = fileName,
                 Arguments = arguments,
                 RedirectStandardOutput = true,
+                RedirectStandardError = true,
                 UseShellExecute = false,
                 CreateNoWindow = true
             };
-            
-            using var process = Process.Start(psi);
-            if (process != null)
+
+            bool started = process.Start();
+            if (!started)
             {
-                return process.StandardOutput.ReadToEnd();
+                return new CommandResult { Started = false };
             }
+
+            var stdoutTask = process.StandardOutput.ReadToEndAsync();
+            var stderrTask = process.StandardError.ReadToEndAsync();
+
+            bool exited = process.WaitForExit(timeoutMs);
+            if (!exited)
+            {
+                try { process.Kill(entireProcessTree: true); } catch { }
+                return new CommandResult { Started = true, TimedOut = true };
+            }
+
+            Task.WaitAll(new Task[] { stdoutTask, stderrTask }, millisecondsTimeout: Math.Max(timeoutMs, 2000));
+
+            return new CommandResult
+            {
+                Started = true,
+                TimedOut = false,
+                ExitCode = process.ExitCode,
+                Output = stdoutTask.Result,
+                Error = stderrTask.Result
+            };
         }
-        catch { }
-        
-        return string.Empty;
+        catch (Exception ex)
+        {
+            return new CommandResult
+            {
+                Started = false,
+                TimedOut = false,
+                ExitCode = -1,
+                Error = ex.Message
+            };
+        }
     }
     
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
@@ -224,7 +525,7 @@ public class RarArchiveEngine : IArchiveEngine
     
     private string BuildCompressionArguments(string input, string output, ArchiveOptions options)
     {
-        var args = new System.Text.StringBuilder();
+        var args = new StringBuilder();
         
         // Add command
         args.Append("a ");
@@ -320,7 +621,7 @@ public class RarArchiveEngine : IArchiveEngine
     
     private string BuildExtractionArguments(string archivePath, string outputDir, ArchiveOptions options)
     {
-        var args = new System.Text.StringBuilder();
+        var args = new StringBuilder();
         
         // Extract command with paths
         args.Append("x ");
