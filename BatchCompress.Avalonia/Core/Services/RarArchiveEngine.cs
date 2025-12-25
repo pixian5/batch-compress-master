@@ -12,8 +12,8 @@ using BatchCompress.Avalonia.Core.Interfaces;
 namespace BatchCompress.Avalonia.Core.Services;
 
 /// <summary>
-/// RAR archive engine implementation
-/// Cross-platform support for RAR/UnRAR
+/// RAR 压缩引擎实现
+/// 跨平台支持 RAR/UnRAR
 /// </summary>
 public class RarArchiveEngine : IArchiveEngine
 {
@@ -29,9 +29,9 @@ public class RarArchiveEngine : IArchiveEngine
     {
         var candidates = GetCandidatePaths().ToList();
 
-        Debug.WriteLine($"[RAR] OS={RuntimeInformation.OSDescription}");
-        Debug.WriteLine($"[RAR] BaseDirectory={AppContext.BaseDirectory}");
-        Debug.WriteLine($"[RAR] Candidates({candidates.Count}): {string.Join(" | ", candidates)}");
+        Debug.WriteLine($"[RAR] 操作系统={RuntimeInformation.OSDescription}");
+        Debug.WriteLine($"[RAR] 程序目录={AppContext.BaseDirectory}");
+        Debug.WriteLine($"[RAR] 候选路径({candidates.Count}): {string.Join(" | ", candidates)}");
 
         foreach (var candidate in candidates)
         {
@@ -43,17 +43,17 @@ public class RarArchiveEngine : IArchiveEngine
 
             if (TryValidateRarExecutable(normalized, out var validationMessage))
             {
-                Debug.WriteLine($"[RAR] Selected: {normalized}");
+                Debug.WriteLine($"[RAR] 已选路径: {normalized}");
                 return normalized;
             }
 
             if (!string.IsNullOrWhiteSpace(validationMessage))
             {
-                Debug.WriteLine($"[RAR] Reject: {normalized} ({validationMessage})");
+                Debug.WriteLine($"[RAR] 拒绝: {normalized}（{validationMessage}）");
             }
         }
 
-        Debug.WriteLine("[RAR] Not found");
+        Debug.WriteLine("[RAR] 未找到可用的 RAR 程序");
         return null;
     }
     
