@@ -85,7 +85,7 @@ public partial class MainWindow : Window
                 }
             };
             
-            var files = await StorageProvider.OpenFilePickerAsync(fileOptions);
+            var files = await this.StorageProvider.OpenFilePickerAsync(fileOptions);
             if (files.Count > 0)
             {
                 // 密码文件的文件名（不含路径）
@@ -106,7 +106,7 @@ public partial class MainWindow : Window
                 AllowMultiple = false
             };
             
-            var folders = await StorageProvider.OpenFolderPickerAsync(options);
+            var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
             if (folders.Count > 0)
             {
                 viewModel.SourcePath = folders[0].Path.LocalPath;
@@ -122,7 +122,7 @@ public partial class MainWindow : Window
             AllowMultiple = false
         };
         
-        var folders = await StorageProvider.OpenFolderPickerAsync(options);
+        var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
         if (folders.Count > 0 && DataContext is MainWindowViewModel viewModel)
         {
             viewModel.OutputPath = folders[0].Path.LocalPath;
@@ -131,16 +131,41 @@ public partial class MainWindow : Window
     
     private async Task BrowseSaveFileAsync()
     {
-        var options = new FolderPickerOpenOptions
+        try
         {
-            Title = "选择待压缩/解压文件保存目录",
-            AllowMultiple = false
-        };
-        
-        var folders = await StorageProvider.OpenFolderPickerAsync(options);
-        if (folders.Count > 0 && DataContext is MainWindowViewModel viewModel)
+            if (DataContext is MainWindowViewModel viewModel)
+            {
+                // 添加调试日志
+                viewModel.CommandLog += "BrowseSaveFileAsync called\n";
+            }
+            
+            var options = new FolderPickerOpenOptions
+            {
+                Title = "选择待压缩/解压文件保存目录",
+                AllowMultiple = false
+            };
+            
+            // 在Avalonia 11中，应该使用StorageProvider的正确实例
+            var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
+            
+            if (DataContext is MainWindowViewModel viewModel2)
+            {
+                // 添加调试日志
+                viewModel2.CommandLog += $"Folder picker returned {folders.Count} items\n";
+                
+                if (folders.Count > 0)
+                {
+                    viewModel2.SaveFilePath = folders[0].Path.LocalPath;
+                    viewModel2.CommandLog += $"Selected folder: {viewModel2.SaveFilePath}\n";
+                }
+            }
+        }
+        catch (Exception ex)
         {
-            viewModel.SaveFilePath = folders[0].Path.LocalPath;
+            if (DataContext is MainWindowViewModel viewModel)
+            {
+                viewModel.CommandLog += $"Error in BrowseSaveFileAsync: {ex.Message}\n";
+            }
         }
     }
     
@@ -157,7 +182,7 @@ public partial class MainWindow : Window
             }
         };
         
-        var files = await StorageProvider.OpenFilePickerAsync(options);
+        var files = await this.StorageProvider.OpenFilePickerAsync(options);
         if (files.Count > 0 && DataContext is MainWindowViewModel viewModel)
         {
             viewModel.TextFilePath = files[0].Path.LocalPath;

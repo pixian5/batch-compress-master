@@ -38,11 +38,12 @@ public class BatchOperationService
         
         try
         {
-            var items = Directory.GetFileSystemEntries(folderPath);
+            // Get all files in the directory (excluding subdirectories)
+            var allFiles = Directory.GetFiles(folderPath, "*", SearchOption.TopDirectoryOnly);
             
-            foreach (var item in items)
+            foreach (var filePath in allFiles)
             {
-                var name = Path.GetFileName(item);
+                var name = Path.GetFileName(filePath);
                 
                 // Skip system files
                 if (name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase) ||
@@ -61,10 +62,14 @@ public class BatchOperationService
                     }
                 }
                 
-                files.Add(item);
+                files.Add(filePath);
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            // Log error if needed
+            Console.WriteLine($"Error loading files from folder: {ex.Message}");
+        }
         
         return files;
     }
