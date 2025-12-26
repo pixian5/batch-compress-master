@@ -51,7 +51,9 @@ public class SystemIntegrationService : ISystemIntegration
                 var clipboard = desktop.MainWindow?.Clipboard;
                 if (clipboard != null)
                 {
-                    return await clipboard.GetTextAsync() ?? string.Empty;
+#pragma warning disable CS0618 // Type or member is obsolete
+                    return await clipboard.GetTextAsync();
+#pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
         }

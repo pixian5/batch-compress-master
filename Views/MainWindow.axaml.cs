@@ -70,8 +70,7 @@ public partial class MainWindow : Window
                 savePath += Path.DirectorySeparatorChar;
             }
             
-            // 提示用户选择密码本txt文件
-            await ShowMessageBoxAsync("提示", "请选择密码本txt文件");
+
             
             // 让用户选择密码文件
             var fileOptions = new FilePickerOpenOptions
@@ -191,7 +190,7 @@ public partial class MainWindow : Window
     
     private async Task<bool> ShowMessageBoxAsync(string title, string message)
     {
-        Window dialog = null;
+        Window? dialog = null;
         dialog = new Window
         {
             Title = title,
@@ -223,7 +222,7 @@ public partial class MainWindow : Window
     
     private async Task<bool> ShowOkCancelMessageBoxAsync(string title, string message)
     {
-        Window dialog = null;
+        Window? dialog = null;
         dialog = new Window
         {
             Title = title,
