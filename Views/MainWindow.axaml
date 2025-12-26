@@ -99,11 +99,10 @@
                                     </ComboBox>
                                 </StackPanel>
                                 
-                                <TextBlock Grid.Row="2" Grid.Column="2" Text="已存在文件：" VerticalAlignment="Center" Margin="20,0,10,5"/>
-                                <ComboBox Grid.Row="2" Grid.Column="3" SelectedIndex="{Binding ExistingFileMode}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,5">
-                                    <ComboBoxItem Content="已存在文件：跳过"/>
-                                    <ComboBoxItem Content="已存在文件：更新"/>
-                                    <ComboBoxItem Content="已存在文件：覆盖"/>
+                                <ComboBox Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" SelectedIndex="{Binding ExistingFileMode}" Width="150" HorizontalAlignment="Left" Margin="20,0,0,5">
+                                    <ComboBoxItem Content="跳过 已存在文件"/>
+                                    <ComboBoxItem Content="更新 已存在文件"/>
+                                    <ComboBoxItem Content="覆盖 已存在文件"/>
                                 </ComboBox>
                                 
                                 <!-- Row 3 -->
