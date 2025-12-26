@@ -351,6 +351,17 @@ public class BatchOperationService
                         }
                         
                         var targetPath = Path.Combine(processedDir, name);
+                        
+                        // 检查目标是否存在，如果存在则先删除
+                        if (Directory.Exists(targetPath))
+                        {
+                            Directory.Delete(targetPath, true);
+                        }
+                        else if (File.Exists(targetPath))
+                        {
+                            File.Delete(targetPath);
+                        }
+                        
                         if (Directory.Exists(sourcePath))
                         {
                             Directory.Move(sourcePath, targetPath);
@@ -505,6 +516,13 @@ public class BatchOperationService
                                 }
                                 
                                 var targetPath = Path.Combine(processedDir, Path.GetFileName(volumeFile));
+                                
+                                // 检查目标是否存在，如果存在则先删除
+                                if (File.Exists(targetPath))
+                                {
+                                    File.Delete(targetPath);
+                                }
+                                
                                 File.Move(volumeFile, targetPath);
                             }
                         }
