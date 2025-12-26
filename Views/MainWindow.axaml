@@ -23,27 +23,28 @@
                     <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
                     
                     <!-- Source and Destination Grid for precise alignment -->
-                    <Grid ColumnDefinitions="200,10,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="200,10,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
                         <!-- Source Mode Selection -->
                         <ComboBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="1" SelectedIndex="{Binding SourceMode}">
                             <ComboBoxItem Content="从txt读取要解压的文件："/>
                             <ComboBoxItem Content="压缩此文件夹内所有文件："/>
                         </ComboBox>
+                        <!-- Output Size Text - Blue font -->
+                        <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue" Margin="10,0,0,0"/>
                         
                         <!-- Save File Path - Always visible -->
-                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Width="400" Watermark="待压缩/解压文件保存路径"/>
-                        <Button Grid.Row="0" Grid.Column="4" Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100"/>
+                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SaveFilePath}" Width="400" Watermark="待压缩/解压文件保存路径"/>
+                        <Button Grid.Row="1" Grid.Column="4" Content="选择目录" Command="{Binding BrowseSaveFileCommand}" Width="100"/>
                         
                         <!-- Source Path - Only visible in TXT mode -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="TXT文件的路径：" VerticalAlignment="Center" IsVisible="{Binding IsFromTxtMode}"/>
-                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" Width="400" IsVisible="{Binding IsFromTxtMode}"/>
-                        <Button Grid.Row="1" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="TXT文件的路径：" VerticalAlignment="Center" IsVisible="{Binding IsFromTxtMode}"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" Width="400" IsVisible="{Binding IsFromTxtMode}"/>
+                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
                         
                         <!-- Output Path -->
-                        <Button Grid.Row="2" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Right" Margin="0,0,140,0"/>
-                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue" Margin="10,0,0,0"/>
-                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}" Width="400" Watermark="目的地"/>
-                        <Button Grid.Row="2" Grid.Column="4" Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
+                        <Button Grid.Row="3" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Right" Margin="0,0,140,0"/>
+                        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding OutputPath}" Width="400" Watermark="目的地"/>
+                        <Button Grid.Row="3" Grid.Column="4" Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
                     </Grid>
                 </StackPanel>
             </Border>
