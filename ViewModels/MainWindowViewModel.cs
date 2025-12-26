@@ -182,10 +182,10 @@ public partial class MainWindowViewModel : ViewModelBase
         SourceMode = 1;
         
         // Initialize with default enclosure list
-        EnclosureList = "c:\\【解压密码】发邮件给 qgkc520@Gmail.com\n" +
-                       "c:\\【解压密码】微信号：i17269637581\n" +
-                       "c:\\【解压密码】QQ号：2027123419\n" +
-                       "c:\\【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
+        EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
+                       "【解压密码】微信号：i17269637581\n" +
+                       "【解压密码】QQ号：2027123419\n" +
+                       "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
         
         // Try to read clipboard on startup
         Task.Run(async () =>
