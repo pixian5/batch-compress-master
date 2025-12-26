@@ -141,9 +141,6 @@
                                     <StackPanel Orientation="Horizontal" Spacing="15">
                                         <CheckBox Content="处理后删除源" IsChecked="{Binding DeleteSourceAfter}"/>
                                         <CheckBox Content="处理后移动源" IsChecked="{Binding MoveSourceAfter}"/>
-                                    </StackPanel>
-                                    
-                                    <StackPanel Orientation="Horizontal" Spacing="15">
                                         <CheckBox Content="完成后关机" IsChecked="{Binding ShutdownAfterComplete}"/>
                                     </StackPanel>
                                 </StackPanel>
