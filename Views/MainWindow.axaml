@@ -39,11 +39,6 @@
                         <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" Width="400" IsVisible="{Binding IsFromTxtMode}"/>
                         <Button Grid.Row="1" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
                         
-                        <!-- Folder Path - Only visible in folder mode -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩文件所在文件夹：" VerticalAlignment="Center" IsVisible="{Binding !IsFromTxtMode}"/>
-                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SourcePath}" Watermark="压缩文件所在文件夹" Width="400" IsVisible="{Binding !IsFromTxtMode}"/>
-                        <Button Grid.Row="1" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选择文件夹" IsVisible="{Binding !IsFromTxtMode}"/>
-                        
                         <!-- Output Path -->
                         <Button Grid.Row="2" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Right" Margin="0,0,140,0"/>
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}" Width="400" Watermark="目的地"/>
