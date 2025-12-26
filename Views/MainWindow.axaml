@@ -126,8 +126,8 @@
                             </Grid>
                             
                             <!-- Enclosure List -->
-                            <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,3">
-                                <TextBox Text="{Binding EnclosureList}" Height="60" AcceptsReturn="True" TextWrapping="Wrap"
+                            <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,2">
+                                <TextBox Text="{Binding EnclosureList}" Height="40" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsEnabled="{Binding AddEnclosures}"/>
                             </StackPanel>
                             
