@@ -128,7 +128,7 @@
                             
                             <!-- Enclosure List -->
                             <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,2">
-                                <TextBox Text="{Binding EnclosureList}" Height="80" AcceptsReturn="True" TextWrapping="Wrap"
+                                <TextBox Text="{Binding EnclosureList}" Height="150" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsEnabled="{Binding AddEnclosures}"/>
                             </StackPanel>
                             
