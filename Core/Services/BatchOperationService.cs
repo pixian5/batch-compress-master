@@ -29,21 +29,21 @@ public class BatchOperationService
     /// </summary>
     public List<string> LoadFilesFromFolder(string folderPath, string extension, bool skipProcessed)
     {
-        var files = new List<string>();
+        var items = new List<string>();
         
         if (!Directory.Exists(folderPath))
         {
-            return files;
+            return items;
         }
         
         try
         {
-            // Get all files in the directory (excluding subdirectories)
-            var allFiles = Directory.GetFiles(folderPath, "*", SearchOption.TopDirectoryOnly);
+            // Get all files and directories in the root of the folder
+            var allItems = Directory.GetFileSystemEntries(folderPath);
             
-            foreach (var filePath in allFiles)
+            foreach (var itemPath in allItems)
             {
-                var name = Path.GetFileName(filePath);
+                var name = Path.GetFileName(itemPath);
                 
                 // Skip system files
                 if (name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase) ||
@@ -62,16 +62,16 @@ public class BatchOperationService
                     }
                 }
                 
-                files.Add(filePath);
+                items.Add(itemPath);
             }
         }
         catch (Exception ex)
         {
             // Log error if needed
-            Console.WriteLine($"Error loading files from folder: {ex.Message}");
+            Console.WriteLine($"Error loading items from folder: {ex.Message}");
         }
         
-        return files;
+        return items;
     }
     
     /// <summary>
