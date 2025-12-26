@@ -193,7 +193,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var clipboardText = await _systemIntegration.ReadClipboardTextAsync();
             if (!string.IsNullOrEmpty(clipboardText) && Directory.Exists(clipboardText))
             {
-                SourcePath = clipboardText;
+                SaveFilePath = clipboardText;
             }
         });
     }
@@ -285,13 +285,13 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         await Task.Run(() =>
         {
-            if (string.IsNullOrEmpty(SourcePath) || !Directory.Exists(SourcePath))
+            if (string.IsNullOrEmpty(SaveFilePath) || !Directory.Exists(SaveFilePath))
             {
                 return;
             }
             
             var files = _batchOperationService.LoadFilesFromFolder(
-                SourcePath, Extension, SkipAlreadyProcessed);
+                SaveFilePath, Extension, SkipAlreadyProcessed);
             
             SourceFileList = string.Join(Environment.NewLine, files);
         });
@@ -688,17 +688,23 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(value))
         {
-            // Auto-refresh when path changes
-            Task.Run(async () =>
+            // Only update for TXT mode
+            if (SourceMode == 0)
             {
-                await Task.Delay(500); // Debounce
-                await RefreshFileListAsync();
-                await UpdateTotalSizeAsync();
-            });
+                Task.Run(async () =>
+                {
+                    await Task.Delay(500); // Debounce
+                    await RefreshFileListAsync();
+                    await UpdateTotalSizeAsync();
+                });
+            }
         }
         else
         {
-            TotalSizeGB = 0;
+            if (SourceMode == 0)
+            {
+                TotalSizeGB = 0;
+            }
         }
     }
     
@@ -751,15 +757,12 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(value))
         {
-            // Update total size when save file path changes in TXT mode
-            if (SourceMode == 0)
+            Task.Run(async () =>
             {
-                Task.Run(async () =>
-                {
-                    await Task.Delay(500); // Debounce
-                    await UpdateTotalSizeAsync();
-                });
-            }
+                await Task.Delay(500); // Debounce
+                await RefreshFileListAsync();
+                await UpdateTotalSizeAsync();
+            });
         }
         else
         {
@@ -773,7 +776,8 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             try
             {
-                string targetPath = SourceMode == 0 ? SaveFilePath : SourcePath;
+                // For both modes, use SaveFilePath as the source path
+                string targetPath = SaveFilePath;
                 
                 if (!string.IsNullOrEmpty(targetPath) && Directory.Exists(targetPath))
                 {

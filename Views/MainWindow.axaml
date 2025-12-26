@@ -23,26 +23,23 @@
                     <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
                     
                     <!-- Source and Destination Section -->
-                    <Grid ColumnDefinitions="200,60,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto,Auto">
-                        <!-- Row 0: Source Mode -->
+                    <Grid ColumnDefinitions="200,60,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto">
+                        <!-- Row 0: Source Mode and Save Path -->
                         <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}">
                             <ComboBoxItem Content="从txt读取要解压的文件："/>
                             <ComboBoxItem Content="压缩此文件夹内所有文件："/>
                         </ComboBox>
+                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="待压缩/解压文件保存路径" Width="400"/>
+                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="100" Content="选择目录"/>
                         
-                        <!-- Row 1: Source Path based on mode -->
-                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SourcePath}" 
-                                 Watermark="{Binding SourcePathWatermark}" Width="400"/>
-                        <Button Grid.Row="1" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="{Binding BrowseSourceButtonText}"/>
+                        <!-- Row 1: TXT File Path -->
+                        <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" Width="400" IsVisible="{Binding IsFromTxtMode}"/>
+                        <Button Grid.Row="1" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
                         
-                        <!-- Row 2: Save Path -->
-                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="待压缩/解压文件保存路径" Width="400"/>
-                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="100" Content="选择目录"/>
-                        
-                        <!-- Row 3: Output Path -->
-                        <Button Grid.Row="3" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
-                        <TextBox Grid.Row="3" Grid.Column="2" Text="{Binding OutputPath}" Watermark="目的地" Width="400"/>
-                        <Button Grid.Row="3" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="100" Content="选择目录"/>
+                        <!-- Row 2: Output Path -->
+                        <Button Grid.Row="2" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}" Watermark="目的地" Width="400"/>
+                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="100" Content="选择目录"/>
                     </Grid>
                 </StackPanel>
             </Border>
