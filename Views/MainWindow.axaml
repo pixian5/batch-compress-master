@@ -127,7 +127,6 @@
                             
                             <!-- Enclosure List -->
                             <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,5">
-                                <TextBlock Text="附件目录列表（每行一个）：" Margin="0,5,0,5"/>
                                 <TextBox Text="{Binding EnclosureList}" Height="80" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsEnabled="{Binding AddEnclosures}"/>
                             </StackPanel>
