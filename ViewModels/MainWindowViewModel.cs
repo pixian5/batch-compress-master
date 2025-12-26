@@ -322,10 +322,23 @@ public partial class MainWindowViewModel : ViewModelBase
                 .Where(s => !string.IsNullOrEmpty(s))
                 .ToList();
             
+            // If no files in list, try to load them first
             if (sourcePaths.Count == 0)
             {
-                CommandLog += "No files to compress\n";
-                return;
+                CommandLog += "No files in list, trying to load automatically...\n";
+                await RefreshFileListAsync();
+                
+                // Try again
+                sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                    .Select(s => s.Trim())
+                    .Where(s => !string.IsNullOrEmpty(s))
+                    .ToList();
+                    
+                if (sourcePaths.Count == 0)
+                {
+                    CommandLog += "Still no files to compress\n";
+                    return;
+                }
             }
             
             var options = BuildBatchOperationOptions();
@@ -406,6 +419,20 @@ public partial class MainWindowViewModel : ViewModelBase
             
             // Parse source file list (with passwords if from text mode)
             List<FileEntry> entries;
+            
+            // If source file list is empty, try to load automatically
+            if (string.IsNullOrEmpty(SourceFileList.Trim()))
+            {
+                CommandLog += "No files in list, trying to load automatically...\n";
+                await RefreshFileListAsync();
+                
+                // If still empty after refresh, show error
+                if (string.IsNullOrEmpty(SourceFileList.Trim()))
+                {
+                    CommandLog += "Still no files to decompress\n";
+                    return;
+                }
+            }
             
             if (SourceMode == 0)
             {
