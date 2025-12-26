@@ -178,6 +178,9 @@ public partial class MainWindowViewModel : ViewModelBase
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
         
+        // Set default source mode to folder (1)
+        SourceMode = 1;
+        
         // Initialize with default enclosure list
         EnclosureList = "c:\\【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                        "c:\\【解压密码】微信号：i17269637581\n" +
