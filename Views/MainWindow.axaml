@@ -218,7 +218,7 @@
             <!-- Log Sections -->
             <TabControl Height="300">
                 <!-- Source File List -->
-                <TabItem Header="待处理文件列表">
+                <TabItem Header="{Binding SourceFileListTabHeader}">
                     <ScrollViewer>
                         <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap" 
                                  IsReadOnly="False" BorderThickness="0"/>
@@ -226,7 +226,7 @@
                 </TabItem>
                 
                 <!-- Success Log -->
-                <TabItem Header="成功记录">
+                <TabItem Header="{Binding SuccessLogTabHeader}">
                     <ScrollViewer>
                         <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap" 
                                  IsReadOnly="True" BorderThickness="0" Foreground="Green"/>
@@ -234,7 +234,7 @@
                 </TabItem>
                 
                 <!-- Fail Log -->
-                <TabItem Header="失败记录">
+                <TabItem Header="{Binding FailLogTabHeader}">
                     <ScrollViewer>
                         <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap" 
                                  IsReadOnly="True" BorderThickness="0" Foreground="Red"/>
@@ -242,7 +242,7 @@
                 </TabItem>
                 
                 <!-- Command Log -->
-                <TabItem Header="命令日志">
+                <TabItem Header="{Binding CommandLogTabHeader}">
                     <ScrollViewer>
                         <TextBox Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap" 
                                  IsReadOnly="True" BorderThickness="0"/>

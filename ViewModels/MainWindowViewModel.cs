@@ -35,6 +35,12 @@ public partial class MainWindowViewModel : ViewModelBase
     
     public bool IsFromTxtMode => SourceMode == 0;
     
+    // Tab header with item count
+    public string SourceFileListTabHeader => $"待处理文件列表 ({SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
+    public string SuccessLogTabHeader => $"成功记录 ({SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
+    public string FailLogTabHeader => $"失败记录 ({FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
+    public string CommandLogTabHeader => $"命令日志 ({CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
+    
     [ObservableProperty]
     private string _sourcePath = string.Empty;
     
@@ -152,15 +158,19 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _isOperating = false;
     
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SourceFileListTabHeader))]
     private string _sourceFileList = string.Empty;
     
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SuccessLogTabHeader))]
     private string _successLog = string.Empty;
     
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(FailLogTabHeader))]
     private string _failLog = string.Empty;
     
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(CommandLogTabHeader))]
     private string _commandLog = string.Empty;
     
     [ObservableProperty]
