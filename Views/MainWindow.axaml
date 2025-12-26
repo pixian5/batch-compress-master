@@ -30,16 +30,16 @@
                             <ComboBoxItem Content="压缩此文件夹内所有文件："/>
                         </ComboBox>
                         <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="待压缩/解压文件保存路径" Width="400"/>
-                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="100" Content="选择目录"/>
+                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="选择目录"/>
                         
                         <!-- Row 2: TXT File Path -->
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" Width="400" IsVisible="{Binding IsFromTxtMode}"/>
-                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
+                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
                         
                         <!-- Row 4: Output Path -->
                         <Button Grid.Row="4" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
                         <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" Watermark="目的地" Width="400"/>
-                        <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="100" Content="选择目录"/>
+                        <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="80" Content="选择目录"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -56,8 +56,8 @@
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <TextBlock Text="文件名（不含扩展名）：" VerticalAlignment="Center"/>
                                         <TextBox Text="{Binding PasswordQueryFileName}" Width="200"/>
-                                        <Button Content="查询密码" Command="{Binding QueryPasswordCommand}" Width="100"/>
-                                        <Button Content="确认密码/解锁" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="120"/>
+                                        <Button Content="查询密码" Command="{Binding QueryPasswordCommand}" Width="80"/>
+                                        <Button Content="确认密码/解锁" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="80"/>
                                     </StackPanel>
                                     <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
                                     <TextBlock Text="（已复制到剪贴板）" FontSize="10" Foreground="Gray" 
@@ -110,7 +110,7 @@
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300" 
                                          IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,5"/>
                                 
-                                <CheckBox Grid.Row="0" Grid.Column="4" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,10,5"/>
+                                <CheckBox Grid.Row="0" Grid.Column="3" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,10,5"/>
                                 <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,5"/>
                                 
                                 <!-- Row 4 -->
