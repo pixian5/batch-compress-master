@@ -33,7 +33,6 @@
                         <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="100" Content="选择目录"/>
                         
                         <!-- Row 1: TXT File Path -->
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="TXT文件的路径：" VerticalAlignment="Center" IsVisible="{Binding IsFromTxtMode}"/>
                         <TextBox Grid.Row="1" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" Width="400" IsVisible="{Binding IsFromTxtMode}"/>
                         <Button Grid.Row="1" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="100" Content="选txt" IsVisible="{Binding IsFromTxtMode}"/>
                         
