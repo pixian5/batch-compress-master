@@ -204,7 +204,7 @@
                         </StackPanel>
                         <StackPanel>
                             <TextBlock Text="处理速度：" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding ProcessingSpeedMBPerSecond, StringFormat={}{0:F2}MB/秒}" Foreground="Blue" FontSize="16"/>
+                            <TextBlock Text="{Binding ProcessingSpeedMBPerSecond, StringFormat={}{0:0}MB/秒}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
                             <TextBlock Text="预计完成：" FontWeight="Bold"/>
