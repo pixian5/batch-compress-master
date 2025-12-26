@@ -58,6 +58,7 @@
                                         <Button Content="查询密码" Command="{Binding QueryPasswordCommand}" Width="80"/>
                                         <Button Content="确认密码/解锁" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="80"/>
                                     </StackPanel>
+                                    <CheckBox Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0"/>
                                     <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
                                     <TextBlock Text="（已复制到剪贴板）" FontSize="10" Foreground="Gray" 
                                                IsVisible="{Binding PasswordQueryResult, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"/>
@@ -68,11 +69,9 @@
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3"/>
-                                
-                                <CheckBox Grid.Row="0" Grid.Column="2" Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="20,0,10,3"/>
-                                <CheckBox Grid.Row="0" Grid.Column="3" Content="校验" IsChecked="{Binding TestArchive}" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
-                                         Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,3"/>
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,0,3"/>
+                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
+                                         Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="20,0,0,3"/>
                                 
                                 <!-- Row 1 -->
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩率：" VerticalAlignment="Center" Margin="0,0,10,3"/>
