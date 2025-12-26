@@ -363,7 +363,7 @@ public class BatchOperationService
                     catch { }
                 }
                 
-                progressInfo.Message = $"Success: {name}";
+                progressInfo.Message = name;
                 progressInfo.IsError = false;
             }
             else
@@ -512,7 +512,7 @@ public class BatchOperationService
                     }
                 }
                 
-                progressInfo.Message = $"Success: {archiveName}";
+                progressInfo.Message = archiveName;
                 progressInfo.IsError = false;
             }
             else
