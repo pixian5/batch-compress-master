@@ -22,6 +22,11 @@ public interface IArchiveEngine
     /// Check if the archive engine is available on the system
     /// </summary>
     bool IsAvailable();
+    
+    /// <summary>
+    /// Current command being executed
+    /// </summary>
+    string? CurrentCommand { get; }
 }
 
 /// <summary>

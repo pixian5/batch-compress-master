@@ -302,6 +302,11 @@ public class BatchOperationService
             // Compress
             var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
             
+            // Log the command that was executed
+            progressInfo.Message = $"Command: {_archiveEngine.CurrentCommand}";
+            progressInfo.IsError = false;
+            progress.Report(progressInfo);
+            
             if (result.Success)
             {
                 progressInfo.SuccessCount++;
@@ -456,6 +461,11 @@ public class BatchOperationService
             
             // Extract
             var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken);
+            
+            // Log the command that was executed
+            progressInfo.Message = $"Command: {_archiveEngine.CurrentCommand}";
+            progressInfo.IsError = false;
+            progress.Report(progressInfo);
             
             if (result.Success)
             {

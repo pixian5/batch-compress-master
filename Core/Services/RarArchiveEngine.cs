@@ -19,6 +19,11 @@ public class RarArchiveEngine : IArchiveEngine
 {
     private string? _rarExecutablePath;
     
+    /// <summary>
+    /// 当前执行的命令行
+    /// </summary>
+    public string? CurrentCommand { get; private set; }
+    
     public bool IsAvailable()
     {
         _rarExecutablePath = FindRarExecutable();
@@ -616,7 +621,9 @@ public class RarArchiveEngine : IArchiveEngine
         // Output and input
         args.Append($"\"{output}\" \"{input}\"");
         
-        return args.ToString();
+        var command = args.ToString();
+        CurrentCommand = $"{_rarExecutablePath} {command}";
+        return command;
     }
     
     private string BuildExtractionArguments(string archivePath, string outputDir, ArchiveOptions options)
@@ -648,7 +655,9 @@ public class RarArchiveEngine : IArchiveEngine
         // Archive and output directory
         args.Append($"\"{archivePath}\" \"{outputDir}\"");
         
-        return args.ToString();
+        var command = args.ToString();
+        CurrentCommand = $"{_rarExecutablePath} {command}";
+        return command;
     }
     
     private ArchiveResult ExecuteRarCommand(string arguments, CancellationToken cancellationToken)
