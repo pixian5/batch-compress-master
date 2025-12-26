@@ -64,13 +64,14 @@
                                 </StackPanel>
                             </Border>
                             
-                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
+                            <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
                                 <CheckBox Grid.Row="0" Grid.Column="2" Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="20,0,10,3"/>
-                                <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
+                                <CheckBox Grid.Row="0" Grid.Column="3" Content="校验" IsChecked="{Binding TestArchive}" Margin="0,0,10,3"/>
+                                <TextBox Grid.Row="0" Grid.Column="4" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
                                          Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 1 -->
@@ -109,7 +110,6 @@
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300" 
                                          IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
-                                <CheckBox Grid.Row="0" Grid.Column="3" Content="校验" IsChecked="{Binding TestArchive}" Margin="0,0,10,3"/>
                                 <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3"/>
                                 
                                 <!-- Row 4 -->
