@@ -129,6 +129,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private double _processedSizeGB = 0;
     
     [ObservableProperty]
+    private double _totalSizeGB = 0;
+    
+    [ObservableProperty]
     private string _outputSizeText = "0.0GB";
     
     [ObservableProperty]
@@ -593,7 +596,12 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 await Task.Delay(500); // Debounce
                 await RefreshFileListAsync();
+                await UpdateTotalSizeAsync();
             });
+        }
+        else
+        {
+            TotalSizeGB = 0;
         }
     }
     
@@ -640,5 +648,86 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             DeleteSourceAfter = false;
         }
+    }
+    
+    partial void OnSaveFilePathChanged(string value)
+    {
+        if (!string.IsNullOrEmpty(value))
+        {
+            // Update total size when save file path changes in TXT mode
+            if (SourceMode == 0)
+            {
+                Task.Run(async () =>
+                {
+                    await Task.Delay(500); // Debounce
+                    await UpdateTotalSizeAsync();
+                });
+            }
+        }
+        else
+        {
+            TotalSizeGB = 0;
+        }
+    }
+    
+    private async Task UpdateTotalSizeAsync()
+    {
+        await Task.Run(() =>
+        {
+            try
+            {
+                string targetPath = SourceMode == 0 ? SaveFilePath : SourcePath;
+                
+                if (!string.IsNullOrEmpty(targetPath) && Directory.Exists(targetPath))
+                {
+                    // Calculate total size of all files in the directory
+                    var size = CalculateDirectorySize(targetPath);
+                    TotalSizeGB = size / (1024.0 * 1024.0 * 1024.0); // Convert bytes to GB
+                }
+                else
+                {
+                    TotalSizeGB = 0;
+                }
+            }
+            catch (Exception ex)
+            {
+                CommandLog += $"Error calculating total size: {ex.Message}\n";
+                TotalSizeGB = 0;
+            }
+        });
+    }
+    
+    private long CalculateDirectorySize(string path)
+    {
+        if (!Directory.Exists(path))
+            return 0;
+        
+        long size = 0;
+        
+        try
+        {
+            // Get all files in the directory
+            string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+            
+            // Calculate total size
+            foreach (string file in files)
+            {
+                try
+                {
+                    FileInfo fileInfo = new FileInfo(file);
+                    size += fileInfo.Length;
+                }
+                catch (Exception ex)
+                {
+                    CommandLog += $"Error getting file size for {file}: {ex.Message}\n";
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            CommandLog += $"Error accessing directory {path}: {ex.Message}\n";
+        }
+        
+        return size;
     }
 }

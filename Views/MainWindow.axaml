@@ -169,7 +169,7 @@
                     </StackPanel>
                     
                     <!-- Status Display -->
-                    <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,10,0,0">
+                    <Grid ColumnDefinitions="*,*,*,*,*,*" Margin="0,10,0,0">
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="当前文件：" FontWeight="Bold"/>
                             <TextBlock Text="{Binding CurrentFile}" TextWrapping="Wrap"/>
@@ -189,6 +189,10 @@
                         <StackPanel Grid.Column="4">
                             <TextBlock Text="已处理大小：" FontWeight="Bold"/>
                             <TextBlock Text="{Binding ProcessedSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="5">
+                            <TextBlock Text="总文件大小：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding TotalSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
