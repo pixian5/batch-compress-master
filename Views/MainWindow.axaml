@@ -23,7 +23,7 @@
                     <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
                     
                     <!-- Source and Destination Grid for precise alignment -->
-                    <Grid ColumnDefinitions="200,60,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto">
+                    <Grid ColumnDefinitions="200,10,400,10,100,Auto" RowDefinitions="Auto,Auto,Auto">
                         <!-- Source Mode Selection -->
                         <ComboBox Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="1" SelectedIndex="{Binding SourceMode}">
                             <ComboBoxItem Content="从txt读取要解压的文件："/>
