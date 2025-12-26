@@ -107,10 +107,10 @@
                                 
                                 <!-- Row 3 -->
                                 <CheckBox Grid.Row="3" Grid.Column="0" Content="启用注释" IsChecked="{Binding EnableComment}" Margin="0,0,10,5"/>
-                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="200" 
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300" 
                                          IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,5"/>
                                 
-                                <CheckBox Grid.Row="1" Grid.Column="4" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,10,5"/>
+                                <CheckBox Grid.Row="0" Grid.Column="4" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,10,5"/>
                                 <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,5"/>
                                 
                                 <!-- Row 4 -->
