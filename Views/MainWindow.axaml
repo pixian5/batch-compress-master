@@ -41,9 +41,9 @@
                         
                         <!-- Output Path -->
                         <Button Grid.Row="2" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Right" Margin="0,0,140,0"/>
+                        <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue" Margin="10,0,0,0"/>
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}" Width="400" Watermark="目的地"/>
                         <Button Grid.Row="2" Grid.Column="4" Content="选择目录" Command="{Binding BrowseOutputCommand}" Width="100"/>
-                        <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding OutputSizeText}" VerticalAlignment="Center" Foreground="Blue"/>
                     </Grid>
                 </StackPanel>
             </Border>
