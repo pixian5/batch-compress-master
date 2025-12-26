@@ -40,7 +40,6 @@
                         <Button Grid.Row="2" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}" Watermark="目的地" Width="400"/>
                         <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="100" Content="选择目录"/>
-                        <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding ProcessedSizeGB, StringFormat='已处理大小: {0:F2}GB'}" Foreground="Blue" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -170,7 +169,7 @@
                     </StackPanel>
                     
                     <!-- Status Display -->
-                    <Grid ColumnDefinitions="*,*,*,*" Margin="0,10,0,0">
+                    <Grid ColumnDefinitions="*,*,*,*,*" Margin="0,10,0,0">
                         <StackPanel Grid.Column="0">
                             <TextBlock Text="当前文件：" FontWeight="Bold"/>
                             <TextBlock Text="{Binding CurrentFile}" TextWrapping="Wrap"/>
@@ -186,6 +185,10 @@
                         <StackPanel Grid.Column="3">
                             <TextBlock Text="忽略：" FontWeight="Bold"/>
                             <TextBlock Text="{Binding IgnoreCount}" FontSize="16"/>
+                        </StackPanel>
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="已处理大小：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding ProcessedSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                     </Grid>
                 </StackPanel>
