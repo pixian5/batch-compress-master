@@ -25,9 +25,15 @@ public partial class MainWindowViewModel : ViewModelBase
     
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
+    [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
     private int _sourceMode; // 0 = from text file, 1 = from folder
     
-    public string BrowseSourceButtonText => SourceMode == 0 ? "选txt" : "选择来源";
+    public string BrowseSourceButtonText => SourceMode == 0 ? "选txt" : "选择文件夹";    
+    
+    public string SourcePathWatermark => SourceMode == 0 ? "TXT 文件的路径" : "压缩文件所在文件夹";    
+    public string SourcePathLabel => SourceMode == 0 ? "从txt读取要解压的文件：" : "压缩此文件夹内所有文件：";
+    
+    public bool IsFromTxtMode => SourceMode == 0;
     
     [ObservableProperty]
     private string _sourcePath = string.Empty;
