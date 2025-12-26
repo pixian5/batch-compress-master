@@ -19,7 +19,7 @@
             
             <!-- Source and Destination Section -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="6">
                     <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
                     
                     <!-- Source and Destination Section -->
@@ -65,18 +65,18 @@
                                 </StackPanel>
                             </Border>
                             
-                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,5">
+                            <Grid ColumnDefinitions="Auto,*,Auto,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,5"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,3"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
-                                <CheckBox Grid.Row="0" Grid.Column="2" Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="20,0,10,5"/>
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="20,0,10,3"/>
                                 <TextBox Grid.Row="0" Grid.Column="3" Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
-                                         Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,5"/>
+                                         Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 1 -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩率：" VerticalAlignment="Center" Margin="0,0,10,5"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,5">
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩率：" VerticalAlignment="Center" Margin="0,0,10,3"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3">
                                     <ComboBoxItem Content="不压缩"/>
                                     <ComboBoxItem Content="轻度"/>
                                     <ComboBoxItem Content="快速"/>
@@ -85,12 +85,12 @@
                                     <ComboBoxItem Content="最佳"/>
                                 </ComboBox>
                                 
-                                <CheckBox Grid.Row="1" Grid.Column="2" Content="固实" IsChecked="{Binding SolidArchive}" Margin="20,0,10,5"/>
-                                <CheckBox Grid.Row="1" Grid.Column="3" Content="快速打开" IsChecked="{Binding QuickOpen}" Margin="0,0,0,5"/>
+                                <CheckBox Grid.Row="1" Grid.Column="2" Content="固实" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3"/>
+                                <CheckBox Grid.Row="1" Grid.Column="3" Content="快速打开" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 2 -->
-                                <CheckBox Grid.Row="2" Grid.Column="0" Content="分卷" IsChecked="{Binding EnableVolume}" Margin="0,0,10,5"/>
-                                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,5">
+                                <CheckBox Grid.Row="2" Grid.Column="0" Content="分卷" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3"/>
+                                <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,3">
                                     <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
                                     <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="80" IsEnabled="{Binding EnableVolume}">
                                         <ComboBoxItem Content="GB"/>
@@ -99,30 +99,30 @@
                                     </ComboBox>
                                 </StackPanel>
                                 
-                                <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" Width="120" HorizontalAlignment="Left" Margin="20,0,0,5">
+                                <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" Width="120" HorizontalAlignment="Left" Margin="20,0,0,3">
                                     <ComboBoxItem Content="跳过现有文件"/>
                                     <ComboBoxItem Content="更新现有文件"/>
                                     <ComboBoxItem Content="覆盖现有文件"/>
                                 </ComboBox>
                                 
                                 <!-- Row 3 -->
-                                <CheckBox Grid.Row="3" Grid.Column="0" Content="启用注释" IsChecked="{Binding EnableComment}" Margin="0,0,10,5"/>
+                                <CheckBox Grid.Row="3" Grid.Column="0" Content="启用注释" IsChecked="{Binding EnableComment}" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300" 
-                                         IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                                         IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
-                                <CheckBox Grid.Row="0" Grid.Column="3" Content="校验" IsChecked="{Binding TestArchive}" Margin="0,0,10,5"/>
-                                <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,5"/>
+                                <CheckBox Grid.Row="0" Grid.Column="3" Content="校验" IsChecked="{Binding TestArchive}" Margin="0,0,10,3"/>
+                                <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3"/>
                                 
                                 <!-- Row 4 -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="临时目录：" VerticalAlignment="Center" Margin="0,0,10,5"/>
-                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="临时目录：" VerticalAlignment="Center" Margin="0,0,10,3"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 5: Max Size -->
-                                <TextBlock Grid.Row="5" Grid.Column="2" Text="最大处理大小(GB)：" VerticalAlignment="Center" Margin="20,0,10,5"/>
-                                <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,5"/>
+                                <TextBlock Grid.Row="5" Grid.Column="2" Text="最大处理大小(GB)：" VerticalAlignment="Center" Margin="20,0,10,3"/>
+                                <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 6: Add Enclosures -->
-                                <CheckBox Grid.Row="6" Grid.Column="0" Content="添加附件" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,5"/>
+                                <CheckBox Grid.Row="6" Grid.Column="0" Content="添加附件" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
                             </Grid>
                             
                             <!-- Enclosure List -->
@@ -136,7 +136,7 @@
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="后处理选项" FontWeight="Bold" FontSize="14"/>
                                     
-                                    <StackPanel Orientation="Horizontal" Spacing="15">
+                                    <StackPanel Orientation="Horizontal" Spacing="12">
                                         <CheckBox Content="处理后删除源" IsChecked="{Binding DeleteSourceAfter}"/>
                                         <CheckBox Content="处理后移动源" IsChecked="{Binding MoveSourceAfter}"/>
                                         <CheckBox Content="完成后关机" IsChecked="{Binding ShutdownAfterComplete}"/>
@@ -149,7 +149,7 @@
             
             <!-- Operation Buttons -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8">
-                <StackPanel Spacing="8">
+                <StackPanel Spacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Content="压缩" Command="{Binding CompressCommand}" Width="80" Height="30" 
                                 IsEnabled="{Binding !IsOperating}" Background="Green" Foreground="White"/>
@@ -164,7 +164,7 @@
                     </StackPanel>
                     
                     <!-- Status Display -->
-                    <StackPanel Orientation="Horizontal" Margin="0,10,0,0" Spacing="20">
+                    <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="15">
                         <StackPanel>
                             <TextBlock Text="当前文件：" FontWeight="Bold"/>
                             <TextBlock Text="{Binding CurrentFile}" TextWrapping="Wrap"/>
