@@ -40,7 +40,7 @@
                         <Button Grid.Row="2" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60"/>
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding OutputPath}" Watermark="目的地" Width="400"/>
                         <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="100" Content="选择目录"/>
-                        <TextBlock Grid.Row="2" Grid.Column="5" Text="已处理大小: {Binding ProcessedSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" VerticalAlignment="Center" Margin="10,0,0,0"/>
+                        <TextBlock Grid.Row="2" Grid.Column="5" Text="{Binding ProcessedSizeGB, StringFormat='已处理大小: {0:F2}GB'}" Foreground="Blue" VerticalAlignment="Center" Margin="10,0,0,0"/>
                     </Grid>
                 </StackPanel>
             </Border>
