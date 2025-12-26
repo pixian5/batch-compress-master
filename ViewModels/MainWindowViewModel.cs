@@ -132,6 +132,20 @@ public partial class MainWindowViewModel : ViewModelBase
     private double _totalSizeGB = 0;
     
     [ObservableProperty]
+    private TimeSpan _elapsedTime = TimeSpan.Zero;
+    
+    [ObservableProperty]
+    private TimeSpan _remainingTime = TimeSpan.Zero;
+    
+    [ObservableProperty]
+    private double _processingSpeedMBPerSecond = 0;
+    
+    [ObservableProperty]
+    private DateTime _estimatedCompletionTime = DateTime.MinValue;
+    
+    private DateTime _operationStartTime = DateTime.MinValue;
+    
+    [ObservableProperty]
     private string _outputSizeText = "0.0GB";
     
     [ObservableProperty]
@@ -298,6 +312,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             IsOperating = true;
             ResetCounters();
+            _operationStartTime = DateTime.Now;
             
             _cancellationTokenSource = new CancellationTokenSource();
             
@@ -323,6 +338,28 @@ public partial class MainWindowViewModel : ViewModelBase
                 IgnoreCount = info.IgnoreCount;
                 NonExistCount = info.NonExistCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
+                
+                // Calculate processing statistics
+                ElapsedTime = DateTime.Now - _operationStartTime;
+                
+                // Calculate processing speed (MB per second)
+                if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
+                {
+                    ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
+                }
+                
+                // Calculate remaining time and estimated completion
+                if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
+                {
+                    double remainingSizeMB = (TotalSizeGB - ProcessedSizeGB) * 1024;
+                    RemainingTime = TimeSpan.FromSeconds(remainingSizeMB / ProcessingSpeedMBPerSecond);
+                    EstimatedCompletionTime = DateTime.Now + RemainingTime;
+                }
+                else
+                {
+                    RemainingTime = TimeSpan.Zero;
+                    EstimatedCompletionTime = DateTime.MinValue;
+                }
                 
                 if (info.IsError)
                 {
@@ -363,6 +400,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             IsOperating = true;
             ResetCounters();
+            _operationStartTime = DateTime.Now;
             
             _cancellationTokenSource = new CancellationTokenSource();
             
@@ -422,6 +460,28 @@ public partial class MainWindowViewModel : ViewModelBase
                 IgnoreCount = info.IgnoreCount;
                 NonExistCount = info.NonExistCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
+                
+                // Calculate processing statistics
+                ElapsedTime = DateTime.Now - _operationStartTime;
+                
+                // Calculate processing speed (MB per second)
+                if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
+                {
+                    ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
+                }
+                
+                // Calculate remaining time and estimated completion
+                if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
+                {
+                    double remainingSizeMB = (TotalSizeGB - ProcessedSizeGB) * 1024;
+                    RemainingTime = TimeSpan.FromSeconds(remainingSizeMB / ProcessingSpeedMBPerSecond);
+                    EstimatedCompletionTime = DateTime.Now + RemainingTime;
+                }
+                else
+                {
+                    RemainingTime = TimeSpan.Zero;
+                    EstimatedCompletionTime = DateTime.MinValue;
+                }
                 
                 if (info.IsError)
                 {
@@ -533,10 +593,10 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void SetOutputSameAsSource()
     {
-        if (!string.IsNullOrEmpty(SourcePath))
+        if (!string.IsNullOrEmpty(SaveFilePath))
         {
-            OutputPath = SourcePath;
-            TempDirectory = SourcePath;
+            OutputPath = SaveFilePath;
+            TempDirectory = SaveFilePath;
         }
     }
     
@@ -547,6 +607,13 @@ public partial class MainWindowViewModel : ViewModelBase
         IgnoreCount = 0;
         NonExistCount = 0;
         ProcessedSizeGB = 0;
+        
+        // Reset processing statistics
+        ElapsedTime = TimeSpan.Zero;
+        RemainingTime = TimeSpan.Zero;
+        ProcessingSpeedMBPerSecond = 0;
+        EstimatedCompletionTime = DateTime.MinValue;
+        _operationStartTime = DateTime.MinValue;
     }
     
     private BatchOperationOptions BuildBatchOperationOptions()
