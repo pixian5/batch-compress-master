@@ -36,10 +36,10 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsFromTxtMode => SourceMode == 0;
     
     // Tab header with item count
-    public string SourceFileListTabHeader => $"待处理文件列表 ({SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
-    public string SuccessLogTabHeader => $"成功记录 ({SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
-    public string FailLogTabHeader => $"失败记录 ({FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
-    public string CommandLogTabHeader => $"命令日志 ({CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length})";
+    public string SourceFileListTabHeader => $"待处理文件列表 ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string SuccessLogTabHeader => $"成功记录 ({(string.IsNullOrEmpty(SuccessLog) ? 0 : SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string FailLogTabHeader => $"失败记录 ({(string.IsNullOrEmpty(FailLog) ? 0 : FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string CommandLogTabHeader => $"命令日志 ({(string.IsNullOrEmpty(CommandLog) ? 0 : CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     
     [ObservableProperty]
     private string _sourcePath = string.Empty;
@@ -188,22 +188,39 @@ public partial class MainWindowViewModel : ViewModelBase
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
         
-        // Set default source mode to folder (1)
+        // Skip runtime-only initialization when in design mode
+        if (Design.IsDesignMode) 
+        {
+            // Set backing fields directly to avoid triggering tasks in design mode
+            _sourceMode = 1;
+            _enclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
+                           "【解压密码】微信号：i17269637581\n" +
+                           "【解压密码】QQ号：2027123419\n" +
+                           "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
+            return;
+        }
+
+        // Initialize with default values for runtime
         SourceMode = 1;
-        
-        // Initialize with default enclosure list
         EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                        "【解压密码】微信号：i17269637581\n" +
                        "【解压密码】QQ号：2027123419\n" +
                        "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
-        
-        // Try to read clipboard on startup
+
+        // Try to read clipboard on startup (Runtime only)
         Task.Run(async () =>
         {
-            var clipboardText = await _systemIntegration.ReadClipboardTextAsync();
-            if (!string.IsNullOrEmpty(clipboardText) && Directory.Exists(clipboardText))
+            try 
             {
-                SaveFilePath = clipboardText;
+                var clipboardText = await _systemIntegration.ReadClipboardTextAsync();
+                if (!string.IsNullOrEmpty(clipboardText) && Directory.Exists(clipboardText))
+                {
+                    SaveFilePath = clipboardText;
+                }
+            }
+            catch 
+            {
+                // Ignore clipboard errors at startup
             }
         });
     }
@@ -404,6 +421,8 @@ public partial class MainWindowViewModel : ViewModelBase
             
             CommandLog += $"\nCompleted: Success={SuccessCount}, Fail={FailCount}, " +
                          $"Ignore={IgnoreCount}, NotFound={NonExistCount}\n";
+                         
+            _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
         catch (Exception ex)
         {
@@ -540,6 +559,8 @@ public partial class MainWindowViewModel : ViewModelBase
             
             CommandLog += $"\nCompleted: Success={SuccessCount}, Fail={FailCount}, " +
                          $"Ignore={IgnoreCount}, NotFound={NonExistCount}\n";
+                         
+            _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
         catch (Exception ex)
         {

@@ -1,5 +1,7 @@
 using System;
 using System.IO;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls;
@@ -9,6 +11,7 @@ using Avalonia.Metadata;
 using Avalonia.Layout;
 using CommunityToolkit.Mvvm.Input;
 using BatchCompress.Avalonia.ViewModels;
+using Avalonia.Input;
 
 namespace BatchCompress.Avalonia.Views;
 
@@ -17,6 +20,34 @@ public partial class MainWindow : Window
     public MainWindow()
     {
         InitializeComponent();
+        AddHandler(DragDrop.DropEvent, Drop);
+    }
+
+    private void Drop(object? sender, DragEventArgs e)
+    {
+        if (e.Data.Get(DataFormats.Files) is IEnumerable<IStorageItem> files && DataContext is MainWindowViewModel viewModel)
+        {
+            foreach (var file in files)
+            {
+                var firstPath = file.Path.LocalPath;
+                if (string.IsNullOrEmpty(firstPath)) continue;
+                
+                // 如果拖入的是文件夹
+                if (Directory.Exists(firstPath))
+                {
+                    viewModel.SaveFilePath = firstPath;
+                    viewModel.CommandLog += "拖入文件夹: " + firstPath + "\n";
+                    break; // 只处理第一个
+                }
+                // 如果拖入的是TXT文件
+                else if (File.Exists(firstPath) && firstPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    viewModel.SourcePath = firstPath;
+                    viewModel.CommandLog += "拖入TXT文件: " + firstPath + "\n";
+                    break; // 只处理第一个
+                }
+            }
+        }
     }
     
     protected override void OnDataContextChanged(EventArgs e)

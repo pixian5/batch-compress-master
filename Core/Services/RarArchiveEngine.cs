@@ -483,7 +483,7 @@ public class RarArchiveEngine : IArchiveEngine
         
         try
         {
-            return await Task.Run(() => ExecuteRarCommand(arguments, cancellationToken), cancellationToken);
+            return await ExecuteRarCommand(arguments, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -515,7 +515,7 @@ public class RarArchiveEngine : IArchiveEngine
         
         try
         {
-            return await Task.Run(() => ExecuteRarCommand(arguments, cancellationToken), cancellationToken);
+            return await ExecuteRarCommand(arguments, cancellationToken);
         }
         catch (Exception ex)
         {
@@ -660,7 +660,7 @@ public class RarArchiveEngine : IArchiveEngine
         return command;
     }
     
-    private ArchiveResult ExecuteRarCommand(string arguments, CancellationToken cancellationToken)
+    private async Task<ArchiveResult> ExecuteRarCommand(string arguments, CancellationToken cancellationToken)
     {
         try
         {
@@ -674,11 +674,19 @@ public class RarArchiveEngine : IArchiveEngine
             };
             
             process.Start();
-            process.WaitForExit();
             
-            // Check cancellation
-            if (cancellationToken.IsCancellationRequested)
+            // Wait for exit with cancellation support
+            try
             {
+                await process.WaitForExitAsync(cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                if (!process.HasExited)
+                {
+                    try { process.Kill(entireProcessTree: true); } catch { }
+                }
+                
                 return new ArchiveResult
                 {
                     Success = false,

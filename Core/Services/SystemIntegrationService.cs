@@ -80,15 +80,44 @@ public class SystemIntegrationService : ISystemIntegration
     
     public void ShowNotification(string title, string message)
     {
-        // Avalonia doesn't have built-in notification support
-        // This can be implemented with platform-specific code or third-party libraries
-        // For now, just log it
         Debug.WriteLine($"Notification: {title} - {message}");
         
-        // TODO: Implement platform-specific notifications
-        // Windows: Use ToastNotification
-        // Linux: Use libnotify
-        // macOS: Use NSUserNotificationCenter
+        try
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                var script = $"display notification \"{message.Replace("\"", "\\\"")}\" with title \"{title.Replace("\"", "\\\"")}\"";
+                Process.Start("osascript", $"-e '{script}'");
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                // 使用 PowerShell 发送通知 (Windows 10+)
+                var psCommand = $"[void] [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); " +
+                                $"$objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon; " +
+                                $"$objNotifyIcon.Icon = [System.Drawing.SystemIcons]::Information; " +
+                                $"$objNotifyIcon.BalloonTipTitle = '{title.Replace("'", "''")}'; " +
+                                $"$objNotifyIcon.BalloonTipText = '{message.Replace("'", "''")}'; " +
+                                $"$objNotifyIcon.Visible = $True; " +
+                                $"$objNotifyIcon.ShowBalloonTip(5000); " +
+                                $"Start-Sleep -Seconds 1; " +
+                                $"$objNotifyIcon.Dispose()";
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "powershell",
+                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psCommand}\"",
+                    CreateNoWindow = true,
+                    UseShellExecute = false
+                });
+            }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                Process.Start("notify-send", $"\"{title}\" \"{message}\"");
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to show notification: {ex.Message}");
+        }
     }
     
     public async Task ShutdownAsync()
