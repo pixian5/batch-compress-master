@@ -308,9 +308,12 @@ public class BatchOperationService
             var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
             
             // Log the command that was executed
-            progressInfo.Message = $"Command: {_archiveEngine.CurrentCommand}";
-            progressInfo.IsError = false;
-            progress.Report(progressInfo);
+            if (!string.IsNullOrEmpty(_archiveEngine.CurrentCommand))
+            {
+                progressInfo.Message = $"[压缩命令] {_archiveEngine.CurrentCommand}";
+                progressInfo.IsError = false;
+                progress.Report(progressInfo);
+            }
             
             if (result.Success)
             {
@@ -374,13 +377,13 @@ public class BatchOperationService
                     catch { }
                 }
                 
-                progressInfo.Message = name;
+                progressInfo.Message = $"成功: {name}";
                 progressInfo.IsError = false;
             }
             else
             {
                 progressInfo.FailCount++;
-                progressInfo.Message = $"Failed: {name} - {result.ErrorMessage}";
+                progressInfo.Message = $"失败: {name} - {result.ErrorMessage}";
                 progressInfo.IsError = true;
             }
             
@@ -479,9 +482,12 @@ public class BatchOperationService
             var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken);
             
             // Log the command that was executed
-            progressInfo.Message = $"Command: {_archiveEngine.CurrentCommand}";
-            progressInfo.IsError = false;
-            progress.Report(progressInfo);
+            if (!string.IsNullOrEmpty(_archiveEngine.CurrentCommand))
+            {
+                progressInfo.Message = $"[解压命令] {_archiveEngine.CurrentCommand}";
+                progressInfo.IsError = false;
+                progress.Report(progressInfo);
+            }
             
             if (result.Success)
             {
@@ -530,13 +536,13 @@ public class BatchOperationService
                     }
                 }
                 
-                progressInfo.Message = archiveName;
+                progressInfo.Message = $"成功: {archiveName}";
                 progressInfo.IsError = false;
             }
             else
             {
                 progressInfo.FailCount++;
-                progressInfo.Message = $"Failed: {archiveName} - {result.ErrorMessage}";
+                progressInfo.Message = $"失败: {archiveName} - {result.ErrorMessage}";
                 progressInfo.IsError = true;
             }
             
