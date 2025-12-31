@@ -29,6 +29,14 @@ public class LocalizationService : INotifyPropertyChanged
     }
     
     /// <summary>
+    /// Public method to notify property changes (for external use)
+    /// </summary>
+    public void NotifyPropertyChanged(string? propertyName = null)
+    {
+        OnPropertyChanged(propertyName);
+    }
+    
+    /// <summary>
     /// Available languages with display names.
     /// </summary>
     public static Dictionary<string, string> AvailableLanguages { get; } = new()

@@ -51,12 +51,15 @@ public partial class MainWindowViewModel : ViewModelBase
     
     partial void OnSelectedLanguageChanged(string value)
     {
+        // Change the localization service's current language
+        // This will update all the LanguageStrings properties internally
         Localization.CurrentLanguage = value;
         
-        // Force update all UI bindings that depend on localized strings
+        // Critical: Force ALL property change notifications to refresh bindings
+        // This ensures ComboBox items and all UI elements immediately update
         OnPropertyChanged(nameof(L));
         
-        // Trigger re-evaluation of computed properties
+        // Also trigger explicit updates for all computed properties that depend on L
         OnPropertyChanged(nameof(BrowseSourceButtonText));
         OnPropertyChanged(nameof(SourcePathWatermark));
         OnPropertyChanged(nameof(SourcePathLabel));
@@ -65,6 +68,10 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(FailLogTabHeader));
         OnPropertyChanged(nameof(CommandLogTabHeader));
         OnPropertyChanged(nameof(ProcessingSpeedDisplay));
+        
+        // Force the localization service itself to notify of changes
+        // This ensures all subscribers to LocalizationService.PropertyChanged are updated
+        Localization.NotifyPropertyChanged(nameof(LocalizationService.Strings));
     }
     
     [ObservableProperty]
