@@ -138,6 +138,11 @@ public class LocalizationService : INotifyPropertyChanged
             MaxSizeLabel = "最大处理大小(GB)：",
             AddAttachments = "添加附件",
             
+            // Volume Unit Options
+            VolumeUnitGB = "GB",
+            VolumeUnitMB = "MB",
+            VolumeUnitKB = "KB",
+            
             // Post-Processing Options
             AfterProcessing = "压缩或解压后",
             DeleteSource = "删除源",
@@ -253,6 +258,11 @@ public class LocalizationService : INotifyPropertyChanged
             TempDirectory = "臨時目錄：",
             MaxSizeLabel = "最大處理大小(GB)：",
             AddAttachments = "新增附件",
+            
+            // Volume Unit Options
+            VolumeUnitGB = "GB",
+            VolumeUnitMB = "MB",
+            VolumeUnitKB = "KB",
             
             // Post-Processing Options
             AfterProcessing = "壓縮或解壓後",
