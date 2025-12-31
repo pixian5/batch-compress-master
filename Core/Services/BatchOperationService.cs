@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
+using Microsoft.Extensions.Logging;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
@@ -17,11 +18,18 @@ public class BatchOperationService
 {
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
+    private readonly ILogger? _logger;
     
-    public BatchOperationService(IArchiveEngine archiveEngine, ISystemIntegration systemIntegration)
+    public BatchOperationService(IArchiveEngine archiveEngine, ISystemIntegration systemIntegration, ILogger? logger = null)
     {
         _archiveEngine = archiveEngine;
         _systemIntegration = systemIntegration;
+        _logger = logger;
+    }
+    
+    private void Log(LogLevel level, string message)
+    {
+        _logger?.Log(level, message);
     }
     
     /// <summary>
@@ -29,10 +37,12 @@ public class BatchOperationService
     /// </summary>
     public List<string> LoadFilesFromFolder(string folderPath, string extension, bool skipProcessed)
     {
+        Log(LogLevel.Information, $"Loading files from folder: {folderPath}");
         var items = new List<string>();
         
         if (!Directory.Exists(folderPath))
         {
+            Log(LogLevel.Warning, $"Folder does not exist: {folderPath}");
             return items;
         }
         
@@ -50,6 +60,7 @@ public class BatchOperationService
                     name.Equals(".DS_Store", StringComparison.OrdinalIgnoreCase) ||
                     name.StartsWith(".tmp", StringComparison.OrdinalIgnoreCase))
                 {
+                    Log(LogLevel.Debug, $"Skipping system file: {name}");
                     continue;
                 }
                 
@@ -58,16 +69,18 @@ public class BatchOperationService
                 {
                     if (name.Contains("【已压缩】") || name.Contains("【已解压】"))
                     {
+                        Log(LogLevel.Debug, $"Skipping already processed: {name}");
                         continue;
                     }
                 }
                 
                 items.Add(itemPath);
             }
+            Log(LogLevel.Information, $"Found {items.Count} items to process");
         }
         catch (Exception ex)
         {
-            // Log error if needed
+            Log(LogLevel.Error, $"Error loading items from folder: {ex.Message}");
             Console.WriteLine($"Error loading items from folder: {ex.Message}");
         }
         
@@ -210,6 +223,10 @@ public class BatchOperationService
         IProgress<OperationProgressInfo> progress,
         CancellationToken cancellationToken)
     {
+        Log(LogLevel.Information, $"Starting batch compression of {sourcePaths.Count} items");
+        Log(LogLevel.Information, $"Output path: {options.OutputPath}");
+        Log(LogLevel.Information, $"Extension: {options.Extension}, Compression level: {options.CompressionLevel}");
+        
         var progressInfo = new OperationProgressInfo
         {
             StartTime = DateTime.Now
@@ -221,12 +238,14 @@ public class BatchOperationService
         {
             if (cancellationToken.IsCancellationRequested)
             {
+                Log(LogLevel.Warning, "Operation cancelled by user");
                 break;
             }
             
             // Check if file/directory exists
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
             {
+                Log(LogLevel.Warning, $"Source not found: {sourcePath}");
                 progressInfo.NonExistCount++;
                 progressInfo.Message = $"Not found: {sourcePath}";
                 progressInfo.IsError = true;
@@ -236,10 +255,12 @@ public class BatchOperationService
             
             var name = Path.GetFileName(sourcePath);
             progressInfo.CurrentFile = name;
+            Log(LogLevel.Debug, $"Processing: {name}");
             
             // Skip if already processed
             if (options.SkipAlreadyProcessed && name.Contains("【已压缩】"))
             {
+                Log(LogLevel.Debug, $"Skipping already processed: {name}");
                 progressInfo.IgnoreCount++;
                 continue;
             }
@@ -253,11 +274,13 @@ public class BatchOperationService
             {
                 if (options.ExistingFileMode == ExistingFileMode.Skip)
                 {
+                    Log(LogLevel.Debug, $"Skipping existing output: {outputPath}");
                     progressInfo.IgnoreCount++;
                     continue;
                 }
                 else if (options.ExistingFileMode == ExistingFileMode.Overwrite)
                 {
+                    Log(LogLevel.Debug, $"Deleting existing output: {outputPath}");
                     File.Delete(outputPath);
                 }
             }
@@ -299,6 +322,7 @@ public class BatchOperationService
                     var targetPath = Path.Combine(sourcePath, enclosureName);
                     if (!Directory.Exists(targetPath))
                     {
+                        Log(LogLevel.Debug, $"Creating enclosure directory: {targetPath}");
                         Directory.CreateDirectory(targetPath);
                     }
                 }
@@ -306,6 +330,7 @@ public class BatchOperationService
             
             // Build and log the compression command BEFORE executing
             var command = _archiveEngine.BuildCompressionCommand(sourcePath, outputPath, archiveOptions);
+            Log(LogLevel.Information, $"Compression command: {command}");
             progressInfo.Message = $"[压缩命令] {command}";
             progressInfo.IsError = false;
             progress.Report(progressInfo);
@@ -315,6 +340,7 @@ public class BatchOperationService
             
             if (result.Success)
             {
+                Log(LogLevel.Information, $"Compression successful: {name} -> {outputFileName}");
                 progressInfo.SuccessCount++;
                 
                 // Calculate size
@@ -323,6 +349,7 @@ public class BatchOperationService
                     var sizeGB = new FileInfo(outputPath).Length / (1024.0 * 1024.0 * 1024.0);
                     processedSizeGB += sizeGB;
                     progressInfo.ProcessedSizeGB = processedSizeGB;
+                    Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB, Total processed: {processedSizeGB:F3} GB");
                 }
                 
                 // Post-processing
@@ -330,6 +357,7 @@ public class BatchOperationService
                 {
                     try
                     {
+                        Log(LogLevel.Debug, $"Deleting source: {sourcePath}");
                         if (Directory.Exists(sourcePath))
                         {
                             Directory.Delete(sourcePath, true);
@@ -339,7 +367,10 @@ public class BatchOperationService
                             File.Delete(sourcePath);
                         }
                     }
-                    catch { }
+                    catch (Exception ex) 
+                    { 
+                        Log(LogLevel.Warning, $"Failed to delete source: {ex.Message}");
+                    }
                 }
                 else if (options.MoveSourceAfter)
                 {
@@ -352,6 +383,7 @@ public class BatchOperationService
                         }
                         
                         var targetPath = Path.Combine(processedDir, name);
+                        Log(LogLevel.Debug, $"Moving source to: {targetPath}");
                         
                         // 检查目标是否存在，如果存在则先删除
                         if (Directory.Exists(targetPath))
@@ -372,7 +404,10 @@ public class BatchOperationService
                             File.Move(sourcePath, targetPath);
                         }
                     }
-                    catch { }
+                    catch (Exception ex) 
+                    { 
+                        Log(LogLevel.Warning, $"Failed to move source: {ex.Message}");
+                    }
                 }
                 
                 progressInfo.Message = $"成功: {name}";
@@ -380,6 +415,7 @@ public class BatchOperationService
             }
             else
             {
+                Log(LogLevel.Error, $"Compression failed: {name} - {result.ErrorMessage}");
                 progressInfo.FailCount++;
                 progressInfo.Message = $"失败: {name} - {result.ErrorMessage}";
                 progressInfo.IsError = true;
@@ -391,11 +427,14 @@ public class BatchOperationService
             // Check size limit
             if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
             {
+                Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
                 progressInfo.Message = "Size limit reached";
                 progress.Report(progressInfo);
                 break;
             }
         }
+        
+        Log(LogLevel.Information, $"Batch compression complete. Success: {progressInfo.SuccessCount}, Failed: {progressInfo.FailCount}");
         
         // Shutdown if requested
         if (options.ShutdownAfterComplete)
@@ -413,6 +452,9 @@ public class BatchOperationService
         IProgress<OperationProgressInfo> progress,
         CancellationToken cancellationToken)
     {
+        Log(LogLevel.Information, $"Starting batch decompression of {archives.Count} archives");
+        Log(LogLevel.Information, $"Output path: {options.OutputPath}");
+        
         var progressInfo = new OperationProgressInfo
         {
             StartTime = DateTime.Now
@@ -424,6 +466,7 @@ public class BatchOperationService
         {
             if (cancellationToken.IsCancellationRequested)
             {
+                Log(LogLevel.Warning, "Operation cancelled by user");
                 break;
             }
             
@@ -431,6 +474,7 @@ public class BatchOperationService
             
             if (!File.Exists(archivePath))
             {
+                Log(LogLevel.Warning, $"Archive not found: {archivePath}");
                 progressInfo.NonExistCount++;
                 progressInfo.Message = $"Not found: {archivePath}";
                 progressInfo.IsError = true;
@@ -440,10 +484,12 @@ public class BatchOperationService
             
             var archiveName = Path.GetFileName(archivePath);
             progressInfo.CurrentFile = archiveName;
+            Log(LogLevel.Debug, $"Processing: {archiveName}");
             
             // Skip if already processed
             if (options.SkipAlreadyProcessed && archiveName.Contains("【已解压】"))
             {
+                Log(LogLevel.Debug, $"Skipping already processed: {archiveName}");
                 progressInfo.IgnoreCount++;
                 continue;
             }
@@ -453,6 +499,7 @@ public class BatchOperationService
             {
                 if (!archivePath.Equals(firstVolume, StringComparison.OrdinalIgnoreCase))
                 {
+                    Log(LogLevel.Debug, $"Skipping non-first volume: {archiveName}");
                     // Skip non-first volumes
                     continue;
                 }
@@ -478,6 +525,7 @@ public class BatchOperationService
             
             // Build and log the extraction command BEFORE executing
             var command = _archiveEngine.BuildExtractionCommand(archivePath, options.OutputPath, archiveOptions);
+            Log(LogLevel.Information, $"Extraction command: {command}");
             progressInfo.Message = $"[解压命令] {command}";
             progressInfo.IsError = false;
             progress.Report(progressInfo);
@@ -487,6 +535,7 @@ public class BatchOperationService
             
             if (result.Success)
             {
+                Log(LogLevel.Information, $"Extraction successful: {archiveName}");
                 progressInfo.SuccessCount++;
                 
                 // Calculate size
@@ -506,6 +555,7 @@ public class BatchOperationService
                         {
                             if (options.DeleteSourceAfter)
                             {
+                                Log(LogLevel.Debug, $"Deleting archive: {volumeFile}");
                                 File.Delete(volumeFile);
                             }
                             else if (options.MoveSourceAfter)
@@ -518,6 +568,7 @@ public class BatchOperationService
                                 }
                                 
                                 var targetPath = Path.Combine(processedDir, Path.GetFileName(volumeFile));
+                                Log(LogLevel.Debug, $"Moving archive to: {targetPath}");
                                 
                                 // 检查目标是否存在，如果存在则先删除
                                 if (File.Exists(targetPath))
@@ -528,7 +579,10 @@ public class BatchOperationService
                                 File.Move(volumeFile, targetPath);
                             }
                         }
-                        catch { }
+                        catch (Exception ex) 
+                        { 
+                            Log(LogLevel.Warning, $"Failed to process archive file: {ex.Message}");
+                        }
                     }
                 }
                 
@@ -537,6 +591,7 @@ public class BatchOperationService
             }
             else
             {
+                Log(LogLevel.Error, $"Extraction failed: {archiveName} - {result.ErrorMessage}");
                 progressInfo.FailCount++;
                 progressInfo.Message = $"失败: {archiveName} - {result.ErrorMessage}";
                 progressInfo.IsError = true;
@@ -548,15 +603,19 @@ public class BatchOperationService
             // Check size limit
             if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
             {
+                Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
                 progressInfo.Message = "Size limit reached";
                 progress.Report(progressInfo);
                 break;
             }
         }
         
+        Log(LogLevel.Information, $"Batch decompression complete. Success: {progressInfo.SuccessCount}, Failed: {progressInfo.FailCount}");
+        
         // Shutdown if requested
         if (options.ShutdownAfterComplete)
         {
+            Log(LogLevel.Information, "Shutdown requested after completion");
             await _systemIntegration.ShutdownAsync();
         }
     }
