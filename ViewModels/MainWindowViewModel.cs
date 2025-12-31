@@ -274,30 +274,31 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             var systemCulture = System.Globalization.CultureInfo.CurrentUICulture;
             var cultureName = systemCulture.Name;
+            var twoLetterISOLanguageName = systemCulture.TwoLetterISOLanguageName;
             
             // Map system culture to available languages
             string languageCode;
-            if (cultureName.StartsWith("zh"))
+            if (twoLetterISOLanguageName == "zh")
             {
-                // Chinese - distinguish between Simplified and Traditional
-                if (cultureName.Contains("TW") || cultureName.Contains("HK") || cultureName.Contains("MO"))
+                // Chinese - distinguish between Simplified and Traditional by checking specific culture codes
+                if (cultureName == "zh-TW" || cultureName == "zh-HK" || cultureName == "zh-MO" || cultureName == "zh-Hant")
                 {
                     languageCode = "zh-TW"; // Traditional Chinese
                 }
                 else
                 {
-                    languageCode = "zh-CN"; // Simplified Chinese (default)
+                    languageCode = "zh-CN"; // Simplified Chinese (default for zh-CN, zh-SG, zh-Hans, etc.)
                 }
             }
-            else if (cultureName.StartsWith("ja"))
+            else if (twoLetterISOLanguageName == "ja")
             {
                 languageCode = "ja"; // Japanese
             }
-            else if (cultureName.StartsWith("de"))
+            else if (twoLetterISOLanguageName == "de")
             {
                 languageCode = "de"; // German
             }
-            else if (cultureName.StartsWith("en"))
+            else if (twoLetterISOLanguageName == "en")
             {
                 languageCode = "en"; // English
             }
@@ -313,9 +314,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 SelectedLanguage = languageCode;
             }
         }
-        catch
+        catch (System.Exception ex) when (ex is System.Globalization.CultureNotFoundException || ex is ArgumentException)
         {
             // If detection fails, keep the default language (zh-CN)
+            // Log error for debugging if needed in the future
+            System.Diagnostics.Debug.WriteLine($"Language detection failed: {ex.Message}");
         }
     }
     
