@@ -81,7 +81,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
-    [NotifyPropertyChangedFor(nameof(SourceModeOptions))]
     private int _sourceMode; // 0 = from text file, 1 = from folder
     
     public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;    
