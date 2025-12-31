@@ -465,22 +465,31 @@ public class RarArchiveEngine : IArchiveEngine
     }
     
     /// <summary>
+    /// Ensure RAR executable is available
+    /// </summary>
+    private bool EnsureRarExecutableAvailable()
+    {
+        if (string.IsNullOrEmpty(_rarExecutablePath))
+        {
+            return IsAvailable();
+        }
+        return true;
+    }
+    
+    /// <summary>
     /// Build compression command for preview without executing
     /// </summary>
     public string BuildCompressionCommand(string input, string output, ArchiveOptions options)
     {
-        if (string.IsNullOrEmpty(_rarExecutablePath))
+        if (!EnsureRarExecutableAvailable())
         {
-            if (!IsAvailable())
-            {
-                return "RAR executable not found";
-            }
+            return "RAR executable not found";
         }
         
-        var arguments = BuildCompressionArguments(input, output, options);
+        BuildCompressionArguments(input, output, options);
         // CurrentCommand is set as a side effect in BuildCompressionArguments
-        // Return it directly to make the command available
-        return CurrentCommand ?? $"{_rarExecutablePath} {arguments}";
+        // It's guaranteed to be non-null at this point
+        return CurrentCommand!;
     }
     
     /// <summary>
@@ -488,18 +497,15 @@ public class RarArchiveEngine : IArchiveEngine
     /// </summary>
     public string BuildExtractionCommand(string archivePath, string outputDir, ArchiveOptions options)
     {
-        if (string.IsNullOrEmpty(_rarExecutablePath))
+        if (!EnsureRarExecutableAvailable())
         {
-            if (!IsAvailable())
-            {
-                return "RAR executable not found";
-            }
+            return "RAR executable not found";
         }
         
-        var arguments = BuildExtractionArguments(archivePath, outputDir, options);
+        BuildExtractionArguments(archivePath, outputDir, options);
         // CurrentCommand is set as a side effect in BuildExtractionArguments
-        // Return it directly to make the command available
-        return CurrentCommand ?? $"{_rarExecutablePath} {arguments}";
+        // It's guaranteed to be non-null at this point
+        return CurrentCommand!;
     }
     
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
