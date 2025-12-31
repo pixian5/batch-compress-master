@@ -18,16 +18,6 @@
     <ScrollViewer DragDrop.AllowDrop="True">
         <StackPanel Margin="10" Spacing="8">
             
-            <!-- Language Selector -->
-            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" Margin="0,0,0,5">
-                <TextBlock Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
-                <ComboBox ItemsSource="{Binding AvailableLanguages}" 
-                          SelectedValue="{Binding SelectedLanguage}"
-                          SelectedValueBinding="{Binding Key}"
-                          DisplayMemberBinding="{Binding Value}"
-                          Width="120"/>
-            </StackPanel>
-            
             <!-- Source and Destination Section -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
@@ -58,7 +48,18 @@
             <!-- Options Section -->
             <Grid ColumnDefinitions="*" Margin="0,5">
                 <!-- Left Column: Compression Options -->
-                <Expander Grid.Column="0" Header="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" IsExpanded="True">
+                <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
+                    <Expander.Header>
+                        <Grid ColumnDefinitions="*,Auto,5,Auto" HorizontalAlignment="Stretch">
+                            <TextBlock Grid.Column="0" Text="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Grid.Column="1" Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
+                            <ComboBox Grid.Column="3" ItemsSource="{Binding AvailableLanguages}" 
+                                      SelectedValue="{Binding SelectedLanguage}"
+                                      SelectedValueBinding="{Binding Key}"
+                                      DisplayMemberBinding="{Binding Value}"
+                                      Width="120"/>
+                        </Grid>
+                    </Expander.Header>
                     <StackPanel Spacing="10">
                 
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8,8,8,4" CornerRadius="5">
@@ -229,7 +230,8 @@
             
             
             <!-- Log Sections -->
-            <TabControl Height="300">
+            <Border BorderBrush="Gray" BorderThickness="1" Padding="0" CornerRadius="5">
+                <TabControl Height="300">
                 <!-- Source File List -->
                 <TabItem Header="{Binding SourceFileListTabHeader}">
                     <ScrollViewer>
@@ -262,6 +264,7 @@
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
+            </Border>
             
         </StackPanel>
     </ScrollViewer>
