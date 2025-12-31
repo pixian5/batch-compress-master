@@ -256,8 +256,8 @@
                 
                 <!-- Command Log -->
                 <TabItem Header="{Binding CommandLogTabHeader}">
-                    <ScrollViewer>
-                        <TextBox Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap" 
+                    <ScrollViewer x:Name="CommandLogScrollViewer">
+                        <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap" 
                                  IsReadOnly="True" BorderThickness="0"/>
                     </ScrollViewer>
                 </TabItem>

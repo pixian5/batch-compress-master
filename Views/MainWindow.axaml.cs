@@ -13,15 +13,49 @@ using CommunityToolkit.Mvvm.Input;
 using BatchCompress.Avalonia.ViewModels;
 using BatchCompress.Avalonia.Localization;
 using Avalonia.Input;
+using System.ComponentModel;
 
 namespace BatchCompress.Avalonia.Views;
 
 public partial class MainWindow : Window
 {
+    private ScrollViewer? _commandLogScrollViewer;
+    
     public MainWindow()
     {
         InitializeComponent();
         AddHandler(DragDrop.DropEvent, Drop);
+        
+        // Setup auto-scroll for CommandLog
+        this.Loaded += MainWindow_Loaded;
+    }
+    
+    private void MainWindow_Loaded(object? sender, RoutedEventArgs e)
+    {
+        // Find the CommandLogScrollViewer
+        _commandLogScrollViewer = this.FindControl<ScrollViewer>("CommandLogScrollViewer");
+        
+        // Subscribe to CommandLog property changes
+        if (DataContext is MainWindowViewModel viewModel)
+        {
+            viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        }
+    }
+    
+    private void ViewModel_PropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(MainWindowViewModel.CommandLog))
+        {
+            // Auto-scroll to bottom when CommandLog changes
+            if (_commandLogScrollViewer != null)
+            {
+                // Use Dispatcher to ensure UI is updated before scrolling
+                global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+                {
+                    _commandLogScrollViewer.ScrollToEnd();
+                }, global::Avalonia.Threading.DispatcherPriority.Background);
+            }
+        }
     }
     
     /// <summary>
