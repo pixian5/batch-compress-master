@@ -120,17 +120,17 @@ public class LanguageStrings : INotifyPropertyChanged
     // Log messages
     public string DroppedFolder { get; set; } = "拖入文件夹: ";
     public string DroppedTxtFile { get; set; } = "拖入TXT文件: ";
-    public string Ready { get; set; } = "Ready";
-    public string CompletedMessage { get; set; } = "Completed: Success={0}, Fail={1}, Ignore={2}, NotFound={3}";
+    public string Ready { get; set; } = "就绪";
+    public string CompletedMessage { get; set; } = "完成: 成功={0}, 失败={1}, 忽略={2}, 未找到={3}";
     public string CompressionComplete { get; set; } = "压缩完成";
     public string DecompressionComplete { get; set; } = "解压完成";
     public string SuccessFailMessage { get; set; } = "成功: {0}, 失败: {1}";
-    public string NoFilesToProcess { get; set; } = "No files to process";
-    public string TryingToLoadAutomatically { get; set; } = "No files in list, trying to load automatically...";
-    public string StillNoFiles { get; set; } = "Still no files to process";
-    public string CancellingOperation { get; set; } = "Cancelling operation...";
-    public string AdvancedFeaturesUnlocked { get; set; } = "Advanced features unlocked!";
-    public string PasswordSetSuccessfully { get; set; } = "Password set successfully";
-    public string Warning7zFormat { get; set; } = "Warning: WinRAR cannot compress to 7z format, only extract. Consider using rar or zip.";
-    public string SolidDisabledForStore { get; set; } = "Solid archive disabled for Store mode";
+    public string NoFilesToProcess { get; set; } = "没有要处理的文件";
+    public string TryingToLoadAutomatically { get; set; } = "列表中没有文件，正在自动加载...";
+    public string StillNoFiles { get; set; } = "仍然没有要处理的文件";
+    public string CancellingOperation { get; set; } = "正在取消操作...";
+    public string AdvancedFeaturesUnlocked { get; set; } = "高级功能已解锁！";
+    public string PasswordSetSuccessfully { get; set; } = "密码设置成功";
+    public string Warning7zFormat { get; set; } = "警告: WinRAR 无法压缩为7z格式，只能解压。请考虑使用rar或zip。";
+    public string SolidDisabledForStore { get; set; } = "存储模式下已禁用固实压缩";
 }

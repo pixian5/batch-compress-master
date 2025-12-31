@@ -38,20 +38,20 @@ public partial class MainWindowViewModel : ViewModelBase
     /// Currently selected language code.
     /// </summary>
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(L))]
+    [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
+    [NotifyPropertyChangedFor(nameof(SourcePathWatermark))]
+    [NotifyPropertyChangedFor(nameof(SourcePathLabel))]
+    [NotifyPropertyChangedFor(nameof(SourceFileListTabHeader))]
+    [NotifyPropertyChangedFor(nameof(SuccessLogTabHeader))]
+    [NotifyPropertyChangedFor(nameof(FailLogTabHeader))]
+    [NotifyPropertyChangedFor(nameof(CommandLogTabHeader))]
+    [NotifyPropertyChangedFor(nameof(ProcessingSpeedDisplay))]
     private string _selectedLanguage = "zh-CN";
     
     partial void OnSelectedLanguageChanged(string value)
     {
         Localization.CurrentLanguage = value;
-        // Notify all localized properties to refresh
-        OnPropertyChanged(nameof(L));
-        OnPropertyChanged(nameof(BrowseSourceButtonText));
-        OnPropertyChanged(nameof(SourcePathWatermark));
-        OnPropertyChanged(nameof(SourcePathLabel));
-        OnPropertyChanged(nameof(SourceFileListTabHeader));
-        OnPropertyChanged(nameof(SuccessLogTabHeader));
-        OnPropertyChanged(nameof(FailLogTabHeader));
-        OnPropertyChanged(nameof(CommandLogTabHeader));
     }
     
     [ObservableProperty]
