@@ -237,6 +237,9 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
+        // Detect and set system language
+        DetectSystemLanguage();
+
         // Initialize with default values for runtime
         SourceMode = 1;
         EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
@@ -260,6 +263,60 @@ public partial class MainWindowViewModel : ViewModelBase
                 // Ignore clipboard errors at startup
             }
         });
+    }
+    
+    /// <summary>
+    /// Detects the system language and sets the UI language accordingly.
+    /// </summary>
+    private void DetectSystemLanguage()
+    {
+        try
+        {
+            var systemCulture = System.Globalization.CultureInfo.CurrentUICulture;
+            var cultureName = systemCulture.Name;
+            
+            // Map system culture to available languages
+            string languageCode;
+            if (cultureName.StartsWith("zh"))
+            {
+                // Chinese - distinguish between Simplified and Traditional
+                if (cultureName.Contains("TW") || cultureName.Contains("HK") || cultureName.Contains("MO"))
+                {
+                    languageCode = "zh-TW"; // Traditional Chinese
+                }
+                else
+                {
+                    languageCode = "zh-CN"; // Simplified Chinese (default)
+                }
+            }
+            else if (cultureName.StartsWith("ja"))
+            {
+                languageCode = "ja"; // Japanese
+            }
+            else if (cultureName.StartsWith("de"))
+            {
+                languageCode = "de"; // German
+            }
+            else if (cultureName.StartsWith("en"))
+            {
+                languageCode = "en"; // English
+            }
+            else
+            {
+                // Default to Simplified Chinese if no match
+                languageCode = "zh-CN";
+            }
+            
+            // Set the language if it's available
+            if (LocalizationService.AvailableLanguages.ContainsKey(languageCode))
+            {
+                SelectedLanguage = languageCode;
+            }
+        }
+        catch
+        {
+            // If detection fails, keep the default language (zh-CN)
+        }
     }
     
     // Callbacks for file browsing (set by the View)
