@@ -413,14 +413,18 @@ public partial class MainWindowViewModel : ViewModelBase
                     SuccessLog += info.Message + "\n";
                 }
                 
-                CommandLog += info.Message + "\n";
+                // Only add command messages to CommandLog (those starting with [压缩命令] or [解压命令])
+                if (info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]"))
+                {
+                    CommandLog += info.Message + "\n";
+                }
             });
             
             await _batchOperationService.BatchCompressAsync(
                 sourcePaths, options, progress, _cancellationTokenSource.Token);
             
-            CommandLog += $"\nCompleted: Success={SuccessCount}, Fail={FailCount}, " +
-                         $"Ignore={IgnoreCount}, NotFound={NonExistCount}\n";
+            CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
+                         $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
             _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
@@ -551,14 +555,18 @@ public partial class MainWindowViewModel : ViewModelBase
                     SuccessLog += info.Message + "\n";
                 }
                 
-                CommandLog += info.Message + "\n";
+                // Only add command messages to CommandLog (those starting with [压缩命令] or [解压命令])
+                if (info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]"))
+                {
+                    CommandLog += info.Message + "\n";
+                }
             });
             
             await _batchOperationService.BatchDecompressAsync(
                 entries, options, progress, _cancellationTokenSource.Token);
             
-            CommandLog += $"\nCompleted: Success={SuccessCount}, Fail={FailCount}, " +
-                         $"Ignore={IgnoreCount}, NotFound={NonExistCount}\n";
+            CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
+                         $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
             _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
