@@ -314,10 +314,9 @@ public partial class MainWindowViewModel : ViewModelBase
                 SelectedLanguage = languageCode;
             }
         }
-        catch (System.Exception ex) when (ex is System.Globalization.CultureNotFoundException || ex is ArgumentException)
+        catch (System.Globalization.CultureNotFoundException ex)
         {
-            // If detection fails, keep the default language (zh-CN)
-            // Log error for debugging if needed in the future
+            // If culture detection fails, keep the default language (zh-CN)
             System.Diagnostics.Debug.WriteLine($"Language detection failed: {ex.Message}");
         }
     }
