@@ -8,7 +8,7 @@
         x:Class="BatchCompress.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
         Icon="/Assets/avalonia-logo.ico"
-        Title="批量压缩解压工具 - Avalonia Cross-Platform"
+        Title="{Binding L.WindowTitle}"
         Width="1200" Height="800">
 
     <Design.DataContext>
@@ -18,29 +18,39 @@
     <ScrollViewer DragDrop.AllowDrop="True">
         <StackPanel Margin="10" Spacing="8">
             
+            <!-- Language Selector -->
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="5" Margin="0,0,0,5">
+                <TextBlock Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
+                <ComboBox ItemsSource="{Binding AvailableLanguages}" 
+                          SelectedValue="{Binding SelectedLanguage}"
+                          SelectedValueBinding="{Binding Key}"
+                          DisplayMemberBinding="{Binding Value}"
+                          Width="120"/>
+            </StackPanel>
+            
             <!-- Source and Destination Section -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
-                    <TextBlock Text="来源与目标" FontWeight="Bold" FontSize="14"/>
+                    <TextBlock Text="{Binding L.SourceAndDestination}" FontWeight="Bold" FontSize="14"/>
                     
                     <!-- Source and Destination Section -->
                     <Grid ColumnDefinitions="200,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
                         <!-- Row 0: Source Mode and Save Path -->
                         <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" HorizontalAlignment="Stretch">
-                            <ComboBoxItem Content="从txt读取要解压的文件："/>
-                            <ComboBoxItem Content="压缩此文件夹内所有文件："/>
+                            <ComboBoxItem Content="{Binding L.FromTxtMode}"/>
+                            <ComboBoxItem Content="{Binding L.CompressFolderMode}"/>
                         </ComboBox>
-                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="待压缩/解压文件保存路径" HorizontalAlignment="Stretch"/>
-                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="选择目录" HorizontalAlignment="Right"/>
+                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch"/>
+                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right"/>
                         
                         <!-- Row 2: TXT File Path -->
-                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" Watermark="TXT文件的路径" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}"/>
-                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="选txt" HorizontalAlignment="Right" IsVisible="{Binding IsFromTxtMode}"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" Watermark="{Binding L.TxtPathWatermark}" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}"/>
+                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="{Binding L.SelectTxt}" HorizontalAlignment="Right" IsVisible="{Binding IsFromTxtMode}"/>
                         
                         <!-- Row 4: Output Path -->
-                        <Button Grid.Row="4" Grid.Column="0" Content="同上" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Left"/>
-                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" Watermark="目的地" HorizontalAlignment="Stretch"/>
-                        <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="80" Content="选择目录" HorizontalAlignment="Right"/>
+                        <Button Grid.Row="4" Grid.Column="0" Content="{Binding L.SameAsAbove}" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Left"/>
+                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" Watermark="{Binding L.DestinationWatermark}" HorizontalAlignment="Stretch"/>
+                        <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -48,54 +58,54 @@
             <!-- Options Section -->
             <Grid ColumnDefinitions="*" Margin="0,5">
                 <!-- Left Column: Compression Options -->
-                <Expander Grid.Column="0" Header="压缩选项" FontWeight="Bold" FontSize="14" IsExpanded="True">
+                <Expander Grid.Column="0" Header="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" IsExpanded="True">
                     <StackPanel Spacing="10">
                 
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8,8,8,4" CornerRadius="5">
                                 <StackPanel Spacing="6">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
-                                        <TextBlock Text="文件名（不含扩展名）：" VerticalAlignment="Center"/>
+                                        <TextBlock Text="{Binding L.FileNameLabel}" VerticalAlignment="Center"/>
                                         <TextBox Text="{Binding PasswordQueryFileName}" Width="200"/>
-                                        <Button Content="查询密码" Command="{Binding QueryPasswordCommand}" Width="80"/>
-                                        <Button Content="确认密码/解锁" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="80"/>
+                                        <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80"/>
+                                        <Button Content="{Binding L.ConfirmPassword}" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="100"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
-                                        <CheckBox Content="随机密码" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0"/>
+                                        <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0"/>
                                         <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
-                                                 Watermark="自定义密码" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0"/>
+                                                 Watermark="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0"/>
                                     </StackPanel>
                                     
                                     <!-- 查询结果区域 -->
                                     <StackPanel Spacing="2" IsVisible="{Binding PasswordQueryResult, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}">
                                         <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
-                                        <TextBlock Text="（已复制到剪贴板）" FontSize="10" Foreground="Gray"/>
+                                        <TextBlock Text="{Binding L.CopiedToClipboard}" FontSize="10" Foreground="Gray"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
                             
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="扩展名：" VerticalAlignment="Center" Margin="0,0,10,3"/>
+                                <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3"/>
-                                <CheckBox Grid.Row="0" Grid.Column="2" Content="校验" IsChecked="{Binding TestArchive}" Margin="20,0,0,3"/>
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="{Binding L.Verify}" IsChecked="{Binding TestArchive}" Margin="20,0,0,3"/>
                                 <!-- 自定义密码文本框已移至随机密码复选框右侧 -->
 
                                 <!-- Row 1 -->
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="压缩率：" VerticalAlignment="Center" Margin="0,0,10,3"/>
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.CompressionLevelLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3">
-                                    <ComboBoxItem Content="不压缩"/>
-                                    <ComboBoxItem Content="轻度"/>
-                                    <ComboBoxItem Content="快速"/>
-                                    <ComboBoxItem Content="标准"/>
-                                    <ComboBoxItem Content="较好"/>
-                                    <ComboBoxItem Content="最佳"/>
+                                    <ComboBoxItem Content="{Binding L.NoCompression}"/>
+                                    <ComboBoxItem Content="{Binding L.Light}"/>
+                                    <ComboBoxItem Content="{Binding L.Fast}"/>
+                                    <ComboBoxItem Content="{Binding L.Standard}"/>
+                                    <ComboBoxItem Content="{Binding L.Better}"/>
+                                    <ComboBoxItem Content="{Binding L.Best}"/>
                                 </ComboBox>
                                 
-                                <CheckBox Grid.Row="1" Grid.Column="2" Content="固实" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3"/>
-                                <CheckBox Grid.Row="1" Grid.Column="3" Content="快速打开" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3"/>
+                                <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3"/>
+                                <CheckBox Grid.Row="1" Grid.Column="3" Content="{Binding L.QuickOpen}" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 2 -->
-                                <CheckBox Grid.Row="2" Grid.Column="0" Content="分卷" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3"/>
+                                <CheckBox Grid.Row="2" Grid.Column="0" Content="{Binding L.Volume}" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3"/>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,3">
                                     <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
                                     <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="80" IsEnabled="{Binding EnableVolume}">
@@ -106,28 +116,28 @@
                                 </StackPanel>
                                 
                                 <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" Width="160" HorizontalAlignment="Left" Margin="20,0,0,3">
-                                    <ComboBoxItem Content="跳过现有文件"/>
-                                    <ComboBoxItem Content="更新现有文件"/>
-                                    <ComboBoxItem Content="覆盖现有文件"/>
+                                    <ComboBoxItem Content="{Binding L.SkipExisting}"/>
+                                    <ComboBoxItem Content="{Binding L.UpdateExisting}"/>
+                                    <ComboBoxItem Content="{Binding L.OverwriteExisting}"/>
                                 </ComboBox>
                                 
                                 <!-- Row 3 -->
-                                <CheckBox Grid.Row="3" Grid.Column="0" Content="启用注释" IsChecked="{Binding EnableComment}" Margin="0,0,10,3"/>
+                                <CheckBox Grid.Row="3" Grid.Column="0" Content="{Binding L.EnableComment}" IsChecked="{Binding EnableComment}" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300" 
                                          IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
-                                <CheckBox Grid.Row="3" Grid.Column="3" Content="跳过已处理" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3"/>
+                                <CheckBox Grid.Row="3" Grid.Column="3" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3"/>
                                 
                                 <!-- Row 4 -->
-                                <TextBlock Grid.Row="4" Grid.Column="0" Text="临时目录：" VerticalAlignment="Center" Margin="0,0,10,3"/>
+                                <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L.TempDirectory}" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 5: Max Size -->
-                                <TextBlock Grid.Row="5" Grid.Column="2" Text="最大处理大小(GB)：" VerticalAlignment="Center" Margin="20,0,10,3"/>
+                                <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="20,0,10,3"/>
                                 <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
                                 <!-- Row 6: Add Enclosures -->
-                                <CheckBox Grid.Row="6" Grid.Column="0" Content="添加附件" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
+                                <CheckBox Grid.Row="6" Grid.Column="0" Content="{Binding L.AddAttachments}" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
                             </Grid>
                             
                             <!-- Enclosure List -->
@@ -138,12 +148,12 @@
                             <!-- Post-Processing Options -->
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="压缩或解压后" FontWeight="Bold" FontSize="14"/>
+                                    <TextBlock Text="{Binding L.AfterProcessing}" FontWeight="Bold" FontSize="14"/>
                                     
                                     <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <CheckBox Content="删除源" IsChecked="{Binding DeleteSourceAfter}"/>
-                                        <CheckBox Content="移动源" IsChecked="{Binding MoveSourceAfter}"/>
-                                        <CheckBox Content="完成后关机" IsChecked="{Binding ShutdownAfterComplete}"/>
+                                        <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}"/>
+                                        <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}"/>
+                                        <CheckBox Content="{Binding L.ShutdownAfterComplete}" IsChecked="{Binding ShutdownAfterComplete}"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -155,62 +165,62 @@
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="10">
-                        <Button Content="压缩" Command="{Binding CompressCommand}" Width="100" Height="36" CornerRadius="18"
+                        <Button Content="{Binding L.Compress}" Command="{Binding CompressCommand}" Width="100" Height="36" CornerRadius="18"
                                 IsEnabled="{Binding !IsOperating}" Background="#28a745" Foreground="White"
                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                        <Button Content="解压" Command="{Binding DecompressCommand}" Width="100" Height="36" CornerRadius="18"
+                        <Button Content="{Binding L.Decompress}" Command="{Binding DecompressCommand}" Width="100" Height="36" CornerRadius="18"
                                 IsEnabled="{Binding !IsOperating}" Background="#007bff" Foreground="White"
                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
-                        <Button Content="中止" Command="{Binding CancelOperationCommand}" Width="100" Height="36" CornerRadius="18"
+                        <Button Content="{Binding L.Cancel}" Command="{Binding CancelOperationCommand}" Width="100" Height="36" CornerRadius="18"
                                 IsEnabled="{Binding IsOperating}" Background="#dc3545" Foreground="White"
                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center"/>
                         <Separator Width="1" Height="24" Background="LightGray" Margin="5,0"/>
-                        <Button Content="更新列表" Command="{Binding RefreshFileListCommand}" Width="90" Height="32"/>
-                        <Button Content="清空日志" Command="{Binding ClearLogsCommand}" Width="90" Height="32"/>
-                        <Button Content="打开输出" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32"/>
-                        <Button Content="打开源" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32"/>
+                        <Button Content="{Binding L.RefreshList}" Command="{Binding RefreshFileListCommand}" Width="90" Height="32"/>
+                        <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Width="90" Height="32"/>
+                        <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32"/>
+                        <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32"/>
                     </StackPanel>
                     
                     <!-- Status Display -->
                     <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="15">
                         <StackPanel>
-                            <TextBlock Text="当前文件：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.CurrentFile}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding CurrentFile}" TextWrapping="Wrap"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="成功：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.Success}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding SuccessCount}" Foreground="Green" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="失败：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.Failure}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding FailCount}" Foreground="Red" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="忽略：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.Ignored}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding IgnoreCount}" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="已处理大小：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.ProcessedSize}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding ProcessedSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="总文件大小：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.TotalFileSize}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding TotalSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="已用时间：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.ElapsedTime}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding ElapsedTime, StringFormat={}{0:hh\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="剩余时间：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.RemainingTime}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding RemainingTime, StringFormat={}{0:hh\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="处理速度：" FontWeight="Bold"/>
-                            <TextBlock Text="{Binding ProcessingSpeedMBPerSecond, StringFormat={}{0:0}MB/秒}" Foreground="Blue" FontSize="16"/>
+                            <TextBlock Text="{Binding L.ProcessingSpeed}" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding ProcessingSpeedDisplay}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                         <StackPanel>
-                            <TextBlock Text="预计完成：" FontWeight="Bold"/>
+                            <TextBlock Text="{Binding L.EstimatedCompletion}" FontWeight="Bold"/>
                             <TextBlock Text="{Binding EstimatedCompletionTime, StringFormat={}{0:HH\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                         </StackPanel>
                     </StackPanel>

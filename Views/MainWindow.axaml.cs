@@ -11,6 +11,7 @@ using Avalonia.Metadata;
 using Avalonia.Layout;
 using CommunityToolkit.Mvvm.Input;
 using BatchCompress.Avalonia.ViewModels;
+using BatchCompress.Avalonia.Localization;
 using Avalonia.Input;
 using System.ComponentModel;
 
@@ -56,6 +57,11 @@ public partial class MainWindow : Window
             }
         }
     }
+    
+    /// <summary>
+    /// Gets the current localized strings.
+    /// </summary>
+    private LanguageStrings L => LocalizationService.Instance.Strings;
 
     private void Drop(object? sender, DragEventArgs e)
     {
@@ -70,14 +76,14 @@ public partial class MainWindow : Window
                 if (Directory.Exists(firstPath))
                 {
                     viewModel.SaveFilePath = firstPath;
-                    viewModel.CommandLog += "拖入文件夹: " + firstPath + "\n";
+                    viewModel.CommandLog += L.DroppedFolder + firstPath + "\n";
                     break; // 只处理第一个
                 }
                 // 如果拖入的是TXT文件
                 else if (File.Exists(firstPath) && firstPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
                 {
                     viewModel.SourcePath = firstPath;
-                    viewModel.CommandLog += "拖入TXT文件: " + firstPath + "\n";
+                    viewModel.CommandLog += L.DroppedTxtFile + firstPath + "\n";
                     break; // 只处理第一个
                 }
             }
@@ -109,7 +115,7 @@ public partial class MainWindow : Window
             if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
             {
                 // 提示用户选择保存目录
-                bool shouldContinue = await ShowOkCancelMessageBoxAsync("提示", "请选择待解压文件保存目录");
+                bool shouldContinue = await ShowOkCancelMessageBoxAsync(L.Hint, L.SelectSaveDirectory);
                 
                 if (shouldContinue)
                 {
@@ -140,12 +146,12 @@ public partial class MainWindow : Window
             // 让用户选择密码文件
             var fileOptions = new FilePickerOpenOptions
             {
-                Title = "选择密码本TXT文件",
+                Title = L.SelectPasswordTxt,
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {
-                    new FilePickerFileType("文本文件") { Patterns = new[] { "*.txt" } },
-                    new FilePickerFileType("所有文件") { Patterns = new[] { "*.*" } }
+                    new FilePickerFileType(L.TextFile) { Patterns = new[] { "*.txt" } },
+                    new FilePickerFileType(L.AllFiles) { Patterns = new[] { "*.*" } }
                 }
             };
             
@@ -166,7 +172,7 @@ public partial class MainWindow : Window
         {
             var options = new FolderPickerOpenOptions
             {
-                Title = "选择来源文件夹",
+                Title = L.SelectSourceFolder,
                 AllowMultiple = false
             };
             
@@ -182,7 +188,7 @@ public partial class MainWindow : Window
     {
         var options = new FolderPickerOpenOptions
         {
-            Title = "选择输出文件夹",
+            Title = L.SelectOutputFolder,
             AllowMultiple = false
         };
         
@@ -205,7 +211,7 @@ public partial class MainWindow : Window
             
             var options = new FolderPickerOpenOptions
             {
-                Title = "选择待压缩/解压文件保存目录",
+                Title = L.SelectSaveFolder,
                 AllowMultiple = false
             };
             
@@ -237,12 +243,12 @@ public partial class MainWindow : Window
     {
         var options = new FilePickerOpenOptions
         {
-            Title = "选择文本文件",
+            Title = L.SelectTextFile,
             AllowMultiple = false,
             FileTypeFilter = new[]
             {
-                new FilePickerFileType("文本文件") { Patterns = new[] { "*.txt" } },
-                new FilePickerFileType("所有文件") { Patterns = new[] { "*.*" } }
+                new FilePickerFileType(L.TextFile) { Patterns = new[] { "*.txt" } },
+                new FilePickerFileType(L.AllFiles) { Patterns = new[] { "*.*" } }
             }
         };
         
@@ -269,7 +275,7 @@ public partial class MainWindow : Window
                     new TextBlock { Text = message, FontSize = 16, Margin = new Thickness(0, 20, 0, 20) },
                     new Button
                     {
-                        Content = "确定",
+                        Content = L.Ok,
                         Width = 100,
                         HorizontalAlignment = HorizontalAlignment.Center
                     }
@@ -306,8 +312,8 @@ public partial class MainWindow : Window
                         Spacing = 20,
                         Children =
                         {
-                            new Button { Content = "确定", Width = 100 },
-                            new Button { Content = "取消", Width = 100 }
+                            new Button { Content = L.Ok, Width = 100 },
+                            new Button { Content = L.CancelDialog, Width = 100 }
                         }
                     }
                 }
