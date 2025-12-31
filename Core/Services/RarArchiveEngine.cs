@@ -95,17 +95,12 @@ public class RarArchiveEngine : IArchiveEngine
 
     private IEnumerable<string> GetWindowsCandidates()
     {
-        // 1) 程序运行目录下的 tools/WinRAR 目录（跨平台工具集）
+        // 1) 程序运行目录下的 tools/WinRAR 目录（优先使用）
         var toolsWinrarDir = Path.Combine(AppContext.BaseDirectory, "tools", "WinRAR");
         yield return Path.Combine(toolsWinrarDir, "Rar.exe");
         yield return Path.Combine(toolsWinrarDir, "WinRAR.exe");
-        
-        // 2) 程序运行目录下的 winrar 目录（向后兼容）
-        var winrarDir = Path.Combine(AppContext.BaseDirectory, "winrar");
-        yield return Path.Combine(winrarDir, "rar.exe");
-        yield return Path.Combine(winrarDir, "winrar.exe");
 
-        // 3) 注册表 App Paths（HKLM/HKCU）
+        // 2) 注册表 App Paths（HKLM/HKCU）
         foreach (var p in EnumerateAppPathsFromRegistry("rar.exe"))
         {
             yield return p;
@@ -115,11 +110,16 @@ public class RarArchiveEngine : IArchiveEngine
             yield return p;
         }
 
-        // 4) 默认安装目录
+        // 3) 默认安装目录
         yield return @"C:\Program Files\WinRAR\rar.exe";
         yield return @"C:\Program Files\WinRAR\winrar.exe";
         yield return @"C:\Program Files (x86)\WinRAR\rar.exe";
         yield return @"C:\Program Files (x86)\WinRAR\winrar.exe";
+        
+        // 4) 程序运行目录下的 winrar 目录（向后兼容，最后使用）
+        var winrarDir = Path.Combine(AppContext.BaseDirectory, "winrar");
+        yield return Path.Combine(winrarDir, "rar.exe");
+        yield return Path.Combine(winrarDir, "winrar.exe");
     }
 
     private IEnumerable<string> EnumerateAppPathsFromRegistry(string exeName)
@@ -175,19 +175,16 @@ public class RarArchiveEngine : IArchiveEngine
 
     private IEnumerable<string> GetMacCandidates()
     {
-        // 1) 程序运行目录下的 tools/rarmacOS 目录（跨平台工具集）
+        // 1) 程序运行目录下的 tools/rarmacOS 目录（优先使用）
         var toolsRarDir = Path.Combine(AppContext.BaseDirectory, "tools", "rarmacOS", "rar");
         yield return toolsRarDir;
-        
-        // 2) 程序运行目录（向后兼容）
-        yield return Path.Combine(AppContext.BaseDirectory, "rar");
 
-        // 3) 固定路径（避免 Finder 启动 PATH 不完整）
+        // 2) 固定路径（避免 Finder 启动 PATH 不完整）
         yield return "/opt/homebrew/bin/rar";
         yield return "/usr/local/bin/rar";
         yield return "/usr/bin/rar";
 
-        // 4) PATH/which
+        // 3) PATH/which
         var which = ExecuteCommandCaptureAll("which", "rar", timeoutMs: 2000);
         if (!string.IsNullOrWhiteSpace(which.Output))
         {
@@ -198,26 +195,26 @@ public class RarArchiveEngine : IArchiveEngine
             }
         }
 
-        // 5) 用户目录兜底
+        // 4) 用户目录兜底
         yield return ExpandHome("~/rar/rar");
         yield return ExpandHome("~/.local/bin/rar");
+        
+        // 5) 程序运行目录（向后兼容，最后使用）
+        yield return Path.Combine(AppContext.BaseDirectory, "rar");
     }
 
     private IEnumerable<string> GetLinuxCandidates()
     {
-        // 1) 程序运行目录下的 tools/rarLinux 目录（跨平台工具集）
+        // 1) 程序运行目录下的 tools/rarLinux 目录（优先使用）
         var toolsRarDir = Path.Combine(AppContext.BaseDirectory, "tools", "rarLinux", "rar");
         yield return toolsRarDir;
-        
-        // 2) 程序运行目录：rarlinux（向后兼容）
-        yield return Path.Combine(AppContext.BaseDirectory, "rarlinux");
 
-        // 3) 固定路径
+        // 2) 固定路径
         yield return "/usr/bin/rar";
         yield return "/usr/local/bin/rar";
         yield return "/bin/rar";
 
-        // 4) PATH/which
+        // 3) PATH/which
         var which = ExecuteCommandCaptureAll("which", "rar", timeoutMs: 2000);
         if (!string.IsNullOrWhiteSpace(which.Output))
         {
@@ -228,9 +225,12 @@ public class RarArchiveEngine : IArchiveEngine
             }
         }
 
-        // 5) 用户目录兜底
+        // 4) 用户目录兜底
         yield return ExpandHome("~/rar/rar");
         yield return ExpandHome("~/.local/bin/rar");
+        
+        // 5) 程序运行目录：rarlinux（向后兼容，最后使用）
+        yield return Path.Combine(AppContext.BaseDirectory, "rarlinux");
     }
 
     private static string ExpandHome(string path)

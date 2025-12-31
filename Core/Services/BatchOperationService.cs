@@ -14,7 +14,7 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// <summary>
 /// Service for batch compression and decompression operations
 /// </summary>
-public class BatchOperationService
+public class BatchOperationService      
 {
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
@@ -328,7 +328,7 @@ public class BatchOperationService
                 }
             }
             
-            // Build and log the compression command BEFORE executing
+            // Build and log the compression command BEFORE executing (only if not already logged)
             var command = _archiveEngine.BuildCompressionCommand(sourcePath, outputPath, archiveOptions);
             Log(LogLevel.Information, $"Compression command: {command}");
             progressInfo.Message = $"[压缩命令] {command}";
@@ -410,6 +410,7 @@ public class BatchOperationService
                     }
                 }
                 
+                // Success message still goes to SuccessLog, but not to CommandLog
                 progressInfo.Message = $"成功: {name}";
                 progressInfo.IsError = false;
             }
@@ -523,7 +524,7 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode
             };
             
-            // Build and log the extraction command BEFORE executing
+            // Build and log the extraction command BEFORE executing (only if not already logged)
             var command = _archiveEngine.BuildExtractionCommand(archivePath, options.OutputPath, archiveOptions);
             Log(LogLevel.Information, $"Extraction command: {command}");
             progressInfo.Message = $"[解压命令] {command}";
@@ -586,6 +587,7 @@ public class BatchOperationService
                     }
                 }
                 
+                // Success message still goes to SuccessLog, but not to CommandLog
                 progressInfo.Message = $"成功: {archiveName}";
                 progressInfo.IsError = false;
             }

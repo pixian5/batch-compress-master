@@ -11,6 +11,7 @@ using Avalonia.Platform.Storage;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
 using BatchCompress.Avalonia.Core.Services;
+using BatchCompress.Avalonia.Localization;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -23,23 +24,53 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly BatchOperationService _batchOperationService;
     private CancellationTokenSource? _cancellationTokenSource;
     
+    // Localization support
+    public LocalizationService Localization => LocalizationService.Instance;
+    public LanguageStrings L => Localization.Strings;
+    
+    /// <summary>
+    /// List of available languages for the dropdown.
+    /// </summary>
+    public List<KeyValuePair<string, string>> AvailableLanguages { get; } = 
+        LocalizationService.AvailableLanguages.ToList();
+    
+    /// <summary>
+    /// Currently selected language code.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(L))]
+    [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
+    [NotifyPropertyChangedFor(nameof(SourcePathWatermark))]
+    [NotifyPropertyChangedFor(nameof(SourcePathLabel))]
+    [NotifyPropertyChangedFor(nameof(SourceFileListTabHeader))]
+    [NotifyPropertyChangedFor(nameof(SuccessLogTabHeader))]
+    [NotifyPropertyChangedFor(nameof(FailLogTabHeader))]
+    [NotifyPropertyChangedFor(nameof(CommandLogTabHeader))]
+    [NotifyPropertyChangedFor(nameof(ProcessingSpeedDisplay))]
+    private string _selectedLanguage = "zh-CN";
+    
+    partial void OnSelectedLanguageChanged(string value)
+    {
+        Localization.CurrentLanguage = value;
+    }
+    
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
     private int _sourceMode; // 0 = from text file, 1 = from folder
     
-    public string BrowseSourceButtonText => SourceMode == 0 ? "选txt" : "选择文件夹";    
+    public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;    
     
-    public string SourcePathWatermark => SourceMode == 0 ? "TXT 文件的路径" : "压缩文件所在文件夹";    
-    public string SourcePathLabel => SourceMode == 0 ? "从txt读取要解压的文件：" : "压缩此文件夹内所有文件：";
+    public string SourcePathWatermark => SourceMode == 0 ? L.TxtPathWatermark : L.SavePathWatermark;    
+    public string SourcePathLabel => SourceMode == 0 ? L.FromTxtMode : L.CompressFolderMode;
     
     public bool IsFromTxtMode => SourceMode == 0;
     
     // Tab header with item count
-    public string SourceFileListTabHeader => $"待处理文件列表 ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
-    public string SuccessLogTabHeader => $"成功记录 ({(string.IsNullOrEmpty(SuccessLog) ? 0 : SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
-    public string FailLogTabHeader => $"失败记录 ({(string.IsNullOrEmpty(FailLog) ? 0 : FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
-    public string CommandLogTabHeader => $"命令日志 ({(string.IsNullOrEmpty(CommandLog) ? 0 : CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string SourceFileListTabHeader => $"{L.FileListTab} ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string SuccessLogTabHeader => $"{L.SuccessLogTab} ({(string.IsNullOrEmpty(SuccessLog) ? 0 : SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string FailLogTabHeader => $"{L.FailLogTab} ({(string.IsNullOrEmpty(FailLog) ? 0 : FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string CommandLogTabHeader => $"{L.CommandLogTab} ({(string.IsNullOrEmpty(CommandLog) ? 0 : CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     
     [ObservableProperty]
     private string _sourcePath = string.Empty;
@@ -144,7 +175,13 @@ public partial class MainWindowViewModel : ViewModelBase
     private TimeSpan _remainingTime = TimeSpan.Zero;
     
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ProcessingSpeedDisplay))]
     private double _processingSpeedMBPerSecond = 0;
+    
+    /// <summary>
+    /// Gets the processing speed display string with localized unit.
+    /// </summary>
+    public string ProcessingSpeedDisplay => $"{ProcessingSpeedMBPerSecond:0}{L.ProcessingSpeedUnit}";
     
     [ObservableProperty]
     private DateTime _estimatedCompletionTime = DateTime.MinValue;
@@ -413,14 +450,18 @@ public partial class MainWindowViewModel : ViewModelBase
                     SuccessLog += info.Message + "\n";
                 }
                 
-                CommandLog += info.Message + "\n";
+                // Only add command messages to CommandLog (those starting with [压缩命令] or [解压命令])
+                if (info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]"))
+                {
+                    CommandLog += info.Message + "\n";
+                }
             });
             
             await _batchOperationService.BatchCompressAsync(
                 sourcePaths, options, progress, _cancellationTokenSource.Token);
             
-            CommandLog += $"\nCompleted: Success={SuccessCount}, Fail={FailCount}, " +
-                         $"Ignore={IgnoreCount}, NotFound={NonExistCount}\n";
+            CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
+                         $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
             _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
@@ -551,14 +592,18 @@ public partial class MainWindowViewModel : ViewModelBase
                     SuccessLog += info.Message + "\n";
                 }
                 
-                CommandLog += info.Message + "\n";
+                // Only add command messages to CommandLog (those starting with [压缩命令] or [解压命令])
+                if (info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]"))
+                {
+                    CommandLog += info.Message + "\n";
+                }
             });
             
             await _batchOperationService.BatchDecompressAsync(
                 entries, options, progress, _cancellationTokenSource.Token);
             
-            CommandLog += $"\nCompleted: Success={SuccessCount}, Fail={FailCount}, " +
-                         $"Ignore={IgnoreCount}, NotFound={NonExistCount}\n";
+            CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
+                         $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
             _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
