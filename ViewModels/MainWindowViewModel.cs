@@ -52,6 +52,19 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnSelectedLanguageChanged(string value)
     {
         Localization.CurrentLanguage = value;
+        
+        // Force update all UI bindings that depend on localized strings
+        OnPropertyChanged(nameof(L));
+        
+        // Trigger re-evaluation of computed properties
+        OnPropertyChanged(nameof(BrowseSourceButtonText));
+        OnPropertyChanged(nameof(SourcePathWatermark));
+        OnPropertyChanged(nameof(SourcePathLabel));
+        OnPropertyChanged(nameof(SourceFileListTabHeader));
+        OnPropertyChanged(nameof(SuccessLogTabHeader));
+        OnPropertyChanged(nameof(FailLogTabHeader));
+        OnPropertyChanged(nameof(CommandLogTabHeader));
+        OnPropertyChanged(nameof(ProcessingSpeedDisplay));
     }
     
     [ObservableProperty]
