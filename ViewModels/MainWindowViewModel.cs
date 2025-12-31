@@ -62,6 +62,26 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CompressionLevelOptions));
         OnPropertyChanged(nameof(ExistingFileModeOptions));
         
+        // Force ComboBox selected items to refresh by temporarily changing and restoring SelectedIndex
+        // This is necessary because Avalonia's ComboBox doesn't auto-refresh the displayed text
+        // when ItemsSource changes, even if the SelectedIndex remains the same
+        var tempSourceMode = SourceMode;
+        var tempCompressionLevel = CompressionLevel;
+        var tempExistingFileMode = ExistingFileMode;
+        var tempVolumeUnit = VolumeUnit;
+        
+        // Trigger re-selection by setting to -1 then back to original value
+        SourceMode = -1;
+        CompressionLevel = -1;
+        ExistingFileMode = -1;
+        VolumeUnit = -1;
+        
+        // Restore original values - this will cause ComboBox to display updated text
+        SourceMode = tempSourceMode;
+        CompressionLevel = tempCompressionLevel;
+        ExistingFileMode = tempExistingFileMode;
+        VolumeUnit = tempVolumeUnit;
+        
         // Also trigger explicit updates for all computed properties that depend on L
         OnPropertyChanged(nameof(BrowseSourceButtonText));
         OnPropertyChanged(nameof(SourcePathWatermark));
