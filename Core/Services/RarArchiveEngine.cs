@@ -478,7 +478,9 @@ public class RarArchiveEngine : IArchiveEngine
         }
         
         var arguments = BuildCompressionArguments(input, output, options);
-        return CurrentCommand ?? string.Empty;
+        // CurrentCommand is set as a side effect in BuildCompressionArguments
+        // Return it directly to make the command available
+        return CurrentCommand ?? $"{_rarExecutablePath} {arguments}";
     }
     
     /// <summary>
@@ -495,7 +497,9 @@ public class RarArchiveEngine : IArchiveEngine
         }
         
         var arguments = BuildExtractionArguments(archivePath, outputDir, options);
-        return CurrentCommand ?? string.Empty;
+        // CurrentCommand is set as a side effect in BuildExtractionArguments
+        // Return it directly to make the command available
+        return CurrentCommand ?? $"{_rarExecutablePath} {arguments}";
     }
     
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
