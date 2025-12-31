@@ -58,6 +58,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Critical: Force ALL property change notifications to refresh bindings
         // This ensures ComboBox items and all UI elements immediately update
         OnPropertyChanged(nameof(L));
+        OnPropertyChanged(nameof(SourceModeOptions));
         
         // Also trigger explicit updates for all computed properties that depend on L
         OnPropertyChanged(nameof(BrowseSourceButtonText));
@@ -77,12 +78,22 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
+    [NotifyPropertyChangedFor(nameof(SourceModeOptions))]
     private int _sourceMode; // 0 = from text file, 1 = from folder
     
     public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;    
     
     public string SourcePathWatermark => SourceMode == 0 ? L.TxtPathWatermark : L.SavePathWatermark;    
     public string SourcePathLabel => SourceMode == 0 ? L.FromTxtMode : L.CompressFolderMode;
+    
+    /// <summary>
+    /// Dynamic source mode options that update when language changes
+    /// </summary>
+    public List<string> SourceModeOptions => new()
+    {
+        L.FromTxtMode,
+        L.CompressFolderMode
+    };
     
     public bool IsFromTxtMode => SourceMode == 0;
     

@@ -26,10 +26,7 @@
                     <!-- Source and Destination Section -->
                     <Grid ColumnDefinitions="200,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
                         <!-- Row 0: Source Mode and Save Path -->
-                        <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" HorizontalAlignment="Stretch">
-                            <ComboBoxItem Content="{Binding L.FromTxtMode}"/>
-                            <ComboBoxItem Content="{Binding L.CompressFolderMode}"/>
-                        </ComboBox>
+                        <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" ItemsSource="{Binding SourceModeOptions}" HorizontalAlignment="Stretch"/>
                         <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch"/>
                         <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right"/>
                         
