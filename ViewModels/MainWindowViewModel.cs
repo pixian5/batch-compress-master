@@ -56,31 +56,12 @@ public partial class MainWindowViewModel : ViewModelBase
         Localization.CurrentLanguage = value;
         
         // Critical: Force ALL property change notifications to refresh bindings
-        // This ensures ComboBox items and all UI elements immediately update
+        // This ensures all UI elements immediately update
         OnPropertyChanged(nameof(L));
-        OnPropertyChanged(nameof(SourceModeOptions));
-        OnPropertyChanged(nameof(CompressionLevelOptions));
-        OnPropertyChanged(nameof(ExistingFileModeOptions));
         
-        // Force ComboBox selected items to refresh by temporarily changing and restoring SelectedIndex
-        // This is necessary because Avalonia's ComboBox doesn't auto-refresh the displayed text
-        // when ItemsSource changes, even if the SelectedIndex remains the same
-        var tempSourceMode = SourceMode;
-        var tempCompressionLevel = CompressionLevel;
-        var tempExistingFileMode = ExistingFileMode;
-        var tempVolumeUnit = VolumeUnit;
-        
-        // Trigger re-selection by setting to -1 then back to original value
-        SourceMode = -1;
-        CompressionLevel = -1;
-        ExistingFileMode = -1;
-        VolumeUnit = -1;
-        
-        // Restore original values - this will cause ComboBox to display updated text
-        SourceMode = tempSourceMode;
-        CompressionLevel = tempCompressionLevel;
-        ExistingFileMode = tempExistingFileMode;
-        VolumeUnit = tempVolumeUnit;
+        // Refresh all dropdown options with new language strings
+        // This uses ObservableCollection to properly trigger UI updates
+        RefreshAllDropdownOptions();
         
         // Also trigger explicit updates for all computed properties that depend on L
         OnPropertyChanged(nameof(BrowseSourceButtonText));
@@ -111,34 +92,69 @@ public partial class MainWindowViewModel : ViewModelBase
     /// <summary>
     /// Dynamic source mode options that update when language changes
     /// </summary>
-    public List<string> SourceModeOptions => new()
-    {
-        L.FromTxtMode,
-        L.CompressFolderMode
-    };
+    public ObservableCollection<string> SourceModeOptions { get; } = new();
     
     /// <summary>
     /// Dynamic compression level options that update when language changes
     /// </summary>
-    public List<string> CompressionLevelOptions => new()
-    {
-        L.NoCompression,
-        L.Light,
-        L.Fast,
-        L.Standard,
-        L.Better,
-        L.Best
-    };
+    public ObservableCollection<string> CompressionLevelOptions { get; } = new();
     
     /// <summary>
     /// Dynamic existing file mode options that update when language changes
     /// </summary>
-    public List<string> ExistingFileModeOptions => new()
+    public ObservableCollection<string> ExistingFileModeOptions { get; } = new();
+    
+    /// <summary>
+    /// Volume unit options (GB, MB, KB) that update when language changes.
+    /// Note: Units are universal, but we need ObservableCollection for proper refresh behavior.
+    /// </summary>
+    public ObservableCollection<string> VolumeUnitOptions { get; } = new();
+    
+    /// <summary>
+    /// Repopulates all dropdown option collections with current language strings.
+    /// This ensures ComboBox controls properly refresh their displayed text.
+    /// </summary>
+    private void RefreshAllDropdownOptions()
     {
-        L.SkipExisting,
-        L.UpdateExisting,
-        L.OverwriteExisting
-    };
+        // Preserve current selections
+        var currentSourceMode = SourceMode;
+        var currentCompressionLevel = CompressionLevel;
+        var currentExistingFileMode = ExistingFileMode;
+        var currentVolumeUnit = VolumeUnit;
+        
+        // Clear and repopulate source mode options
+        SourceModeOptions.Clear();
+        SourceModeOptions.Add(L.FromTxtMode);
+        SourceModeOptions.Add(L.CompressFolderMode);
+        
+        // Clear and repopulate compression level options
+        CompressionLevelOptions.Clear();
+        CompressionLevelOptions.Add(L.NoCompression);
+        CompressionLevelOptions.Add(L.Light);
+        CompressionLevelOptions.Add(L.Fast);
+        CompressionLevelOptions.Add(L.Standard);
+        CompressionLevelOptions.Add(L.Better);
+        CompressionLevelOptions.Add(L.Best);
+        
+        // Clear and repopulate existing file mode options
+        ExistingFileModeOptions.Clear();
+        ExistingFileModeOptions.Add(L.SkipExisting);
+        ExistingFileModeOptions.Add(L.UpdateExisting);
+        ExistingFileModeOptions.Add(L.OverwriteExisting);
+        
+        // Clear and repopulate volume unit options (units are universal but need refresh)
+        VolumeUnitOptions.Clear();
+        VolumeUnitOptions.Add("GB");
+        VolumeUnitOptions.Add("MB");
+        VolumeUnitOptions.Add("KB");
+        
+        // Restore selections - setting to valid index after collection is repopulated
+        // ensures the ComboBox displays the correct text
+        SourceMode = currentSourceMode >= 0 && currentSourceMode < SourceModeOptions.Count ? currentSourceMode : 0;
+        CompressionLevel = currentCompressionLevel >= 0 && currentCompressionLevel < CompressionLevelOptions.Count ? currentCompressionLevel : 0;
+        ExistingFileMode = currentExistingFileMode >= 0 && currentExistingFileMode < ExistingFileModeOptions.Count ? currentExistingFileMode : 0;
+        VolumeUnit = currentVolumeUnit >= 0 && currentVolumeUnit < VolumeUnitOptions.Count ? currentVolumeUnit : 0;
+    }
     
     public bool IsFromTxtMode => SourceMode == 0;
     
@@ -300,6 +316,9 @@ public partial class MainWindowViewModel : ViewModelBase
         _archiveEngine = new RarArchiveEngine();
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
+        
+        // Initialize dropdown options with current language strings
+        RefreshAllDropdownOptions();
         
         // Skip runtime-only initialization when in design mode
         if (Design.IsDesignMode) 
