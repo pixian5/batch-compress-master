@@ -99,11 +99,7 @@
                                 <CheckBox Grid.Row="2" Grid.Column="0" Content="{Binding L.Volume}" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3"/>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,3">
                                     <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
-                                    <ComboBox SelectedIndex="{Binding VolumeUnit}" Width="80" IsEnabled="{Binding EnableVolume}">
-                                        <ComboBoxItem Content="GB"/>
-                                        <ComboBoxItem Content="MB"/>
-                                        <ComboBoxItem Content="KB"/>
-                                    </ComboBox>
+                                    <ComboBox SelectedIndex="{Binding VolumeUnit}" ItemsSource="{Binding VolumeUnitOptions}" Width="80" IsEnabled="{Binding EnableVolume}"/>
                                 </StackPanel>
                                 
                                 <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" ItemsSource="{Binding ExistingFileModeOptions}" Width="160" HorizontalAlignment="Left" Margin="20,0,0,3"/>
