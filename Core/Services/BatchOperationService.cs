@@ -304,16 +304,14 @@ public class BatchOperationService
                 }
             }
             
+            // Build and log the compression command BEFORE executing
+            var command = _archiveEngine.BuildCompressionCommand(sourcePath, outputPath, archiveOptions);
+            progressInfo.Message = $"[压缩命令] {command}";
+            progressInfo.IsError = false;
+            progress.Report(progressInfo);
+            
             // Compress
             var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
-            
-            // Log the command that was executed
-            if (!string.IsNullOrEmpty(_archiveEngine.CurrentCommand))
-            {
-                progressInfo.Message = $"[压缩命令] {_archiveEngine.CurrentCommand}";
-                progressInfo.IsError = false;
-                progress.Report(progressInfo);
-            }
             
             if (result.Success)
             {
@@ -478,16 +476,14 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode
             };
             
+            // Build and log the extraction command BEFORE executing
+            var command = _archiveEngine.BuildExtractionCommand(archivePath, options.OutputPath, archiveOptions);
+            progressInfo.Message = $"[解压命令] {command}";
+            progressInfo.IsError = false;
+            progress.Report(progressInfo);
+            
             // Extract
             var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken);
-            
-            // Log the command that was executed
-            if (!string.IsNullOrEmpty(_archiveEngine.CurrentCommand))
-            {
-                progressInfo.Message = $"[解压命令] {_archiveEngine.CurrentCommand}";
-                progressInfo.IsError = false;
-                progress.Report(progressInfo);
-            }
             
             if (result.Success)
             {
