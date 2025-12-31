@@ -1508,19 +1508,19 @@
     ]
   },
   "packageFolders": {
-    "/Users/x/.nuget/packages/": {}
+    "/home/runner/.nuget/packages/": {}
   },
   "project": {
     "version": "1.0.0",
     "restore": {
-      "projectUniqueName": "/Users/x/code/trae/compress/BatchCompress.Avalonia.csproj",
+      "projectUniqueName": "/home/runner/work/batch-compress-master/batch-compress-master/BatchCompress.Avalonia.csproj",
       "projectName": "BatchCompress.Avalonia",
-      "projectPath": "/Users/x/code/trae/compress/BatchCompress.Avalonia.csproj",
-      "packagesPath": "/Users/x/.nuget/packages/",
-      "outputPath": "/Users/x/code/trae/compress/obj/",
+      "projectPath": "/home/runner/work/batch-compress-master/batch-compress-master/BatchCompress.Avalonia.csproj",
+      "packagesPath": "/home/runner/.nuget/packages/",
+      "outputPath": "/home/runner/work/batch-compress-master/batch-compress-master/obj/",
       "projectStyle": "PackageReference",
       "configFilePaths": [
-        "/Users/x/.nuget/NuGet/NuGet.Config"
+        "/home/runner/.nuget/NuGet/NuGet.Config"
       ],
       "originalTargetFrameworks": [
         "net10.0"
@@ -1595,7 +1595,7 @@
             "privateAssets": "all"
           }
         },
-        "runtimeIdentifierGraphPath": "/usr/local/share/dotnet/sdk/10.0.101/PortableRuntimeIdentifierGraph.json",
+        "runtimeIdentifierGraphPath": "/usr/share/dotnet/sdk/10.0.101/PortableRuntimeIdentifierGraph.json",
         "packagesToPrune": {
           "Microsoft.CSharp": "(,4.7.32767]",
           "Microsoft.VisualBasic": "(,10.4.32767]",
