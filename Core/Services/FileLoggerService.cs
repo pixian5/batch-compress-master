@@ -35,17 +35,34 @@ public class FileLoggerService : ILogger, IDisposable
         var directory = Path.GetDirectoryName(_logFilePath);
         if (!string.IsNullOrEmpty(directory) && !Directory.Exists(directory))
         {
-            Directory.CreateDirectory(directory);
+            try
+            {
+                Directory.CreateDirectory(directory);
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"Warning: Failed to create log directory '{directory}': {ex.Message}");
+                Console.WriteLine("Logs will not be saved to file.");
+            }
         }
     }
 
     private void InitializeWriter()
     {
-        _writer = new StreamWriter(_logFilePath, append: true, Encoding.UTF8)
+        try
         {
-            AutoFlush = true
-        };
-        Log(LogLevel.Information, 0, "========== Log session started ==========", null, (s, _) => s);
+            _writer = new StreamWriter(_logFilePath, append: true, Encoding.UTF8)
+            {
+                AutoFlush = true
+            };
+            Log(LogLevel.Information, 0, "========== Log session started ==========", null, (s, _) => s);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Failed to create log file '{_logFilePath}': {ex.Message}");
+            Console.WriteLine("Logs will not be saved to file.");
+            _writer = null;
+        }
     }
 
     public string LogFilePath => _logFilePath;

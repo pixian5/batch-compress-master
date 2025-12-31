@@ -61,6 +61,36 @@ public class CommandLineOptions
 /// </summary>
 public static class CommandLineHandler
 {
+    // Cached option references for efficient parsing
+    private static Option<bool>? _compressOption;
+    private static Option<bool>? _decompressOption;
+    private static Option<bool>? _guiOption;
+    private static Option<string?>? _sourcePathOption;
+    private static Option<string?>? _outputPathOption;
+    private static Option<string?>? _textFileOption;
+    private static Option<string>? _extensionOption;
+    private static Option<bool>? _useRandomPasswordOption;
+    private static Option<string?>? _passwordOption;
+    private static Option<int>? _compressionLevelOption;
+    private static Option<bool>? _solidOption;
+    private static Option<string?>? _volumeSizeOption;
+    private static Option<string>? _volumeUnitOption;
+    private static Option<bool>? _quickOpenOption;
+    private static Option<bool>? _testArchiveOption;
+    private static Option<string?>? _commentFileOption;
+    private static Option<string?>? _tempDirOption;
+    private static Option<int>? _recoveryRecordOption;
+    private static Option<string>? _existingFileModeOption;
+    private static Option<bool>? _skipProcessedOption;
+    private static Option<bool>? _deleteSourceOption;
+    private static Option<bool>? _moveSourceOption;
+    private static Option<double>? _maxSizeOption;
+    private static Option<bool>? _shutdownOption;
+    private static Option<bool>? _addEnclosuresOption;
+    private static Option<string?>? _enclosureListOption;
+    private static Option<string?>? _logFileOption;
+    private static Option<bool>? _verboseOption;
+
     /// <summary>
     /// Build the root command with all options
     /// </summary>
@@ -69,164 +99,164 @@ public static class CommandLineHandler
         var rootCommand = new RootCommand("BatchCompress - Batch compression and decompression tool");
 
         // Mode options
-        var compressOption = new Option<bool>(
+        _compressOption = new Option<bool>(
             aliases: new[] { "--compress", "-c" },
             description: "Run in compress mode (headless)");
 
-        var decompressOption = new Option<bool>(
+        _decompressOption = new Option<bool>(
             aliases: new[] { "--decompress", "-d" },
             description: "Run in decompress mode (headless)");
 
-        var guiOption = new Option<bool>(
+        _guiOption = new Option<bool>(
             aliases: new[] { "--gui", "-g" },
             getDefaultValue: () => true,
             description: "Run with graphical user interface (default: true)");
 
         // Source options
-        var sourcePathOption = new Option<string?>(
+        _sourcePathOption = new Option<string?>(
             aliases: new[] { "--source", "-s" },
             description: "Source folder path for compression/decompression");
 
-        var outputPathOption = new Option<string?>(
+        _outputPathOption = new Option<string?>(
             aliases: new[] { "--output", "-o" },
             description: "Output folder path");
 
-        var textFileOption = new Option<string?>(
+        _textFileOption = new Option<string?>(
             aliases: new[] { "--text-file", "-t" },
             description: "Text file containing file list with passwords");
 
-        var extensionOption = new Option<string>(
+        _extensionOption = new Option<string>(
             aliases: new[] { "--extension", "-e" },
             getDefaultValue: () => "rar",
             description: "Archive extension (rar, zip, 7z)");
 
         // Password options
-        var useRandomPasswordOption = new Option<bool>(
+        _useRandomPasswordOption = new Option<bool>(
             aliases: new[] { "--random-password", "-r" },
             getDefaultValue: () => true,
             description: "Use random password based on filename");
 
-        var passwordOption = new Option<string?>(
+        _passwordOption = new Option<string?>(
             aliases: new[] { "--password", "-p" },
             description: "Custom password for archive (disables random password)");
 
         // Compression options
-        var compressionLevelOption = new Option<int>(
+        _compressionLevelOption = new Option<int>(
             aliases: new[] { "--level", "-l" },
             getDefaultValue: () => 3,
             description: "Compression level (0=store, 1=fastest, 2=fast, 3=normal, 4=good, 5=best)");
 
-        var solidOption = new Option<bool>(
+        _solidOption = new Option<bool>(
             aliases: new[] { "--solid" },
             getDefaultValue: () => true,
             description: "Create solid archive");
 
-        var volumeSizeOption = new Option<string?>(
+        _volumeSizeOption = new Option<string?>(
             aliases: new[] { "--volume-size", "-v" },
             description: "Volume size for split archives (e.g., '20')");
 
-        var volumeUnitOption = new Option<string>(
+        _volumeUnitOption = new Option<string>(
             aliases: new[] { "--volume-unit" },
             getDefaultValue: () => "g",
             description: "Volume size unit (g=GB, m=MB, k=KB)");
 
-        var quickOpenOption = new Option<bool>(
+        _quickOpenOption = new Option<bool>(
             aliases: new[] { "--quick-open" },
             description: "Enable quick open for archive");
 
-        var testArchiveOption = new Option<bool>(
+        _testArchiveOption = new Option<bool>(
             aliases: new[] { "--test" },
             description: "Test archive after creation");
 
-        var commentFileOption = new Option<string?>(
+        _commentFileOption = new Option<string?>(
             aliases: new[] { "--comment" },
             description: "Path to comment file");
 
-        var tempDirOption = new Option<string?>(
+        _tempDirOption = new Option<string?>(
             aliases: new[] { "--temp-dir" },
             description: "Temporary directory for operations");
 
-        var recoveryRecordOption = new Option<int>(
+        _recoveryRecordOption = new Option<int>(
             aliases: new[] { "--recovery" },
             getDefaultValue: () => 3,
             description: "Recovery record percentage (0-10)");
 
         // File handling options
-        var existingFileModeOption = new Option<string>(
+        _existingFileModeOption = new Option<string>(
             aliases: new[] { "--existing" },
             getDefaultValue: () => "overwrite",
             description: "How to handle existing files (skip, update, overwrite)");
 
-        var skipProcessedOption = new Option<bool>(
+        _skipProcessedOption = new Option<bool>(
             aliases: new[] { "--skip-processed" },
             getDefaultValue: () => true,
             description: "Skip already processed files");
 
-        var deleteSourceOption = new Option<bool>(
+        _deleteSourceOption = new Option<bool>(
             aliases: new[] { "--delete-source" },
             description: "Delete source after successful operation");
 
-        var moveSourceOption = new Option<bool>(
+        _moveSourceOption = new Option<bool>(
             aliases: new[] { "--move-source" },
             description: "Move source to processed folder after operation");
 
-        var maxSizeOption = new Option<double>(
+        _maxSizeOption = new Option<double>(
             aliases: new[] { "--max-size" },
             getDefaultValue: () => 666,
             description: "Maximum total size in GB before stopping");
 
-        var shutdownOption = new Option<bool>(
+        _shutdownOption = new Option<bool>(
             aliases: new[] { "--shutdown" },
             description: "Shutdown computer after completion");
 
         // Enclosure options
-        var addEnclosuresOption = new Option<bool>(
+        _addEnclosuresOption = new Option<bool>(
             aliases: new[] { "--add-enclosures" },
             getDefaultValue: () => true,
             description: "Add enclosure directories to archives");
 
-        var enclosureListOption = new Option<string?>(
+        _enclosureListOption = new Option<string?>(
             aliases: new[] { "--enclosure-list" },
             description: "Newline-separated list of enclosure directory names");
 
         // Logging options
-        var logFileOption = new Option<string?>(
+        _logFileOption = new Option<string?>(
             aliases: new[] { "--log-file" },
             description: "Path to log file (default: logs/batchcompress_timestamp.log)");
 
-        var verboseOption = new Option<bool>(
+        _verboseOption = new Option<bool>(
             aliases: new[] { "--verbose" },
             description: "Enable verbose logging");
 
         // Add all options to the root command
-        rootCommand.AddOption(compressOption);
-        rootCommand.AddOption(decompressOption);
-        rootCommand.AddOption(guiOption);
-        rootCommand.AddOption(sourcePathOption);
-        rootCommand.AddOption(outputPathOption);
-        rootCommand.AddOption(textFileOption);
-        rootCommand.AddOption(extensionOption);
-        rootCommand.AddOption(useRandomPasswordOption);
-        rootCommand.AddOption(passwordOption);
-        rootCommand.AddOption(compressionLevelOption);
-        rootCommand.AddOption(solidOption);
-        rootCommand.AddOption(volumeSizeOption);
-        rootCommand.AddOption(volumeUnitOption);
-        rootCommand.AddOption(quickOpenOption);
-        rootCommand.AddOption(testArchiveOption);
-        rootCommand.AddOption(commentFileOption);
-        rootCommand.AddOption(tempDirOption);
-        rootCommand.AddOption(recoveryRecordOption);
-        rootCommand.AddOption(existingFileModeOption);
-        rootCommand.AddOption(skipProcessedOption);
-        rootCommand.AddOption(deleteSourceOption);
-        rootCommand.AddOption(moveSourceOption);
-        rootCommand.AddOption(maxSizeOption);
-        rootCommand.AddOption(shutdownOption);
-        rootCommand.AddOption(addEnclosuresOption);
-        rootCommand.AddOption(enclosureListOption);
-        rootCommand.AddOption(logFileOption);
-        rootCommand.AddOption(verboseOption);
+        rootCommand.AddOption(_compressOption);
+        rootCommand.AddOption(_decompressOption);
+        rootCommand.AddOption(_guiOption);
+        rootCommand.AddOption(_sourcePathOption);
+        rootCommand.AddOption(_outputPathOption);
+        rootCommand.AddOption(_textFileOption);
+        rootCommand.AddOption(_extensionOption);
+        rootCommand.AddOption(_useRandomPasswordOption);
+        rootCommand.AddOption(_passwordOption);
+        rootCommand.AddOption(_compressionLevelOption);
+        rootCommand.AddOption(_solidOption);
+        rootCommand.AddOption(_volumeSizeOption);
+        rootCommand.AddOption(_volumeUnitOption);
+        rootCommand.AddOption(_quickOpenOption);
+        rootCommand.AddOption(_testArchiveOption);
+        rootCommand.AddOption(_commentFileOption);
+        rootCommand.AddOption(_tempDirOption);
+        rootCommand.AddOption(_recoveryRecordOption);
+        rootCommand.AddOption(_existingFileModeOption);
+        rootCommand.AddOption(_skipProcessedOption);
+        rootCommand.AddOption(_deleteSourceOption);
+        rootCommand.AddOption(_moveSourceOption);
+        rootCommand.AddOption(_maxSizeOption);
+        rootCommand.AddOption(_shutdownOption);
+        rootCommand.AddOption(_addEnclosuresOption);
+        rootCommand.AddOption(_enclosureListOption);
+        rootCommand.AddOption(_logFileOption);
+        rootCommand.AddOption(_verboseOption);
 
         return rootCommand;
     }
@@ -243,62 +273,35 @@ public static class CommandLineHandler
         {
             var parseResult = context.ParseResult;
 
-            options.Compress = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--compress")) as Option<bool>);
-            options.Decompress = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--decompress")) as Option<bool>);
-            options.Gui = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--gui")) as Option<bool>);
-            options.SourcePath = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--source")) as Option<string?>);
-            options.OutputPath = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--output")) as Option<string?>);
-            options.TextFile = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--text-file")) as Option<string?>);
-            options.Extension = parseResult.GetValueForOption<string>(
-                rootCommand.Options.First(o => o.HasAlias("--extension")) as Option<string>) ?? "rar";
-            options.UseRandomPassword = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--random-password")) as Option<bool>);
-            options.Password = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--password")) as Option<string?>);
-            options.CompressionLevel = parseResult.GetValueForOption<int>(
-                rootCommand.Options.First(o => o.HasAlias("--level")) as Option<int>);
-            options.Solid = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--solid")) as Option<bool>);
-            options.VolumeSize = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--volume-size")) as Option<string?>);
-            options.VolumeUnit = parseResult.GetValueForOption<string>(
-                rootCommand.Options.First(o => o.HasAlias("--volume-unit")) as Option<string>) ?? "g";
-            options.QuickOpen = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--quick-open")) as Option<bool>);
-            options.TestArchive = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--test")) as Option<bool>);
-            options.CommentFile = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--comment")) as Option<string?>);
-            options.TempDir = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--temp-dir")) as Option<string?>);
-            options.RecoveryRecord = parseResult.GetValueForOption<int>(
-                rootCommand.Options.First(o => o.HasAlias("--recovery")) as Option<int>);
-            options.ExistingFileMode = parseResult.GetValueForOption<string>(
-                rootCommand.Options.First(o => o.HasAlias("--existing")) as Option<string>) ?? "overwrite";
-            options.SkipProcessed = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--skip-processed")) as Option<bool>);
-            options.DeleteSource = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--delete-source")) as Option<bool>);
-            options.MoveSource = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--move-source")) as Option<bool>);
-            options.MaxSizeGB = parseResult.GetValueForOption<double>(
-                rootCommand.Options.First(o => o.HasAlias("--max-size")) as Option<double>);
-            options.ShutdownAfter = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--shutdown")) as Option<bool>);
-            options.AddEnclosures = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--add-enclosures")) as Option<bool>);
-            options.EnclosureList = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--enclosure-list")) as Option<string?>);
-            options.LogFile = parseResult.GetValueForOption<string?>(
-                rootCommand.Options.First(o => o.HasAlias("--log-file")) as Option<string?>);
-            options.Verbose = parseResult.GetValueForOption<bool>(
-                rootCommand.Options.First(o => o.HasAlias("--verbose")) as Option<bool>);
+            // Use cached options for efficient parsing
+            options.Compress = parseResult.GetValueForOption(_compressOption!);
+            options.Decompress = parseResult.GetValueForOption(_decompressOption!);
+            options.Gui = parseResult.GetValueForOption(_guiOption!);
+            options.SourcePath = parseResult.GetValueForOption(_sourcePathOption!);
+            options.OutputPath = parseResult.GetValueForOption(_outputPathOption!);
+            options.TextFile = parseResult.GetValueForOption(_textFileOption!);
+            options.Extension = parseResult.GetValueForOption(_extensionOption!) ?? "rar";
+            options.UseRandomPassword = parseResult.GetValueForOption(_useRandomPasswordOption!);
+            options.Password = parseResult.GetValueForOption(_passwordOption!);
+            options.CompressionLevel = parseResult.GetValueForOption(_compressionLevelOption!);
+            options.Solid = parseResult.GetValueForOption(_solidOption!);
+            options.VolumeSize = parseResult.GetValueForOption(_volumeSizeOption!);
+            options.VolumeUnit = parseResult.GetValueForOption(_volumeUnitOption!) ?? "g";
+            options.QuickOpen = parseResult.GetValueForOption(_quickOpenOption!);
+            options.TestArchive = parseResult.GetValueForOption(_testArchiveOption!);
+            options.CommentFile = parseResult.GetValueForOption(_commentFileOption!);
+            options.TempDir = parseResult.GetValueForOption(_tempDirOption!);
+            options.RecoveryRecord = parseResult.GetValueForOption(_recoveryRecordOption!);
+            options.ExistingFileMode = parseResult.GetValueForOption(_existingFileModeOption!) ?? "overwrite";
+            options.SkipProcessed = parseResult.GetValueForOption(_skipProcessedOption!);
+            options.DeleteSource = parseResult.GetValueForOption(_deleteSourceOption!);
+            options.MoveSource = parseResult.GetValueForOption(_moveSourceOption!);
+            options.MaxSizeGB = parseResult.GetValueForOption(_maxSizeOption!);
+            options.ShutdownAfter = parseResult.GetValueForOption(_shutdownOption!);
+            options.AddEnclosures = parseResult.GetValueForOption(_addEnclosuresOption!);
+            options.EnclosureList = parseResult.GetValueForOption(_enclosureListOption!);
+            options.LogFile = parseResult.GetValueForOption(_logFileOption!);
+            options.Verbose = parseResult.GetValueForOption(_verboseOption!);
         });
 
         rootCommand.Invoke(args);
