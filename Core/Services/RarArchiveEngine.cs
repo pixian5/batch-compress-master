@@ -464,6 +464,40 @@ public class RarArchiveEngine : IArchiveEngine
         }
     }
     
+    /// <summary>
+    /// Build compression command for preview without executing
+    /// </summary>
+    public string BuildCompressionCommand(string input, string output, ArchiveOptions options)
+    {
+        if (string.IsNullOrEmpty(_rarExecutablePath))
+        {
+            if (!IsAvailable())
+            {
+                return "RAR executable not found";
+            }
+        }
+        
+        var arguments = BuildCompressionArguments(input, output, options);
+        return CurrentCommand ?? string.Empty;
+    }
+    
+    /// <summary>
+    /// Build extraction command for preview without executing
+    /// </summary>
+    public string BuildExtractionCommand(string archivePath, string outputDir, ArchiveOptions options)
+    {
+        if (string.IsNullOrEmpty(_rarExecutablePath))
+        {
+            if (!IsAvailable())
+            {
+                return "RAR executable not found";
+            }
+        }
+        
+        var arguments = BuildExtractionArguments(archivePath, outputDir, options);
+        return CurrentCommand ?? string.Empty;
+    }
+    
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrEmpty(_rarExecutablePath))

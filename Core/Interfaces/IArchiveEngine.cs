@@ -9,6 +9,16 @@ namespace BatchCompress.Avalonia.Core.Interfaces;
 public interface IArchiveEngine
 {
     /// <summary>
+    /// Build compression command for preview without executing
+    /// </summary>
+    string BuildCompressionCommand(string input, string output, ArchiveOptions options);
+    
+    /// <summary>
+    /// Build extraction command for preview without executing
+    /// </summary>
+    string BuildExtractionCommand(string archivePath, string outputDir, ArchiveOptions options);
+    
+    /// <summary>
     /// Compress files or directories
     /// </summary>
     Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default);
