@@ -59,6 +59,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // This ensures ComboBox items and all UI elements immediately update
         OnPropertyChanged(nameof(L));
         OnPropertyChanged(nameof(SourceModeOptions));
+        OnPropertyChanged(nameof(CompressionLevelOptions));
+        OnPropertyChanged(nameof(ExistingFileModeOptions));
         
         // Also trigger explicit updates for all computed properties that depend on L
         OnPropertyChanged(nameof(BrowseSourceButtonText));
@@ -93,6 +95,29 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         L.FromTxtMode,
         L.CompressFolderMode
+    };
+    
+    /// <summary>
+    /// Dynamic compression level options that update when language changes
+    /// </summary>
+    public List<string> CompressionLevelOptions => new()
+    {
+        L.NoCompression,
+        L.Light,
+        L.Fast,
+        L.Standard,
+        L.Better,
+        L.Best
+    };
+    
+    /// <summary>
+    /// Dynamic existing file mode options that update when language changes
+    /// </summary>
+    public List<string> ExistingFileModeOptions => new()
+    {
+        L.SkipExisting,
+        L.UpdateExisting,
+        L.OverwriteExisting
     };
     
     public bool IsFromTxtMode => SourceMode == 0;

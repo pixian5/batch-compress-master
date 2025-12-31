@@ -90,14 +90,7 @@
 
                                 <!-- Row 1 -->
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.CompressionLevelLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3">
-                                    <ComboBoxItem Content="{Binding L.NoCompression}"/>
-                                    <ComboBoxItem Content="{Binding L.Light}"/>
-                                    <ComboBoxItem Content="{Binding L.Fast}"/>
-                                    <ComboBoxItem Content="{Binding L.Standard}"/>
-                                    <ComboBoxItem Content="{Binding L.Better}"/>
-                                    <ComboBoxItem Content="{Binding L.Best}"/>
-                                </ComboBox>
+                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" ItemsSource="{Binding CompressionLevelOptions}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3"/>
                                 
                                 <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3"/>
                                 <CheckBox Grid.Row="1" Grid.Column="3" Content="{Binding L.QuickOpen}" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3"/>
@@ -113,11 +106,7 @@
                                     </ComboBox>
                                 </StackPanel>
                                 
-                                <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" Width="160" HorizontalAlignment="Left" Margin="20,0,0,3">
-                                    <ComboBoxItem Content="{Binding L.SkipExisting}"/>
-                                    <ComboBoxItem Content="{Binding L.UpdateExisting}"/>
-                                    <ComboBoxItem Content="{Binding L.OverwriteExisting}"/>
-                                </ComboBox>
+                                <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" ItemsSource="{Binding ExistingFileModeOptions}" Width="160" HorizontalAlignment="Left" Margin="20,0,0,3"/>
                                 
                                 <!-- Row 3 -->
                                 <CheckBox Grid.Row="3" Grid.Column="0" Content="{Binding L.EnableComment}" IsChecked="{Binding EnableComment}" Margin="0,0,10,3"/>
