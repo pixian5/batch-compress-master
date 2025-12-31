@@ -17,11 +17,13 @@ public class BatchOperationService
 {
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
+    private readonly HashSet<string> _loggedCommands;
     
     public BatchOperationService(IArchiveEngine archiveEngine, ISystemIntegration systemIntegration)
     {
         _archiveEngine = archiveEngine;
         _systemIntegration = systemIntegration;
+        _loggedCommands = new HashSet<string>();
     }
     
     /// <summary>
@@ -304,11 +306,15 @@ public class BatchOperationService
                 }
             }
             
-            // Build and log the compression command BEFORE executing
+            // Build and log the compression command BEFORE executing (only if not already logged)
             var command = _archiveEngine.BuildCompressionCommand(sourcePath, outputPath, archiveOptions);
-            progressInfo.Message = $"[压缩命令] {command}";
-            progressInfo.IsError = false;
-            progress.Report(progressInfo);
+            if (!_loggedCommands.Contains(command))
+            {
+                _loggedCommands.Add(command);
+                progressInfo.Message = $"[压缩命令] {command}";
+                progressInfo.IsError = false;
+                progress.Report(progressInfo);
+            }
             
             // Compress
             var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
@@ -375,6 +381,7 @@ public class BatchOperationService
                     catch { }
                 }
                 
+                // Success message still goes to SuccessLog, but not to CommandLog
                 progressInfo.Message = $"成功: {name}";
                 progressInfo.IsError = false;
             }
@@ -476,11 +483,15 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode
             };
             
-            // Build and log the extraction command BEFORE executing
+            // Build and log the extraction command BEFORE executing (only if not already logged)
             var command = _archiveEngine.BuildExtractionCommand(archivePath, options.OutputPath, archiveOptions);
-            progressInfo.Message = $"[解压命令] {command}";
-            progressInfo.IsError = false;
-            progress.Report(progressInfo);
+            if (!_loggedCommands.Contains(command))
+            {
+                _loggedCommands.Add(command);
+                progressInfo.Message = $"[解压命令] {command}";
+                progressInfo.IsError = false;
+                progress.Report(progressInfo);
+            }
             
             // Extract
             var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken);
@@ -532,6 +543,7 @@ public class BatchOperationService
                     }
                 }
                 
+                // Success message still goes to SuccessLog, but not to CommandLog
                 progressInfo.Message = $"成功: {archiveName}";
                 progressInfo.IsError = false;
             }
