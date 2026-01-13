@@ -110,6 +110,12 @@ Added patterns for:
 - Dependency vulnerability scanning
 - Weekly security update checks
 
+#### Security Fixes / 安全修复
+- ✅ **Fixed GitHub Actions vulnerability**: Updated `actions/download-artifact` from v4 to v4.1.3
+  - CVE: Arbitrary File Write via artifact extraction
+  - Affected versions: 4.0.0 - 4.1.2
+  - Patched version: 4.1.3 (applied)
+
 ---
 
 ## Impact Summary / 影响总结
@@ -150,6 +156,8 @@ Added patterns for:
 - README.md (badges and documentation links)
 - .gitignore (comprehensive patterns)
 - .editorconfig (code standards)
+- .github/workflows/release.yml (security fix)
+- CHANGELOG.md (updated with all changes)
 
 ### Files Created / 创建的文件
 - LICENSE (1 file)
@@ -164,7 +172,15 @@ Added patterns for:
 - .github/ISSUE_TEMPLATE/feature_request.md (1 file)
 - .github/pull_request_template.md (1 file)
 
-**Total: 11 new files, 8 files enhanced**
+**Total: 11 new files, 10 files enhanced**
+
+### Security Vulnerabilities Fixed / 已修复安全漏洞
+
+✅ **GitHub Actions Dependency Vulnerability**
+- Component: actions/download-artifact
+- Affected versions: 4.0.0 - 4.1.2
+- Issue: Arbitrary File Write via artifact extraction
+- Fix: Updated to v4.1.3 (patched version)
 
 ---
 
@@ -174,6 +190,7 @@ Added patterns for:
 - Platform: Ubuntu, Windows, macOS (ready)
 - Warnings: 2 (obsolete Avalonia APIs - documented for future update)
 - Errors: 0
+- Security: All known vulnerabilities fixed ✅
 
 ---
 
