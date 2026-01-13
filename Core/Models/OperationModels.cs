@@ -7,15 +7,54 @@ namespace BatchCompress.Avalonia.Core.Models;
 /// </summary>
 public class OperationProgressInfo
 {
+    /// <summary>
+    /// The name of the file currently being processed
+    /// </summary>
     public string CurrentFile { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Number of successfully processed files
+    /// </summary>
     public int SuccessCount { get; set; }
+    
+    /// <summary>
+    /// Number of files that failed to process
+    /// </summary>
     public int FailCount { get; set; }
+    
+    /// <summary>
+    /// Number of files that were skipped/ignored
+    /// </summary>
     public int IgnoreCount { get; set; }
+    
+    /// <summary>
+    /// Number of files that don't exist
+    /// </summary>
     public int NonExistCount { get; set; }
+    
+    /// <summary>
+    /// Total size of processed files in GB
+    /// </summary>
     public double ProcessedSizeGB { get; set; }
+    
+    /// <summary>
+    /// Status or progress message
+    /// </summary>
     public string Message { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Indicates if the current status represents an error
+    /// </summary>
     public bool IsError { get; set; }
+    
+    /// <summary>
+    /// The time when the operation started
+    /// </summary>
     public DateTime StartTime { get; set; }
+    
+    /// <summary>
+    /// Elapsed time since operation started
+    /// </summary>
     public TimeSpan Elapsed { get; set; }
 }
 
@@ -24,8 +63,19 @@ public class OperationProgressInfo
 /// </summary>
 public class FileEntry
 {
+    /// <summary>
+    /// Full path to the file
+    /// </summary>
     public string FilePath { get; set; } = string.Empty;
+    
+    /// <summary>
+    /// Optional password for the file (if encrypted)
+    /// </summary>
     public string? Password { get; set; }
+    
+    /// <summary>
+    /// Size of the file in bytes
+    /// </summary>
     public long FileSize { get; set; }
 }
 
@@ -67,6 +117,13 @@ public class BatchOperationOptions
 /// </summary>
 public enum SourceMode
 {
-    FromTextFile = 0,  // Read from text file with passwords
-    FromFolder = 1     // Read from folder
+    /// <summary>
+    /// Read file list and passwords from text file
+    /// </summary>
+    FromTextFile = 0,
+    
+    /// <summary>
+    /// Read file list from folder (no password file)
+    /// </summary>
+    FromFolder = 1
 }
