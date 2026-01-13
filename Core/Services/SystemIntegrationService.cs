@@ -39,7 +39,7 @@ public class SystemIntegrationService : ISystemIntegration
                 }
             }
             catch { }
-        });
+        }).ConfigureAwait(false);
     }
     
     public async Task<string?> ReadClipboardTextAsync()
@@ -52,7 +52,7 @@ public class SystemIntegrationService : ISystemIntegration
                 if (clipboard != null)
                 {
 #pragma warning disable CS0618 // Type or member is obsolete
-                    return await clipboard.GetTextAsync();
+                    return await clipboard.GetTextAsync().ConfigureAwait(false);
 #pragma warning restore CS0618 // Type or member is obsolete
                 }
             }
@@ -71,7 +71,7 @@ public class SystemIntegrationService : ISystemIntegration
                 var clipboard = desktop.MainWindow?.Clipboard;
                 if (clipboard != null)
                 {
-                    await clipboard.SetTextAsync(text);
+                    await clipboard.SetTextAsync(text).ConfigureAwait(false);
                 }
             }
         }
@@ -140,7 +140,7 @@ public class SystemIntegrationService : ISystemIntegration
                 }
             }
             catch { }
-        });
+        }).ConfigureAwait(false);
     }
     
     public async Task CancelShutdownAsync()
@@ -163,6 +163,6 @@ public class SystemIntegrationService : ISystemIntegration
                 }
             }
             catch { }
-        });
+        }).ConfigureAwait(false);
     }
 }

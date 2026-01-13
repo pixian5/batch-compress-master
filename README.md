@@ -1,5 +1,10 @@
 # 批量压缩解压工具 - Avalonia 跨平台版本
 
+[![Build and Test](https://github.com/pixian5/batch-compress-master/actions/workflows/build.yml/badge.svg)](https://github.com/pixian5/batch-compress-master/actions/workflows/build.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![.NET](https://img.shields.io/badge/.NET-10.0-blue.svg)](https://dotnet.microsoft.com/download)
+[![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey.svg)](https://github.com/pixian5/batch-compress-master)
+
 这是批量压缩解压工具的跨平台重写版本，使用 Avalonia UI 框架构建，支持 Windows、Linux 和 macOS。
 
 ## 功能特性
@@ -280,11 +285,17 @@ dotnet run
 
 ## 许可证
 
-与原项目相同的许可证。
+本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
 
 ## 贡献
 
-欢迎贡献！请提交 Pull Request 或创建 Issue。
+欢迎贡献！请查看 [CONTRIBUTING.md](CONTRIBUTING.md) 了解如何参与项目。
+
+请注意，本项目遵循 [行为准则](CODE_OF_CONDUCT.md)。参与项目即表示您同意遵守其条款。
+
+## 变更日志
+
+查看 [CHANGELOG.md](CHANGELOG.md) 了解项目的详细变更历史。
 
 ## 鸣谢
 

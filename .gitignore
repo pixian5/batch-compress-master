@@ -18,6 +18,7 @@ build/
 bld/
 [Bb]in/
 [Oo]bj/
+out/
 
 # Visual Studio cache/options directory
 .vs/
@@ -29,6 +30,7 @@ bld/
 # NUnit
 *.VisualState.xml
 TestResult.xml
+nunit-*.xml
 
 # Build Results of an ATL Project
 [Dd]ebugPS/
@@ -37,6 +39,7 @@ dlldata.c
 
 # DNX
 project.lock.json
+project.fragment.lock.json
 artifacts/
 
 *_i.c
@@ -91,9 +94,48 @@ _ReSharper*/
 
 # macOS
 .DS_Store
+.AppleDouble
+.LSOverride
+
+# Linux
+*~
+.directory
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
 
 # Old WinForm project
 old/
 
 # Log files directory
 logs/
+
+# Publish output
+publish/
+
+# NuGet Packages
+*.nupkg
+*.snupkg
+**/packages/*
+!**/packages/build/
+
+# .NET Core
+*.swp
+*.*~
+.dotnet/
+
+# Temporary files
+*.bak
+*.cache
+*.orig
+
+# Coverage results
+coverage/
+*.coverage
+*.coveragexml
+
+# Test output
+TestResults/
