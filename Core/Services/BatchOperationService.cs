@@ -336,7 +336,7 @@ public class BatchOperationService
             progress.Report(progressInfo);
             
             // Compress
-            var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
+            var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken).ConfigureAwait(false);
             
             if (result.Success)
             {
@@ -440,7 +440,7 @@ public class BatchOperationService
         // Shutdown if requested
         if (options.ShutdownAfterComplete)
         {
-            await _systemIntegration.ShutdownAsync();
+            await _systemIntegration.ShutdownAsync().ConfigureAwait(false);
         }
     }
     
@@ -532,7 +532,7 @@ public class BatchOperationService
             progress.Report(progressInfo);
             
             // Extract
-            var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken);
+            var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken).ConfigureAwait(false);
             
             if (result.Success)
             {
@@ -618,7 +618,7 @@ public class BatchOperationService
         if (options.ShutdownAfterComplete)
         {
             Log(LogLevel.Information, "Shutdown requested after completion");
-            await _systemIntegration.ShutdownAsync();
+            await _systemIntegration.ShutdownAsync().ConfigureAwait(false);
         }
     }
     

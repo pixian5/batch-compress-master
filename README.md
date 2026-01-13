@@ -283,6 +283,10 @@ dotnet run
 3. 在 `ViewModels` 中添加 ViewModel 逻辑
 4. 在 `Views` 中更新 UI
 
+## 安全性
+
+查看我们的 [安全政策](SECURITY.md) 了解如何报告安全问题。
+
 ## 许可证
 
 本项目采用 MIT 许可证。详见 [LICENSE](LICENSE) 文件。
