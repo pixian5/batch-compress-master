@@ -70,6 +70,11 @@ public class LanguageStrings : INotifyPropertyChanged
     public string MaxSizeLabel { get; set; } = "最大处理大小(GB)：";
     public string AddAttachments { get; set; } = "添加附件";
     
+    // Volume Unit Options
+    public string VolumeUnitGB { get; set; } = "GB";
+    public string VolumeUnitMB { get; set; } = "MB";
+    public string VolumeUnitKB { get; set; } = "KB";
+    
     // Post-Processing Options
     public string AfterProcessing { get; set; } = "压缩或解压后";
     public string DeleteSource { get; set; } = "删除源";
