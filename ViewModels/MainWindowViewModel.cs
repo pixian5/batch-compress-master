@@ -898,7 +898,7 @@ public partial class MainWindowViewModel : ViewModelBase
             MaxSizeGB = MaxSizeGB,
             ShutdownAfterComplete = ShutdownAfterComplete,
             CompressionLevel = (Core.Interfaces.CompressionLevel)clampedCompressionLevel,
-            SolidArchive = SolidArchive && CompressionLevel > 0,
+            SolidArchive = SolidArchive && clampedCompressionLevel > 0,
             VolumeSize = EnableVolume ? VolumeSize : null,
             VolumeSizeUnit = EnableVolume ? volumeUnits[volumeUnitIndex] : null,
             QuickOpen = QuickOpen,
