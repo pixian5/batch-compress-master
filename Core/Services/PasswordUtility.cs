@@ -15,6 +15,8 @@ public static class PasswordUtility
     /// </summary>
     public static string MD5UTF878(string text)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text, nameof(text));
+
         using var md5 = MD5.Create();
         byte[] buffer = Encoding.UTF8.GetBytes(text);
         byte[] hash = md5.ComputeHash(buffer);
@@ -34,6 +36,8 @@ public static class PasswordUtility
     /// </summary>
     public static string MD5UTF874(string text)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text, nameof(text));
+
         using var md5 = MD5.Create();
         byte[] buffer = Encoding.UTF8.GetBytes(text);
         byte[] hash = md5.ComputeHash(buffer);
@@ -54,6 +58,8 @@ public static class PasswordUtility
     /// </summary>
     public static string MD5GB2312(string text)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(text, nameof(text));
+
         using var md5 = MD5.Create();
         
         // Register code pages provider for GB2312
@@ -77,6 +83,8 @@ public static class PasswordUtility
     /// </summary>
     public static string GenerateCompressionPassword(string filenameWithExtension)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(filenameWithExtension, nameof(filenameWithExtension));
+
         string part1 = MD5UTF878(filenameWithExtension + "592ptt1314");
         string part2 = MD5UTF878(filenameWithExtension + "592pnn1314");
         return part1 + part2;
@@ -88,6 +96,8 @@ public static class PasswordUtility
     /// </summary>
     public static string GenerateDecompressionPassword(string archiveFilename)
     {
+        ArgumentException.ThrowIfNullOrWhiteSpace(archiveFilename, nameof(archiveFilename));
+
         return GenerateCompressionPassword(archiveFilename);
     }
     

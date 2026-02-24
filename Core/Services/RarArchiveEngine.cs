@@ -523,6 +523,29 @@ public class RarArchiveEngine : IArchiveEngine
     
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
     {
+        // Parameter validation
+        if (string.IsNullOrWhiteSpace(input))
+        {
+            return new ArchiveResult
+            {
+                Success = false,
+                ExitCode = -1,
+                ErrorMessage = "Input path cannot be null or empty"
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(output))
+        {
+            return new ArchiveResult
+            {
+                Success = false,
+                ExitCode = -1,
+                ErrorMessage = "Output path cannot be null or empty"
+            };
+        }
+
+        ArgumentNullException.ThrowIfNull(options, nameof(options));
+
         if (string.IsNullOrEmpty(_rarExecutablePath))
         {
             if (!IsAvailable())
@@ -540,7 +563,7 @@ public class RarArchiveEngine : IArchiveEngine
         
         try
         {
-            return await ExecuteRarCommand(arguments, cancellationToken);
+            return await ExecuteRarCommand(arguments, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -555,6 +578,29 @@ public class RarArchiveEngine : IArchiveEngine
     
     public async Task<ArchiveResult> ExtractAsync(string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default)
     {
+        // Parameter validation
+        if (string.IsNullOrWhiteSpace(archivePath))
+        {
+            return new ArchiveResult
+            {
+                Success = false,
+                ExitCode = -1,
+                ErrorMessage = "Archive path cannot be null or empty"
+            };
+        }
+
+        if (string.IsNullOrWhiteSpace(outputDir))
+        {
+            return new ArchiveResult
+            {
+                Success = false,
+                ExitCode = -1,
+                ErrorMessage = "Output directory cannot be null or empty"
+            };
+        }
+
+        ArgumentNullException.ThrowIfNull(options, nameof(options));
+
         if (string.IsNullOrEmpty(_rarExecutablePath))
         {
             if (!IsAvailable())
@@ -572,7 +618,7 @@ public class RarArchiveEngine : IArchiveEngine
         
         try
         {
-            return await ExecuteRarCommand(arguments, cancellationToken);
+            return await ExecuteRarCommand(arguments, cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex)
         {
@@ -735,7 +781,7 @@ public class RarArchiveEngine : IArchiveEngine
             // Wait for exit with cancellation support
             try
             {
-                await process.WaitForExitAsync(cancellationToken);
+                await process.WaitForExitAsync(cancellationToken).ConfigureAwait(false);
             }
             catch (OperationCanceledException)
             {
