@@ -212,7 +212,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _enableComment = true;
     
     [ObservableProperty]
-    private string _commentFilePath = ".\\注释.txt";
+    private string _commentFilePath = Path.Combine(".", "注释.txt");
     
     [ObservableProperty]
     private string _tempDirectory = string.Empty;
@@ -878,6 +878,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private BatchOperationOptions BuildBatchOperationOptions()
     {
         string[] volumeUnits = { "g", "m", "k" };
+        var volumeUnitIndex = VolumeUnit >= 0 && VolumeUnit < volumeUnits.Length ? VolumeUnit : 0;
+        
+        var clampedCompressionLevel = CompressionLevel >= 0 && CompressionLevel <= 5 
+            ? CompressionLevel : 3;
+        var clampedExistingFileMode = ExistingFileMode >= 0 && ExistingFileMode <= 2 
+            ? ExistingFileMode : 2;
         
         return new BatchOperationOptions
         {
@@ -891,15 +897,15 @@ public partial class MainWindowViewModel : ViewModelBase
             SkipAlreadyProcessed = SkipAlreadyProcessed,
             MaxSizeGB = MaxSizeGB,
             ShutdownAfterComplete = ShutdownAfterComplete,
-            CompressionLevel = (Core.Interfaces.CompressionLevel)CompressionLevel,
-            SolidArchive = SolidArchive && CompressionLevel > 0,
+            CompressionLevel = (Core.Interfaces.CompressionLevel)clampedCompressionLevel,
+            SolidArchive = SolidArchive && clampedCompressionLevel > 0,
             VolumeSize = EnableVolume ? VolumeSize : null,
-            VolumeSizeUnit = EnableVolume ? volumeUnits[VolumeUnit] : null,
+            VolumeSizeUnit = EnableVolume ? volumeUnits[volumeUnitIndex] : null,
             QuickOpen = QuickOpen,
             TestArchive = TestArchive,
             CommentFile = EnableComment && File.Exists(CommentFilePath) ? CommentFilePath : null,
             TempDirectory = !string.IsNullOrEmpty(TempDirectory) ? TempDirectory : OutputPath,
-            ExistingFileMode = (Core.Interfaces.ExistingFileMode)ExistingFileMode,
+            ExistingFileMode = (Core.Interfaces.ExistingFileMode)clampedExistingFileMode,
             RecoveryRecordPercent = 3,
             AddEnclosures = AddEnclosures,
             EnclosureDirectories = AddEnclosures ? 

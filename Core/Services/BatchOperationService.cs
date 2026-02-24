@@ -155,7 +155,11 @@ public class BatchOperationService
                 }
             }
         }
-        catch { }
+        catch (Exception ex)
+        {
+            Log(LogLevel.Error, $"Error loading files from text file: {ex.Message}");
+            Console.WriteLine($"Error loading files from text file: {ex.Message}");
+        }
         
         return entries;
     }
