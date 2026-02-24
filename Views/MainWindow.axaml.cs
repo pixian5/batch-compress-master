@@ -1,5 +1,6 @@
-using System;
+﻿using System;
 using System.IO;
+using System.Text.Json;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -20,14 +21,264 @@ namespace BatchCompress.Avalonia.Views;
 public partial class MainWindow : Window
 {
     private ScrollViewer? _commandLogScrollViewer;
-    
+    private double _lastNormalWidth;
+    private double _lastNormalHeight;
+    private int _lastNormalX;
+    private int _lastNormalY;
+    private bool _hasLastNormalPosition;
+    private WindowState _lastWindowState = WindowState.Normal;
+    private bool _isApplyingNormalBounds;
+    private static readonly JsonSerializerOptions WindowSettingsSerializerOptions = new();
+    private static readonly string WindowSettingsFilePath = Path.Combine(
+        AppContext.BaseDirectory,
+        "window-settings.json");
     public MainWindow()
     {
         InitializeComponent();
+        _lastNormalWidth = Width;
+        _lastNormalHeight = Height;
+        _lastNormalX = Position.X;
+        _lastNormalY = Position.Y;
+        _hasLastNormalPosition = true;
+
+        RestoreWindowSize();
+        _lastWindowState = WindowState;
         AddHandler(DragDrop.DropEvent, Drop);
-        
+
         // Setup auto-scroll for CommandLog
+        this.Resized += MainWindow_Resized;
+        this.PositionChanged += MainWindow_PositionChanged;
+        this.Closing += MainWindow_Closing;
         this.Loaded += MainWindow_Loaded;
+    }
+
+    protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
+    {
+        base.OnPropertyChanged(change);
+
+        if (change.Property != WindowStateProperty || change.NewValue is not WindowState newState)
+        {
+            return;
+        }
+
+        if (_lastWindowState == WindowState.Maximized && newState == WindowState.Normal)
+        {
+            global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+            {
+                if (WindowState != WindowState.Normal || _isApplyingNormalBounds)
+                {
+                    return;
+                }
+
+                if (!IsLikelyMaximizedGeometry(ClientSize, Position))
+                {
+                    return;
+                }
+
+                ApplyLastNormalBounds();
+            }, global::Avalonia.Threading.DispatcherPriority.Background);
+        }
+
+        _lastWindowState = newState;
+        SaveWindowSize();
+    }
+
+    private void MainWindow_Resized(object? sender, WindowResizedEventArgs e)
+    {
+        if (WindowState == WindowState.Normal && !_isApplyingNormalBounds &&
+            !IsLikelyMaximizedGeometry(e.ClientSize, Position))
+        {
+            UpdateLastNormalSize(e.ClientSize.Width, e.ClientSize.Height);
+        }
+
+        SaveWindowSize();
+    }
+
+    private void MainWindow_PositionChanged(object? sender, PixelPointEventArgs e)
+    {
+        if (WindowState == WindowState.Normal && !_isApplyingNormalBounds &&
+            !IsLikelyMaximizedGeometry(ClientSize, e.Point))
+        {
+            UpdateLastNormalPosition(e.Point);
+        }
+
+        SaveWindowSize();
+    }
+
+    private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
+    {
+        SaveWindowSize();
+    }
+
+    private void RestoreWindowSize()
+    {
+        try
+        {
+            if (!File.Exists(WindowSettingsFilePath))
+            {
+                return;
+            }
+
+            var json = File.ReadAllText(WindowSettingsFilePath);
+            var settings = JsonSerializer.Deserialize<WindowSizeSettings>(json, WindowSettingsSerializerOptions);
+            if (settings is null)
+            {
+                return;
+            }
+
+            if (IsValidWindowDimension(settings.Width) && IsValidWindowDimension(settings.Height))
+            {
+                Width = settings.Width;
+                Height = settings.Height;
+                UpdateLastNormalSize(settings.Width, settings.Height);
+            }
+
+            if (settings.X.HasValue && settings.Y.HasValue)
+            {
+                UpdateLastNormalPosition(settings.X.Value, settings.Y.Value);
+                Position = new PixelPoint(settings.X.Value, settings.Y.Value);
+            }
+
+            if (settings.WindowState == WindowState.Maximized)
+            {
+                WindowState = WindowState.Maximized;
+            }
+        }
+        catch
+        {
+            // Ignore invalid settings and continue with defaults.
+        }
+    }
+
+    private void SaveWindowSize()
+    {
+        try
+        {
+            var stateToSave = WindowState == WindowState.Minimized
+                ? WindowState.Normal
+                : WindowState;
+
+            if (stateToSave == WindowState.Normal)
+            {
+                var width = ClientSize.Width > 0 ? ClientSize.Width : Width;
+                var height = ClientSize.Height > 0 ? ClientSize.Height : Height;
+                if (!IsLikelyMaximizedGeometry(new Size(width, height), Position))
+                {
+                    UpdateLastNormalSize(width, height);
+                    UpdateLastNormalPosition(Position);
+                }
+            }
+
+            if (!IsValidWindowDimension(_lastNormalWidth) || !IsValidWindowDimension(_lastNormalHeight))
+            {
+                return;
+            }
+
+            var settings = new WindowSizeSettings
+            {
+                Width = _lastNormalWidth,
+                Height = _lastNormalHeight,
+                X = _hasLastNormalPosition ? _lastNormalX : null,
+                Y = _hasLastNormalPosition ? _lastNormalY : null,
+                WindowState = stateToSave == WindowState.Maximized
+                    ? WindowState.Maximized
+                    : WindowState.Normal
+            };
+
+            var directory = Path.GetDirectoryName(WindowSettingsFilePath);
+            if (!string.IsNullOrEmpty(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            var json = JsonSerializer.Serialize(settings, WindowSettingsSerializerOptions);
+            File.WriteAllText(WindowSettingsFilePath, json);
+        }
+        catch
+        {
+            // Ignore save failures to avoid blocking app shutdown.
+        }
+    }
+
+    private void UpdateLastNormalSize(double width, double height)
+    {
+        if (!IsValidWindowDimension(width) || !IsValidWindowDimension(height))
+        {
+            return;
+        }
+
+        _lastNormalWidth = width;
+        _lastNormalHeight = height;
+    }
+
+    private void UpdateLastNormalPosition(PixelPoint point)
+    {
+        UpdateLastNormalPosition(point.X, point.Y);
+    }
+
+    private void UpdateLastNormalPosition(int x, int y)
+    {
+        _lastNormalX = x;
+        _lastNormalY = y;
+        _hasLastNormalPosition = true;
+    }
+
+    private static bool IsValidWindowDimension(double value)
+    {
+        return !double.IsNaN(value) && !double.IsInfinity(value) && value > 0;
+    }
+
+    private void ApplyLastNormalBounds()
+    {
+        if (!IsValidWindowDimension(_lastNormalWidth) || !IsValidWindowDimension(_lastNormalHeight))
+        {
+            return;
+        }
+
+        _isApplyingNormalBounds = true;
+        try
+        {
+            ClientSize = new Size(_lastNormalWidth, _lastNormalHeight);
+            Width = _lastNormalWidth;
+            Height = _lastNormalHeight;
+
+            if (_hasLastNormalPosition)
+            {
+                Position = new PixelPoint(_lastNormalX, _lastNormalY);
+            }
+        }
+        finally
+        {
+            _isApplyingNormalBounds = false;
+        }
+
+        SaveWindowSize();
+    }
+
+    private bool IsLikelyMaximizedGeometry(Size clientSize, PixelPoint position)
+    {
+        try
+        {
+            var screens = Screens;
+            var screen = screens.ScreenFromWindow(this) ?? screens.ScreenFromPoint(position) ?? screens.Primary;
+            if (screen is null)
+            {
+                return false;
+            }
+
+            var workingArea = screen.WorkingArea;
+            var widthClose = Math.Abs(clientSize.Width - workingArea.Width) <= 2;
+            var heightClose = Math.Abs(clientSize.Height - workingArea.Height) <= 2;
+
+            var xClose = Math.Abs(position.X - workingArea.X) <= 12 || position.X <= -6;
+            var yClose = Math.Abs(position.Y - workingArea.Y) <= 12 || position.Y <= -6;
+
+            return widthClose && heightClose && xClose && yClose;
+        }
+        catch
+        {
+            return false;
+        }
     }
     
     private void MainWindow_Loaded(object? sender, RoutedEventArgs e)
@@ -65,26 +316,26 @@ public partial class MainWindow : Window
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        if (e.Data.Get(DataFormats.Files) is IEnumerable<IStorageItem> files && DataContext is MainWindowViewModel viewModel)
+        if (e.DataTransfer.TryGetFiles() is IEnumerable<IStorageItem> files && DataContext is MainWindowViewModel viewModel)
         {
             foreach (var file in files)
             {
                 var firstPath = file.Path.LocalPath;
                 if (string.IsNullOrEmpty(firstPath)) continue;
                 
-                // 如果拖入的是文件夹
+                // 濡傛灉鎷栧叆鐨勬槸鏂囦欢澶?
                 if (Directory.Exists(firstPath))
                 {
                     viewModel.SaveFilePath = firstPath;
                     viewModel.CommandLog += L.DroppedFolder + firstPath + "\n";
-                    break; // 只处理第一个
+                    break; // 鍙鐞嗙涓€涓?
                 }
-                // 如果拖入的是TXT文件
+                // 濡傛灉鎷栧叆鐨勬槸TXT鏂囦欢
                 else if (File.Exists(firstPath) && firstPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
                 {
                     viewModel.SourcePath = firstPath;
                     viewModel.CommandLog += L.DroppedTxtFile + firstPath + "\n";
-                    break; // 只处理第一个
+                    break; // 鍙鐞嗙涓€涓?
                 }
             }
         }
@@ -109,31 +360,31 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel viewModel)
             return;
         
-        if (viewModel.SourceMode == 0) // 从txt读取要解压的文件
+        if (viewModel.SourceMode == 0) // 浠巘xt璇诲彇瑕佽В鍘嬬殑鏂囦欢
         {
-            // 检查保存路径是否为空
+            // 妫€鏌ヤ繚瀛樿矾寰勬槸鍚︿负绌?
             if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
             {
-                // 提示用户选择保存目录
+                // 鎻愮ず鐢ㄦ埛閫夋嫨淇濆瓨鐩綍
                 bool shouldContinue = await ShowOkCancelMessageBoxAsync(L.Hint, L.SelectSaveDirectory);
                 
                 if (shouldContinue)
                 {
-                    // 模拟点击选择目录按钮
+                    // 妯℃嫙鐐瑰嚮閫夋嫨鐩綍鎸夐挳
                     await BrowseSaveFileAsync();
                     
-                    // 如果用户取消了目录选择，直接返回
+                    // 濡傛灉鐢ㄦ埛鍙栨秷浜嗙洰褰曢€夋嫨锛岀洿鎺ヨ繑鍥?
                     if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
                         return;
                 }
                 else
                 {
-                    // 用户取消了提示，直接返回
+                    // 鐢ㄦ埛鍙栨秷浜嗘彁绀猴紝鐩存帴杩斿洖
                     return;
                 }
             }
             
-            // 确保保存路径以目录分隔符结尾
+            // 纭繚淇濆瓨璺緞浠ョ洰褰曞垎闅旂缁撳熬
             string savePath = viewModel.SaveFilePath;
             if (!savePath.EndsWith(Path.DirectorySeparatorChar) && 
                 !savePath.EndsWith(Path.AltDirectorySeparatorChar))
@@ -143,7 +394,7 @@ public partial class MainWindow : Window
             
 
             
-            // 让用户选择密码文件
+            // 璁╃敤鎴烽€夋嫨瀵嗙爜鏂囦欢
             var fileOptions = new FilePickerOpenOptions
             {
                 Title = L.SelectPasswordTxt,
@@ -158,17 +409,17 @@ public partial class MainWindow : Window
             var files = await this.StorageProvider.OpenFilePickerAsync(fileOptions);
             if (files.Count > 0)
             {
-                // 密码文件的文件名（不含路径）
+                // 瀵嗙爜鏂囦欢鐨勬枃浠跺悕锛堜笉鍚矾寰勶級
                 string passwordFileName = Path.GetFileName(files[0].Path.LocalPath);
                 
-                // 拼接完整路径
+                // 鎷兼帴瀹屾暣璺緞
                 string fullPath = Path.Combine(savePath, passwordFileName);
                 
-                // 设置到SourcePath
+                // 璁剧疆鍒癝ourcePath
                 viewModel.SourcePath = fullPath;
             }
         }
-        else // 压缩此文件夹内所有文件
+        else // 鍘嬬缉姝ゆ枃浠跺す鍐呮墍鏈夋枃浠?
         {
             var options = new FolderPickerOpenOptions
             {
@@ -205,7 +456,7 @@ public partial class MainWindow : Window
         {
             if (DataContext is MainWindowViewModel viewModel)
             {
-                // 添加调试日志
+                // 娣诲姞璋冭瘯鏃ュ織
                 viewModel.CommandLog += "BrowseSaveFileAsync called\n";
             }
             
@@ -215,12 +466,12 @@ public partial class MainWindow : Window
                 AllowMultiple = false
             };
             
-            // 在Avalonia 11中，应该使用StorageProvider的正确实例
+            // 鍦ˋvalonia 11涓紝搴旇浣跨敤StorageProvider鐨勬纭疄渚?
             var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
             
             if (DataContext is MainWindowViewModel viewModel2)
             {
-                // 添加调试日志
+                // 娣诲姞璋冭瘯鏃ュ織
                 viewModel2.CommandLog += $"Folder picker returned {folders.Count} items\n";
                 
                 if (folders.Count > 0)
@@ -331,4 +582,18 @@ public partial class MainWindow : Window
         
         return await dialog.ShowDialog<bool>(this);
     }
+
+    private sealed class WindowSizeSettings
+    {
+        public double Width { get; set; }
+
+        public double Height { get; set; }
+
+        public int? X { get; set; }
+
+        public int? Y { get; set; }
+
+        public WindowState WindowState { get; set; } = WindowState.Normal;
+    }
 }
+

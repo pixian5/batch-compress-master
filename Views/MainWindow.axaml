@@ -15,25 +15,28 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <ScrollViewer DragDrop.AllowDrop="True">
+    <ScrollViewer DragDrop.AllowDrop="True"
+                  AllowAutoHide="False"
+                  HorizontalScrollBarVisibility="Disabled"
+                  VerticalScrollBarVisibility="Visible">
         <StackPanel Margin="10" Spacing="8">
-            
+
             <!-- Source and Destination Section -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
                     <TextBlock Text="{Binding L.SourceAndDestination}" FontWeight="Bold" FontSize="14"/>
-                    
+
                     <!-- Source and Destination Section -->
                     <Grid ColumnDefinitions="200,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
                         <!-- Row 0: Source Mode and Save Path -->
                         <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" ItemsSource="{Binding SourceModeOptions}" HorizontalAlignment="Stretch"/>
                         <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch"/>
                         <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right"/>
-                        
+
                         <!-- Row 2: TXT File Path -->
                         <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" Watermark="{Binding L.TxtPathWatermark}" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}"/>
                         <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="{Binding L.SelectTxt}" HorizontalAlignment="Right" IsVisible="{Binding IsFromTxtMode}"/>
-                        
+
                         <!-- Row 4: Output Path -->
                         <Button Grid.Row="4" Grid.Column="0" Content="{Binding L.SameAsAbove}" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Left"/>
                         <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" Watermark="{Binding L.DestinationWatermark}" HorizontalAlignment="Stretch"/>
@@ -41,7 +44,7 @@
                     </Grid>
                 </StackPanel>
             </Border>
-            
+
             <!-- Options Section -->
             <Grid ColumnDefinitions="*" Margin="0,5">
                 <!-- Left Column: Compression Options -->
@@ -50,7 +53,7 @@
                         <Grid ColumnDefinitions="*,Auto,5,Auto" HorizontalAlignment="Stretch">
                             <TextBlock Grid.Column="0" Text="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                             <TextBlock Grid.Column="1" Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="3" ItemsSource="{Binding AvailableLanguages}" 
+                            <ComboBox Grid.Column="3" ItemsSource="{Binding AvailableLanguages}"
                                       SelectedValue="{Binding SelectedLanguage}"
                                       SelectedValueBinding="{Binding Key}"
                                       DisplayMemberBinding="{Binding Value}"
@@ -58,21 +61,21 @@
                         </Grid>
                     </Expander.Header>
                     <StackPanel Spacing="10">
-                
+
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8,8,8,4" CornerRadius="5">
                                 <StackPanel Spacing="6">
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <TextBlock Text="{Binding L.FileNameLabel}" VerticalAlignment="Center"/>
                                         <TextBox Text="{Binding PasswordQueryFileName}" Width="200"/>
                                         <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80"/>
-                                        <Button Content="{Binding L.ConfirmPassword}" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="100"/>
+                                        <Button Content="{Binding L.ConfirmPassword}" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="120"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0"/>
-                                        <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left" 
+                                        <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left"
                                                  Watermark="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0"/>
                                     </StackPanel>
-                                    
+
                                     <!-- 查询结果区域 -->
                                     <StackPanel Spacing="2" IsVisible="{Binding PasswordQueryResult, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}">
                                         <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
@@ -80,7 +83,7 @@
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
-                            
+
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
@@ -91,38 +94,38 @@
                                 <!-- Row 1 -->
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.CompressionLevelLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" ItemsSource="{Binding CompressionLevelOptions}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3"/>
-                                
+
                                 <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3"/>
                                 <CheckBox Grid.Row="1" Grid.Column="3" Content="{Binding L.QuickOpen}" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3"/>
-                                
+
                                 <!-- Row 2 -->
                                 <CheckBox Grid.Row="2" Grid.Column="0" Content="{Binding L.Volume}" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3"/>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,3">
                                     <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
                                     <ComboBox SelectedIndex="{Binding VolumeUnit}" ItemsSource="{Binding VolumeUnitOptions}" Width="80" IsEnabled="{Binding EnableVolume}"/>
                                 </StackPanel>
-                                
+
                                 <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" ItemsSource="{Binding ExistingFileModeOptions}" Width="160" HorizontalAlignment="Left" Margin="20,0,0,3"/>
-                                
+
                                 <!-- Row 3 -->
                                 <CheckBox Grid.Row="3" Grid.Column="0" Content="{Binding L.EnableComment}" IsChecked="{Binding EnableComment}" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300" 
+                                <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300"
                                          IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,3"/>
-                                
+
                                 <CheckBox Grid.Row="3" Grid.Column="3" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3"/>
-                                
+
                                 <!-- Row 4 -->
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L.TempDirectory}" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3"/>
-                                
+
                                 <!-- Row 5: Max Size -->
                                 <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="20,0,10,3"/>
                                 <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3"/>
-                                
+
                                 <!-- Row 6: Add Enclosures -->
                                 <CheckBox Grid.Row="6" Grid.Column="0" Content="{Binding L.AddAttachments}" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
                             </Grid>
-                            
+
                             <!-- Enclosure List -->
                             <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,2">
                                 <TextBox Text="{Binding EnclosureList}" Height="100" AcceptsReturn="True" TextWrapping="Wrap"
@@ -132,7 +135,7 @@
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
                                 <StackPanel Spacing="6">
                                     <TextBlock Text="{Binding L.AfterProcessing}" FontWeight="Bold" FontSize="14"/>
-                                    
+
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}"/>
                                         <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}"/>
@@ -143,7 +146,7 @@
                         </StackPanel>
                     </Expander>
                 </Grid>
-            
+
             <!-- Operation Buttons -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
@@ -163,7 +166,7 @@
                         <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32"/>
                         <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32"/>
                     </StackPanel>
-                    
+
                     <!-- Status Display -->
                     <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="15">
                         <StackPanel>
@@ -209,45 +212,45 @@
                     </StackPanel>
                 </StackPanel>
             </Border>
-            
-            
+
+
             <!-- Log Sections -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="0" CornerRadius="5">
                 <TabControl Height="300">
                 <!-- Source File List -->
                 <TabItem Header="{Binding SourceFileListTabHeader}">
                     <ScrollViewer>
-                        <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap" 
+                        <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap"
                                  IsReadOnly="False" BorderThickness="0"/>
                     </ScrollViewer>
                 </TabItem>
-                
+
                 <!-- Success Log -->
                 <TabItem Header="{Binding SuccessLogTabHeader}">
                     <ScrollViewer>
-                        <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap" 
+                        <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap"
                                  IsReadOnly="True" BorderThickness="0" Foreground="Green"/>
                     </ScrollViewer>
                 </TabItem>
-                
+
                 <!-- Fail Log -->
                 <TabItem Header="{Binding FailLogTabHeader}">
                     <ScrollViewer>
-                        <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap" 
+                        <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap"
                                  IsReadOnly="True" BorderThickness="0" Foreground="Red"/>
                     </ScrollViewer>
                 </TabItem>
-                
+
                 <!-- Command Log -->
                 <TabItem Header="{Binding CommandLogTabHeader}">
                     <ScrollViewer x:Name="CommandLogScrollViewer">
-                        <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap" 
+                        <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap"
                                  IsReadOnly="True" BorderThickness="0"/>
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
             </Border>
-            
+
         </StackPanel>
     </ScrollViewer>
 

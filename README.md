@@ -5,6 +5,7 @@
 ## 功能特性
 
 ### 核心功能
+
 - ✅ 批量压缩文件和文件夹到 RAR/ZIP 格式
 - ✅ 批量解压 RAR/ZIP 文件
 - ✅ 支持从文件夹或文本文件加载待处理列表
@@ -17,6 +18,7 @@
 - ✅ 高级功能解锁机制
 
 ### 跨平台特性
+
 - ✅ 跨平台 UI（Avalonia UI）
 - ✅ 跨平台压缩引擎集成（RAR/UnRAR）
 - ✅ 跨平台文件对话框
@@ -25,6 +27,7 @@
 - ✅ 跨平台系统通知（计划中）
 
 ### 压缩选项
+
 - 压缩率：不压缩、轻度、快速、标准、较好、最佳
 - 固实压缩：减小文件大小
 - 分卷压缩：支持 GB/MB/KB 单位
@@ -35,6 +38,7 @@
 - 临时目录设置
 
 ### 后处理选项
+
 - 处理后删除源文件
 - 处理后移动源文件到【已压缩】/【已解压】目录
 - 跳过已处理的文件
@@ -45,16 +49,19 @@
 ## 系统要求
 
 ### Windows
+
 - Windows 7 或更高版本
 - .NET 9.0 运行时
 - WinRAR 已安装（用于压缩/解压）
 
 ### Linux
+
 - 任何现代 Linux 发行版
 - .NET 9.0 运行时
 - rar 或 unrar 命令行工具已安装
 
 ### macOS
+
 - macOS 10.13 或更高版本
 - .NET 9.0 运行时
 - rar 或 unrar 命令行工具已安装（可通过 Homebrew 安装）
@@ -62,7 +69,9 @@
 ## 安装依赖
 
 ### 安装 .NET 9.0
-从 [Microsoft .NET 下载页面](https://dotnet.microsoft.com/download/dotnet/9.0) 下载并安装 .NET 9.0 运行时。
+
+从 [Microsoft .NET 下载页面](https://dotnet.microsoft.com/download/dotnet/9.0)
+下载并安装 .NET 9.0 运行时。
 
 ### 安装 RAR/UnRAR
 
@@ -70,17 +79,20 @@
 下载并安装 [WinRAR](https://www.winrar.com/)
 
 **Linux (Ubuntu/Debian):**
+
 ```bash
 sudo apt-get update
 sudo apt-get install rar unrar
 ```
 
 **Linux (Fedora/RHEL):**
+
 ```bash
 sudo dnf install rar unrar
 ```
 
 **macOS (Homebrew):**
+
 ```bash
 brew install rar
 # 或者只安装 unrar
@@ -92,22 +104,26 @@ brew install unrar
 ### 从源代码构建
 
 1. 克隆仓库
+
 ```bash
 git clone https://github.com/pixian5/batch-compress-master.git
 cd batch-compress-master
 ```
 
-2. 恢复 NuGet 包
+1. 恢复 NuGet 包
+
 ```bash
 dotnet restore
 ```
 
-3. 构建项目
+1. 构建项目
+
 ```bash
 dotnet build
 ```
 
-4. 运行应用
+1. 运行应用
+
 ```bash
 dotnet run
 ```
@@ -115,21 +131,25 @@ dotnet run
 ### 发布独立应用
 
 **Windows (x64):**
+
 ```bash
 dotnet publish -c Release -r win-x64 --self-contained
 ```
 
 **Linux (x64):**
+
 ```bash
 dotnet publish -c Release -r linux-x64 --self-contained
 ```
 
 **macOS (x64):**
+
 ```bash
 dotnet publish -c Release -r osx-x64 --self-contained
 ```
 
 **macOS (ARM64):**
+
 ```bash
 dotnet publish -c Release -r osx-arm64 --self-contained
 ```
@@ -182,7 +202,8 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 ### TXT 文件格式
 
 当使用"从 TXT 读取"模式时，文本文件格式如下：
-```
+
+```text
 文件1
 密码1
 文件2
@@ -194,7 +215,8 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 ## 技术架构
 
 ### 项目结构
-```
+
+```text
 ├── Core/
 │   ├── Interfaces/          # 接口定义
 │   │   ├── IArchiveEngine.cs
@@ -240,6 +262,7 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 ## 与原版 WinForms 版本的差异
 
 ### 已实现
+
 - 所有核心压缩/解压功能
 - 所有密码功能（随机密码、自定义密码、查询密码）
 - 所有压缩选项（压缩率、固实、分卷等）
@@ -248,6 +271,7 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 - 跨平台支持
 
 ### 计划实现
+
 - 系统托盘图标
 - 桌面通知/气泡提示
 - 拖放文件支持
@@ -255,6 +279,7 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 - 更完善的错误处理
 
 ### 简化/移除的功能
+
 - UAC 提权（不需要，跨平台不适用）
 - Windows 特定的注册表操作（已改为跨平台路径搜索）
 - 一些 Windows 特定的 UI 提示功能
@@ -262,10 +287,12 @@ dotnet publish -c Release -r osx-arm64 --self-contained
 ## 开发
 
 ### 前置条件
+
 - .NET 9.0 SDK
 - 任何支持 C# 的 IDE（Visual Studio、Visual Studio Code、JetBrains Rider）
 
 ### 运行调试
+
 ```bash
 cd BatchCompress.Avalonia
 dotnet run
@@ -294,6 +321,6 @@ dotnet run
 
 ## 联系方式
 
-- Email: qgkc520@Gmail.com
+- Email: <qgkc520@Gmail.com>
 - QQ: 2027123419
 - 微信: i17269637581
