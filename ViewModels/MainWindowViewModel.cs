@@ -212,7 +212,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private bool _enableComment = true;
     
     [ObservableProperty]
-    private string _commentFilePath = Path.Combine(".", "注释.txt");
+    private string _commentFilePath = "注释.txt";
     
     [ObservableProperty]
     private string _tempDirectory = string.Empty;

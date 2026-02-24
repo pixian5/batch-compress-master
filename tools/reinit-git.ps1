@@ -1,7 +1,7 @@
 <#
 PowerShell 脚本：移除当前仓库的 .git 并重新初始化，然后推送到新远程仓库。
 用法：
-  .\reinit-git.ps1 -RemoteUrl "https://github.com/NEWUSER/NEWREPO.git" -Branch "main"
+  ./reinit-git.ps1 -RemoteUrl "https://github.com/NEWUSER/NEWREPO.git" -Branch "main"
 如果不提供 -RemoteUrl，会提示输入。
 警告：该操作会永久删除本地仓库历史（.git 文件夹）。请先备份需要的内容。
 #>
@@ -80,3 +80,4 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Write-Host "完成。已删除本地历史并将当前内容推送到 $RemoteUrl（分支：$Branch）。" -ForegroundColor Green
+

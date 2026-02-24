@@ -73,9 +73,9 @@
 
 **格式**:
 ```
-D:\folder\file1.txt
-D:\folder\file2.txt
-D:\folder\subfolder
+/path/to/folder/file1.txt
+/path/to/folder/file2.txt
+/path/to/folder/subfolder
 ...
 ```
 
@@ -321,9 +321,9 @@ MD5(当前年份第几天 + "我爱") + MD5(当前年份第几天 + "胖田田")
 
 **默认内容**:
 ```
-c:\【解压密码】发邮件给 qgkc520@Gmail.com
-c:\【解压密码】微信号：i17269637581
-c:\【解压密码】QQ号：2027123419
+【解压密码】发邮件给 qgkc520@Gmail.com
+【解压密码】微信号：i17269637581
+【解压密码】QQ号：2027123419
 ...
 ```
 
@@ -376,7 +376,7 @@ c:\【解压密码】QQ号：2027123419
 
 **命令行参数示例**:
 ```
-A -ep1 -IBCK -o+ -SCf "D:\output\file.rar" "D:\input\file" -p密码 -v300m -m1 -rr0 -w"D:\temp"
+A -ep1 -IBCK -o+ -SCf "/path/to/output/file.rar" "/path/to/input/file" -p密码 -v300m -m1 -rr0 -w"/path/to/temp"
 ```
 
 **参数说明**:
@@ -417,7 +417,7 @@ A -ep1 -IBCK -o+ -SCf "D:\output\file.rar" "D:\input\file" -p密码 -v300m -m1 -
 
 **命令行参数示例**:
 ```
--IBCK x -o+ -p"密码" "D:\input\file.rar" "D:\output\"
+-IBCK x -o+ -p"密码" "/path/to/input/file.rar" "/path/to/output/"
 ```
 
 **参数说明**:

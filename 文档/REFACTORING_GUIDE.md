@@ -303,8 +303,8 @@ var command = new WinRarCommandBuilder()
     .WithCompressionLevel(1)
     .Solid()
     .Overwrite()
-    .SourceFile(@"C:\input\file.txt")
-    .TargetFile(@"C:\output\file.rar")
+    .SourceFile("/path/to/input/file.txt")
+    .TargetFile("/path/to/output/file.rar")
     .Build();
 ```
 
@@ -527,8 +527,8 @@ public class CompressionServiceTests
         // Arrange
         var options = new CompressionOptions
         {
-            SourceFiles = new List<string> { @"C:\test\file.txt" },
-            TargetPath = @"C:\output",
+            SourceFiles = new List<string> { "/path/to/test/file.txt" },
+            TargetPath = "/path/to/output",
             UseRandomPassword = false,
             Password = "test123"
         };
@@ -553,7 +553,7 @@ public class CompressionServiceTests
         var options = new CompressionOptions
         {
             SourceFiles = Enumerable.Range(1, 100)
-                .Select(i => $@"C:\test\file{i}.txt")
+                .Select(i => $"/path/to/test/file{i}.txt")
                 .ToList()
         };
         

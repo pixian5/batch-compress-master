@@ -259,13 +259,13 @@ e      - 解压不保留路径
 ### 手动执行压缩
 
 ```cmd
-"C:\Program Files\WinRAR\WinRAR.exe" A -p"密码" output.rar input.txt
+rar a -p"密码" /path/to/output.rar /path/to/input.txt
 ```
 
 ### 手动执行解压
 
 ```cmd
-"C:\Program Files\WinRAR\WinRAR.exe" x -p"密码" input.rar "C:\output\"
+rar x -p"密码" /path/to/input.rar /path/to/output/
 ```
 
 ## 文件格式
