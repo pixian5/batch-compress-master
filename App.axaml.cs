@@ -41,7 +41,7 @@ public partial class App : Application
 
     private void MainWindow_Closing(object? sender, WindowClosingEventArgs e)
     {
-        if (_allowExit)
+        if (_allowExit || e.CloseReason is WindowCloseReason.ApplicationShutdown or WindowCloseReason.OSShutdown)
         {
             return;
         }

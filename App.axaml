@@ -19,7 +19,7 @@
 
     <TrayIcon.Icons>
         <TrayIcons>
-            <TrayIcon Icon="/Assets/压缩.ico" ToolTipText="批量压缩解压工具" Clicked="TrayIcon_Clicked">
+            <TrayIcon Icon="/Assets/压缩.png" ToolTipText="批量压缩解压工具" Clicked="TrayIcon_Clicked">
                 <TrayIcon.Menu>
                     <NativeMenu>
                         <NativeMenuItem Header="显示/隐藏" Click="TrayShowHide_Clicked" />

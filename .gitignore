@@ -97,3 +97,6 @@ old/
 
 # Log files directory
 logs/
+
+# Local packaging output
+.artifacts/
