@@ -29,9 +29,7 @@ public partial class MainWindow : Window
     private WindowState _lastWindowState = WindowState.Normal;
     private bool _isApplyingNormalBounds;
     private static readonly JsonSerializerOptions WindowSettingsSerializerOptions = new();
-    private static readonly string WindowSettingsFilePath = Path.Combine(
-        AppContext.BaseDirectory,
-        "window-settings.json");
+    private static readonly string WindowSettingsFilePath = GetWindowSettingsFilePath();
     public MainWindow()
     {
         InitializeComponent();
@@ -209,6 +207,20 @@ public partial class MainWindow : Window
 
         _lastNormalWidth = width;
         _lastNormalHeight = height;
+    }
+
+    private static string GetWindowSettingsFilePath()
+    {
+        var applicationData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+        if (string.IsNullOrWhiteSpace(applicationData))
+        {
+            applicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        }
+
+        return Path.Combine(
+            string.IsNullOrWhiteSpace(applicationData) ? AppContext.BaseDirectory : applicationData,
+            "BatchCompress.Avalonia",
+            "window-settings.json");
     }
 
     private void UpdateLastNormalPosition(PixelPoint point)

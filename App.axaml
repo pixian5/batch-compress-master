@@ -15,6 +15,13 @@
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
+        <Style Selector="ToolTip">
+            <Setter Property="Background" Value="#FFF4B8" />
+            <Setter Property="Foreground" Value="#3D3100" />
+            <Setter Property="BorderBrush" Value="#D6A600" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="8,5" />
+        </Style>
     </Application.Styles>
 
     <TrayIcon.Icons>
