@@ -541,8 +541,10 @@ public class RarArchiveEngine : IArchiveEngine
             .ConfigureAwait(false);
 
         var success = WinRarExitCodes.IsSuccess(result.ExitCode);
-        var standardOutput = SanitizeOutput(result.StandardOutput, password);
-        var standardError = SanitizeOutput(result.StandardError, password);
+        // GPT-5, 2026-08-05: Preserve raw WinRAR stdout/stderr, including password echoes, so the process
+        // output tab remains an exact diagnostic record. Command construction is still kept separate.
+        var standardOutput = result.StandardOutput;
+        var standardError = result.StandardError;
         return new ArchiveResult
         {
             Success = success,
@@ -561,13 +563,6 @@ public class RarArchiveEngine : IArchiveEngine
             : $"{GetRarErrorMessage(exitCode)}: {processMessage.Trim()}";
     }
 
-    private static string SanitizeOutput(string output, string? password)
-    {
-        return string.IsNullOrEmpty(password)
-            ? output
-            : output.Replace(password, "***", StringComparison.Ordinal);
-    }
-    
     private string GetRarErrorMessage(int exitCode)
     {
         return exitCode switch
