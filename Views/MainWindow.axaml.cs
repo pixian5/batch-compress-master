@@ -29,6 +29,8 @@ public partial class MainWindow : Window
     private WindowState _lastWindowState = WindowState.Normal;
     private bool _isApplyingNormalBounds;
     private static readonly JsonSerializerOptions WindowSettingsSerializerOptions = new();
+    // GPT-5, 2026-08-05: Store user window state outside the app bundle so it survives updates,
+    // does not invalidate the macOS signature, and uses the correct data directory on every platform.
     private static readonly string WindowSettingsFilePath = GetWindowSettingsFilePath();
     public MainWindow()
     {
@@ -59,6 +61,8 @@ public partial class MainWindow : Window
             return;
         }
 
+        // GPT-5, 2026-08-05: Some platform backends briefly report maximized geometry while restoring.
+        // Re-apply the previous normal bounds only after the UI has finished its state transition.
         if (_lastWindowState == WindowState.Maximized && newState == WindowState.Normal)
         {
             global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -144,7 +148,7 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // Ignore invalid settings and continue with defaults.
+            // GPT-5, 2026-08-05: Invalid or stale user settings must never prevent the main window from opening.
         }
     }
 
@@ -194,7 +198,7 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // Ignore save failures to avoid blocking app shutdown.
+            // GPT-5, 2026-08-05: Window-state persistence is best-effort and must not block application shutdown.
         }
     }
 
@@ -211,6 +215,8 @@ public partial class MainWindow : Window
 
     private static string GetWindowSettingsFilePath()
     {
+        // GPT-5, 2026-08-05: ApplicationData resolves to AppData on Windows, Application Support on macOS,
+        // and the user's data directory on Linux. LocalApplicationData is a fallback for unusual runtimes.
         var applicationData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (string.IsNullOrWhiteSpace(applicationData))
         {
@@ -328,6 +334,8 @@ public partial class MainWindow : Window
 
     private void Drop(object? sender, DragEventArgs e)
     {
+        // GPT-5, 2026-08-05: Accept only one actionable drop. A folder becomes the scan root;
+        // a TXT file becomes the password/list source, so extra dropped items are intentionally ignored.
         if (e.DataTransfer.TryGetFiles() is IEnumerable<IStorageItem> files && DataContext is MainWindowViewModel viewModel)
         {
             foreach (var file in files)
@@ -335,19 +343,19 @@ public partial class MainWindow : Window
                 var firstPath = file.Path.LocalPath;
                 if (string.IsNullOrEmpty(firstPath)) continue;
                 
-                // 濡傛灉鎷栧叆鐨勬槸鏂囦欢澶?
+                // GPT-5, 2026-08-05: A dropped directory is the source directory for folder-scan mode.
                 if (Directory.Exists(firstPath))
                 {
                     viewModel.SaveFilePath = firstPath;
                     viewModel.CommandLog += L.DroppedFolder + firstPath + "\n";
-                    break; // 鍙鐞嗙涓€涓?
+                    break;
                 }
-                // 濡傛灉鎷栧叆鐨勬槸TXT鏂囦欢
+                // GPT-5, 2026-08-05: A dropped TXT file supplies the file list and optional passwords.
                 else if (File.Exists(firstPath) && firstPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
                 {
                     viewModel.SourcePath = firstPath;
                     viewModel.CommandLog += L.DroppedTxtFile + firstPath + "\n";
-                    break; // 鍙鐞嗙涓€涓?
+                    break;
                 }
             }
         }
@@ -359,7 +367,8 @@ public partial class MainWindow : Window
         
         if (DataContext is MainWindowViewModel viewModel)
         {
-            // Handle file browsing since we need UI context
+            // GPT-5, 2026-08-05: StorageProvider and Window.Hide require a live Avalonia window.
+            // Injecting these callbacks keeps the view model independent of platform controls.
             viewModel.BrowseSourceRequested = BrowseSourceAsync;
             viewModel.BrowseOutputRequested = BrowseOutputAsync;
             viewModel.BrowseTextFileRequested = BrowseTextFileAsync;
@@ -388,6 +397,8 @@ public partial class MainWindow : Window
             AllowMultiple = true
         });
 
+        // GPT-5, 2026-08-05: Convert storage items to paths, then merge them with the existing newline list.
+        // Case-insensitive de-duplication matches common Windows/macOS filesystem behavior while preserving order.
         var paths = folders.Select(folder => folder.Path.LocalPath)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray();
@@ -411,7 +422,7 @@ public partial class MainWindow : Window
 
     private async Task ShowHelpAsync()
     {
-        await ShowMessageBoxAsync("帮助", "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nWinRAR 支持 RAR 和 ZIP；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会隐藏到托盘，使用托盘菜单中的退出才会真正退出程序。");
+        await ShowMessageBoxAsync("帮助", "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nWinRAR 支持 RAR 和 ZIP；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会真正退出程序；需要后台运行时请使用“隐藏到托盘”，再通过托盘菜单显示/隐藏或退出。");
     }
     
     private async Task BrowseSourceAsync()
@@ -419,31 +430,30 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel viewModel)
             return;
         
-        if (viewModel.SourceMode == 0) // 浠巘xt璇诲彇瑕佽В鍘嬬殑鏂囦欢
+        // GPT-5, 2026-08-05: TXT mode chooses the legacy list/password file; folder mode chooses the scan root.
+        if (viewModel.SourceMode == 0)
         {
-            // 妫€鏌ヤ繚瀛樿矾寰勬槸鍚︿负绌?
+            // GPT-5, 2026-08-05: The legacy TXT workflow resolves filenames relative to SaveFilePath,
+            // so require that directory before allowing the user to select the list file.
             if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
             {
-                // 鎻愮ず鐢ㄦ埛閫夋嫨淇濆瓨鐩綍
                 bool shouldContinue = await ShowOkCancelMessageBoxAsync(L.Hint, L.SelectSaveDirectory);
                 
                 if (shouldContinue)
                 {
-                    // 妯℃嫙鐐瑰嚮閫夋嫨鐩綍鎸夐挳
+                    // GPT-5, 2026-08-05: Reuse the standard picker so every platform follows the same path rules.
                     await BrowseSaveFileAsync();
                     
-                    // 濡傛灉鐢ㄦ埛鍙栨秷浜嗙洰褰曢€夋嫨锛岀洿鎺ヨ繑鍥?
                     if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
                         return;
                 }
                 else
                 {
-                    // 鐢ㄦ埛鍙栨秷浜嗘彁绀猴紝鐩存帴杩斿洖
                     return;
                 }
             }
             
-            // 纭繚淇濆瓨璺緞浠ョ洰褰曞垎闅旂缁撳熬
+            // GPT-5, 2026-08-05: Normalize only the trailing separator before combining the selected filename.
             string savePath = viewModel.SaveFilePath;
             if (!savePath.EndsWith(Path.DirectorySeparatorChar) && 
                 !savePath.EndsWith(Path.AltDirectorySeparatorChar))
@@ -453,7 +463,7 @@ public partial class MainWindow : Window
             
 
             
-            // 璁╃敤鎴烽€夋嫨瀵嗙爜鏂囦欢
+            // GPT-5, 2026-08-05: Prefer text files while retaining an all-files escape hatch for legacy lists.
             var fileOptions = new FilePickerOpenOptions
             {
                 Title = L.SelectPasswordTxt,
@@ -468,17 +478,15 @@ public partial class MainWindow : Window
             var files = await this.StorageProvider.OpenFilePickerAsync(fileOptions);
             if (files.Count > 0)
             {
-                // 瀵嗙爜鏂囦欢鐨勬枃浠跺悕锛堜笉鍚矾寰勶級
+                // GPT-5, 2026-08-05: Keep only the selected filename and anchor it to SaveFilePath for compatibility.
                 string passwordFileName = Path.GetFileName(files[0].Path.LocalPath);
                 
-                // 鎷兼帴瀹屾暣璺緞
                 string fullPath = Path.Combine(savePath, passwordFileName);
                 
-                // 璁剧疆鍒癝ourcePath
                 viewModel.SourcePath = fullPath;
             }
         }
-        else // 鍘嬬缉姝ゆ枃浠跺す鍐呮墍鏈夋枃浠?
+        else
         {
             var options = new FolderPickerOpenOptions
             {
@@ -496,6 +504,7 @@ public partial class MainWindow : Window
     
     private async Task BrowseOutputAsync()
     {
+        // GPT-5, 2026-08-05: Output selection is always a folder and does not alter the source-mode state.
         var options = new FolderPickerOpenOptions
         {
             Title = L.SelectOutputFolder,
@@ -515,7 +524,7 @@ public partial class MainWindow : Window
         {
             if (DataContext is MainWindowViewModel viewModel)
             {
-                // 娣诲姞璋冭瘯鏃ュ織
+                // GPT-5, 2026-08-05: Record picker entry for diagnosing platform-specific storage-provider failures.
                 viewModel.CommandLog += "BrowseSaveFileAsync called\n";
             }
             
@@ -525,12 +534,12 @@ public partial class MainWindow : Window
                 AllowMultiple = false
             };
             
-            // 鍦ˋvalonia 11涓紝搴旇浣跨敤StorageProvider鐨勬纭疄渚?
+            // GPT-5, 2026-08-05: Use Avalonia StorageProvider rather than a platform-native API to keep selection behavior portable.
             var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
             
             if (DataContext is MainWindowViewModel viewModel2)
             {
-                // 娣诲姞璋冭瘯鏃ュ織
+                // GPT-5, 2026-08-05: Preserve the returned count because cancellation is represented by an empty collection.
                 viewModel2.CommandLog += $"Folder picker returned {folders.Count} items\n";
                 
                 if (folders.Count > 0)
@@ -551,6 +560,7 @@ public partial class MainWindow : Window
     
     private async Task BrowseTextFileAsync()
     {
+        // GPT-5, 2026-08-05: This picker stores the actual TXT path, unlike the legacy SourceMode path builder above.
         var options = new FilePickerOpenOptions
         {
             Title = L.SelectTextFile,
@@ -571,6 +581,7 @@ public partial class MainWindow : Window
     
     private async Task<bool> ShowMessageBoxAsync(string title, string message)
     {
+        // GPT-5, 2026-08-05: Keep this dialog self-contained so callers receive a completed Task only after the user acknowledges it.
         Window? dialog = null;
         dialog = new Window
         {
@@ -594,7 +605,7 @@ public partial class MainWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         
-        // Set up button click handler after dialog is created
+        // GPT-5, 2026-08-05: Close with true so the modal Task has an explicit successful acknowledgement result.
         var button = (Button)((StackPanel)dialog.Content).Children[1];
         button.Click += (sender, e) => dialog.Close(true);
         
@@ -603,6 +614,7 @@ public partial class MainWindow : Window
     
     private async Task<bool> ShowOkCancelMessageBoxAsync(string title, string message)
     {
+        // GPT-5, 2026-08-05: Use an explicit boolean result to distinguish user cancellation from a failed picker operation.
         Window? dialog = null;
         dialog = new Window
         {
