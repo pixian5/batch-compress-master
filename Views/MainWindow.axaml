@@ -7,7 +7,7 @@
         mc:Ignorable="d" d:DesignWidth="1200" d:DesignHeight="800"
         x:Class="BatchCompress.Avalonia.Views.MainWindow"
         x:DataType="vm:MainWindowViewModel"
-        Icon="/Assets/avalonia-logo.ico"
+        Icon="/Assets/压缩.ico"
         Title="{Binding L.WindowTitle}"
         Width="1200" Height="800">
 

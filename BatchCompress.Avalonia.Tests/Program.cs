@@ -11,7 +11,8 @@ internal static class Program
             ("格式参数", TestFormatArguments),
             ("密码与失败返回码", TestPasswordAndFailureExitCodes),
             ("取消传播", TestCancellation),
-            ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries)
+            ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
+            ("空保存路径回退", TestOutputPathFallback)
         };
 
         foreach (var test in tests)
@@ -94,6 +95,34 @@ internal static class Program
         AssertEqual(7, result.ExitCode);
         AssertEqual("path with space", result.StandardOutput);
         AssertEqual("stderr-marker", result.StandardError);
+    }
+
+    private static Task TestOutputPathFallback()
+    {
+        var testRoot = Path.Combine(Path.GetTempPath(), $"batch-compress-tests-{Guid.NewGuid():N}");
+        var sourceDirectory = Path.Combine(testRoot, "source");
+        var configuredDirectory = Path.Combine(testRoot, "configured");
+        Directory.CreateDirectory(sourceDirectory);
+
+        try
+        {
+            var sourceFile = Path.Combine(sourceDirectory, "input.txt");
+            File.WriteAllText(sourceFile, "test");
+
+            AssertEqual(sourceDirectory, OutputPathResolver.ResolveAndCreate(string.Empty, sourceFile));
+            AssertEqual(sourceDirectory, OutputPathResolver.ResolveAndCreate("   ", sourceFile));
+            AssertEqual(configuredDirectory, OutputPathResolver.ResolveAndCreate(configuredDirectory, sourceFile));
+            Assert(Directory.Exists(configuredDirectory), "配置的输出目录必须自动创建");
+
+            var relativeSource = Path.GetRelativePath(Directory.GetCurrentDirectory(), sourceFile);
+            AssertEqual(sourceDirectory, OutputPathResolver.ResolveAndCreate(null, relativeSource));
+        }
+        finally
+        {
+            Directory.Delete(testRoot, recursive: true);
+        }
+
+        return Task.CompletedTask;
     }
 
     private static ArchiveOptions CreateOptions() => new()

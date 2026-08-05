@@ -240,11 +240,7 @@ public class BatchOperationService
         
         foreach (var sourcePath in sourcePaths)
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                Log(LogLevel.Warning, "Operation cancelled by user");
-                break;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
             
             // Check if file/directory exists
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
@@ -271,7 +267,8 @@ public class BatchOperationService
             
             // Build output filename
             var outputFileName = name + "." + options.Extension;
-            var outputPath = Path.Combine(options.OutputPath, outputFileName);
+            var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, sourcePath);
+            var outputPath = Path.Combine(outputDirectory, outputFileName);
             
             // Check if output exists
             if (File.Exists(outputPath))
@@ -310,7 +307,9 @@ public class BatchOperationService
                 QuickOpen = options.QuickOpen,
                 TestArchive = options.TestArchive,
                 CommentFile = options.CommentFile,
-                TempDirectory = options.TempDirectory ?? options.OutputPath,
+                TempDirectory = string.IsNullOrWhiteSpace(options.TempDirectory)
+                    ? outputDirectory
+                    : options.TempDirectory,
                 ExistingFileMode = options.ExistingFileMode,
                 RecoveryRecordPercent = options.RecoveryRecordPercent,
                 VolumeSize = !string.IsNullOrEmpty(options.VolumeSize) ? 
@@ -468,11 +467,7 @@ public class BatchOperationService
         
         foreach (var entry in archives)
         {
-            if (cancellationToken.IsCancellationRequested)
-            {
-                Log(LogLevel.Warning, "Operation cancelled by user");
-                break;
-            }
+            cancellationToken.ThrowIfCancellationRequested();
             
             var archivePath = entry.FilePath;
             
@@ -531,9 +526,11 @@ public class BatchOperationService
             progressInfo.Message = $"[开始解压] {archiveName}";
             progressInfo.IsError = false;
             progress.Report(progressInfo);
+
+            var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, archivePath);
             
             // Extract
-            var result = await _archiveEngine.ExtractAsync(archivePath, options.OutputPath, archiveOptions, cancellationToken);
+            var result = await _archiveEngine.ExtractAsync(archivePath, outputDirectory, archiveOptions, cancellationToken);
             
             if (result.Success)
             {

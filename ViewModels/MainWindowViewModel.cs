@@ -618,6 +618,11 @@ public partial class MainWindowViewModel : ViewModelBase
                          
             _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
+        catch (OperationCanceledException)
+        {
+            CommandLog += "压缩已取消\n";
+            _systemIntegration.ShowNotification("压缩已取消", $"成功: {SuccessCount}, 失败: {FailCount}");
+        }
         catch (Exception ex)
         {
             CommandLog += $"Error: {ex.Message}\n";
@@ -759,6 +764,11 @@ public partial class MainWindowViewModel : ViewModelBase
                          $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
             _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 失败: {FailCount}");
+        }
+        catch (OperationCanceledException)
+        {
+            CommandLog += "解压已取消\n";
+            _systemIntegration.ShowNotification("解压已取消", $"成功: {SuccessCount}, 失败: {FailCount}");
         }
         catch (Exception ex)
         {
