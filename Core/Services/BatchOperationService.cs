@@ -303,6 +303,7 @@ public class BatchOperationService
             // Build archive options
             var archiveOptions = new ArchiveOptions
             {
+                ArchiveFormat = options.Extension,
                 Password = password,
                 CompressionLevel = options.CompressionLevel,
                 SolidArchive = options.SolidArchive,
@@ -332,10 +333,8 @@ public class BatchOperationService
                 }
             }
             
-            // Build and log the compression command BEFORE executing (only if not already logged)
-            var command = _archiveEngine.BuildCompressionCommand(sourcePath, outputPath, archiveOptions);
-            Log(LogLevel.Information, $"Compression command: {command}");
-            progressInfo.Message = $"[压缩命令] {command}";
+            Log(LogLevel.Information, $"Compression started: {name} -> {outputFileName}");
+            progressInfo.Message = $"[开始压缩] {name}";
             progressInfo.IsError = false;
             progress.Report(progressInfo);
             
@@ -528,10 +527,8 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode
             };
             
-            // Build and log the extraction command BEFORE executing (only if not already logged)
-            var command = _archiveEngine.BuildExtractionCommand(archivePath, options.OutputPath, archiveOptions);
-            Log(LogLevel.Information, $"Extraction command: {command}");
-            progressInfo.Message = $"[解压命令] {command}";
+            Log(LogLevel.Information, $"Extraction started: {archiveName}");
+            progressInfo.Message = $"[开始解压] {archiveName}";
             progressInfo.IsError = false;
             progress.Report(progressInfo);
             

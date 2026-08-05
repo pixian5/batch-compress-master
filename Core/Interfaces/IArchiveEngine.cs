@@ -9,16 +9,6 @@ namespace BatchCompress.Avalonia.Core.Interfaces;
 public interface IArchiveEngine
 {
     /// <summary>
-    /// Build compression command for preview without executing
-    /// </summary>
-    string BuildCompressionCommand(string input, string output, ArchiveOptions options);
-    
-    /// <summary>
-    /// Build extraction command for preview without executing
-    /// </summary>
-    string BuildExtractionCommand(string archivePath, string outputDir, ArchiveOptions options);
-    
-    /// <summary>
     /// Compress files or directories
     /// </summary>
     Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default);
@@ -33,10 +23,6 @@ public interface IArchiveEngine
     /// </summary>
     bool IsAvailable();
     
-    /// <summary>
-    /// Current command being executed
-    /// </summary>
-    string? CurrentCommand { get; }
 }
 
 /// <summary>
@@ -44,6 +30,7 @@ public interface IArchiveEngine
 /// </summary>
 public class ArchiveOptions
 {
+    public string ArchiveFormat { get; set; } = "rar";
     public string? Password { get; set; }
     public string? TempDirectory { get; set; }
     public string? CommentFile { get; set; }
@@ -65,6 +52,8 @@ public class ArchiveResult
     public bool Success { get; set; }
     public int ExitCode { get; set; }
     public string? ErrorMessage { get; set; }
+    public string StandardOutput { get; set; } = string.Empty;
+    public string StandardError { get; set; } = string.Empty;
 }
 
 /// <summary>

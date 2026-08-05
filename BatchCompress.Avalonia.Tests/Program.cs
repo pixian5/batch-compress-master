@@ -1,0 +1,163 @@
+using System.Collections.Generic;
+using BatchCompress.Avalonia.Core.Interfaces;
+using BatchCompress.Avalonia.Core.Services;
+
+internal static class Program
+{
+    private static async Task<int> Main()
+    {
+        var tests = new (string Name, Func<Task> Run)[]
+        {
+            ("格式参数", TestFormatArguments),
+            ("密码与失败返回码", TestPasswordAndFailureExitCodes),
+            ("取消传播", TestCancellation),
+            ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries)
+        };
+
+        foreach (var test in tests)
+        {
+            try
+            {
+                await test.Run();
+                Console.WriteLine($"PASS {test.Name}");
+            }
+            catch (Exception ex)
+            {
+                Console.Error.WriteLine($"FAIL {test.Name}: {ex.Message}");
+                return 1;
+            }
+        }
+
+        return 0;
+    }
+
+    private static Task TestFormatArguments()
+    {
+        var options = CreateOptions();
+        options.ArchiveFormat = "zip";
+        options.SolidArchive = true;
+
+        var zipArguments = WinRarCommandBuilder.BuildCompressionArguments(
+            "/tmp/source with space",
+            "/tmp/archive with space.zip",
+            options);
+
+        AssertContains(zipArguments, "-afzip");
+        AssertNotContains(zipArguments, "-s");
+        AssertEqual("/tmp/archive with space.zip", zipArguments[^2]);
+        AssertEqual("/tmp/source with space", zipArguments[^1]);
+
+        options.ArchiveFormat = "rar";
+        var rarArguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/source", "/tmp/archive.rar", options);
+        AssertContains(rarArguments, "-s");
+        AssertNotContains(rarArguments, "-afzip");
+        AssertThrows<NotSupportedException>(() => WinRarCommandBuilder.NormalizeArchiveFormat("7z"));
+        return Task.CompletedTask;
+    }
+
+    private static Task TestPasswordAndFailureExitCodes()
+    {
+        const string password = "secret password";
+        var options = CreateOptions();
+        options.Password = password;
+        var arguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.rar", options);
+
+        AssertContains(arguments, "-psecret password");
+        Assert(WinRarExitCodes.IsSuccess(0), "返回码 0 必须表示成功");
+        Assert(WinRarExitCodes.IsSuccess(1), "返回码 1 必须表示警告成功");
+        Assert(!WinRarExitCodes.IsSuccess(2), "返回码 2 必须表示失败");
+        Assert(!WinRarExitCodes.IsSuccess(255), "返回码 255 必须表示失败");
+        return Task.CompletedTask;
+    }
+
+    private static async Task TestCancellation()
+    {
+        var (executable, arguments) = GetSleepCommand();
+        var runner = new WinRarProcessRunner(executable);
+        using var cancellation = new CancellationTokenSource(TimeSpan.FromMilliseconds(100));
+        await AssertThrowsAsync<OperationCanceledException>(runner.RunAsync(arguments, cancellation.Token));
+    }
+
+    private static async Task TestProcessOutputAndArgumentBoundaries()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Console.WriteLine("SKIP 异步输出与参数边界: Windows 使用单独的进程行为测试");
+            return;
+        }
+
+        var runner = new WinRarProcessRunner("/bin/sh");
+        var result = await runner.RunAsync(
+            ["-c", "printf '%s' \"$1\"; printf '%s' stderr-marker >&2; exit 7", "sh", "path with space"],
+            CancellationToken.None);
+
+        AssertEqual(7, result.ExitCode);
+        AssertEqual("path with space", result.StandardOutput);
+        AssertEqual("stderr-marker", result.StandardError);
+    }
+
+    private static ArchiveOptions CreateOptions() => new()
+    {
+        ArchiveFormat = "rar",
+        ExistingFileMode = ExistingFileMode.Overwrite,
+        CompressionLevel = CompressionLevel.Normal
+    };
+
+    private static (string Executable, IReadOnlyList<string> Arguments) GetSleepCommand()
+    {
+        return OperatingSystem.IsWindows()
+            ? ("cmd.exe", ["/c", "ping -n 30 127.0.0.1 >nul"])
+            : ("/bin/sh", ["-c", "sleep 30"]);
+    }
+
+    private static void Assert(bool condition, string message)
+    {
+        if (!condition) throw new InvalidOperationException(message);
+    }
+
+    private static void AssertEqual<T>(T expected, T actual)
+    {
+        if (!EqualityComparer<T>.Default.Equals(expected, actual))
+        {
+            throw new InvalidOperationException($"期望 {expected}，实际 {actual}");
+        }
+    }
+
+    private static void AssertContains(IReadOnlyList<string> values, string expected)
+    {
+        Assert(values.Contains(expected), $"参数列表缺少 {expected}");
+    }
+
+    private static void AssertNotContains(IReadOnlyList<string> values, string unexpected)
+    {
+        Assert(!values.Contains(unexpected), $"参数列表不应包含 {unexpected}");
+    }
+
+    private static void AssertThrows<TException>(Action action) where TException : Exception
+    {
+        try
+        {
+            action();
+        }
+        catch (TException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException($"应抛出 {typeof(TException).Name}");
+    }
+
+    private static async Task AssertThrowsAsync<TException>(Task task) where TException : Exception
+    {
+        try
+        {
+            await task;
+        }
+        catch (TException)
+        {
+            return;
+        }
+
+        throw new InvalidOperationException($"应抛出 {typeof(TException).Name}");
+    }
+}

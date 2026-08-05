@@ -4,7 +4,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
@@ -18,11 +17,6 @@ namespace BatchCompress.Avalonia.Core.Services;
 public class RarArchiveEngine : IArchiveEngine
 {
     private string? _rarExecutablePath;
-    
-    /// <summary>
-    /// 当前执行的命令行
-    /// </summary>
-    public string? CurrentCommand { get; private set; }
     
     public bool IsAvailable()
     {
@@ -185,7 +179,7 @@ public class RarArchiveEngine : IArchiveEngine
         yield return "/usr/bin/rar";
 
         // 3) PATH/which
-        var which = ExecuteCommandCaptureAll("which", "rar", timeoutMs: 2000);
+        var which = ExecuteCommandCaptureAll("which", ["rar"], timeoutMs: 2000);
         if (!string.IsNullOrWhiteSpace(which.Output))
         {
             var firstLine = which.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
@@ -215,7 +209,7 @@ public class RarArchiveEngine : IArchiveEngine
         yield return "/bin/rar";
 
         // 3) PATH/which
-        var which = ExecuteCommandCaptureAll("which", "rar", timeoutMs: 2000);
+        var which = ExecuteCommandCaptureAll("which", ["rar"], timeoutMs: 2000);
         if (!string.IsNullOrWhiteSpace(which.Output))
         {
             var firstLine = which.Output.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).FirstOrDefault();
@@ -314,7 +308,7 @@ public class RarArchiveEngine : IArchiveEngine
             }
 
             // 运行校验：rar -?，2 秒
-            var result = ExecuteCommandCaptureAll(path, "-?", timeoutMs: 2000);
+            var result = ExecuteCommandCaptureAll(path, ["-?"], timeoutMs: 2000);
             if (!result.Started)
             {
                 message = "无法启动进程";
@@ -423,54 +417,36 @@ public class RarArchiveEngine : IArchiveEngine
         public string Error { get; init; } = string.Empty;
     }
 
-    private static CommandResult ExecuteCommandCaptureAll(string fileName, string arguments, int timeoutMs)
+    private static CommandResult ExecuteCommandCaptureAll(
+        string fileName,
+        IReadOnlyList<string> arguments,
+        int timeoutMs)
     {
         try
         {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = fileName,
-                Arguments = arguments,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-
-            bool started = process.Start();
-            if (!started)
-            {
-                return new CommandResult { Started = false };
-            }
-
-            var stdoutTask = process.StandardOutput.ReadToEndAsync();
-            var stderrTask = process.StandardError.ReadToEndAsync();
-
-            bool exited = process.WaitForExit(timeoutMs);
-            if (!exited)
-            {
-                try { process.Kill(entireProcessTree: true); } catch { }
-                return new CommandResult { Started = true, TimedOut = true };
-            }
-
-            Task.WaitAll(new Task[] { stdoutTask, stderrTask }, millisecondsTimeout: Math.Max(timeoutMs, 2000));
+            using var timeout = new CancellationTokenSource(timeoutMs);
+            var result = new WinRarProcessRunner(fileName)
+                .RunAsync(arguments, timeout.Token)
+                .GetAwaiter()
+                .GetResult();
 
             return new CommandResult
             {
                 Started = true,
-                TimedOut = false,
-                ExitCode = process.ExitCode,
-                Output = stdoutTask.Result,
-                Error = stderrTask.Result
+                ExitCode = result.ExitCode,
+                Output = result.StandardOutput,
+                Error = result.StandardError
             };
+        }
+        catch (OperationCanceledException)
+        {
+            return new CommandResult { Started = true, TimedOut = true };
         }
         catch (Exception ex)
         {
             return new CommandResult
             {
                 Started = false,
-                TimedOut = false,
                 ExitCode = -1,
                 Error = ex.Message
             };
@@ -489,58 +465,26 @@ public class RarArchiveEngine : IArchiveEngine
         return true;
     }
     
-    /// <summary>
-    /// Build compression command for preview without executing
-    /// </summary>
-    public string BuildCompressionCommand(string input, string output, ArchiveOptions options)
-    {
-        if (!EnsureRarExecutableAvailable())
-        {
-            return "RAR executable not found";
-        }
-        
-        BuildCompressionArguments(input, output, options);
-        // CurrentCommand is set as a side effect in BuildCompressionArguments
-        // It's guaranteed to be non-null at this point
-        return CurrentCommand!;
-    }
-    
-    /// <summary>
-    /// Build extraction command for preview without executing
-    /// </summary>
-    public string BuildExtractionCommand(string archivePath, string outputDir, ArchiveOptions options)
-    {
-        if (!EnsureRarExecutableAvailable())
-        {
-            return "RAR executable not found";
-        }
-        
-        BuildExtractionArguments(archivePath, outputDir, options);
-        // CurrentCommand is set as a side effect in BuildExtractionArguments
-        // It's guaranteed to be non-null at this point
-        return CurrentCommand!;
-    }
-    
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(_rarExecutablePath))
+        if (!EnsureRarExecutableAvailable())
         {
-            if (!IsAvailable())
+            return new ArchiveResult
             {
-                return new ArchiveResult
-                {
-                    Success = false,
-                    ExitCode = -2,
-                    ErrorMessage = "RAR executable not found. Please install WinRAR or RAR."
-                };
-            }
+                Success = false,
+                ExitCode = -2,
+                ErrorMessage = "RAR executable not found. Please install WinRAR or RAR."
+            };
         }
-        
-        var arguments = BuildCompressionArguments(input, output, options);
-        
+
         try
         {
-            return await ExecuteRarCommand(arguments, cancellationToken);
+            var arguments = WinRarCommandBuilder.BuildCompressionArguments(input, output, options);
+            return await ExecuteRarCommand(arguments, options.Password, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -555,24 +499,24 @@ public class RarArchiveEngine : IArchiveEngine
     
     public async Task<ArchiveResult> ExtractAsync(string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default)
     {
-        if (string.IsNullOrEmpty(_rarExecutablePath))
+        if (!EnsureRarExecutableAvailable())
         {
-            if (!IsAvailable())
+            return new ArchiveResult
             {
-                return new ArchiveResult
-                {
-                    Success = false,
-                    ExitCode = -2,
-                    ErrorMessage = "RAR executable not found. Please install WinRAR or RAR."
-                };
-            }
+                Success = false,
+                ExitCode = -2,
+                ErrorMessage = "RAR executable not found. Please install WinRAR or RAR."
+            };
         }
-        
-        var arguments = BuildExtractionArguments(archivePath, outputDir, options);
-        
+
         try
         {
-            return await ExecuteRarCommand(arguments, cancellationToken);
+            var arguments = WinRarCommandBuilder.BuildExtractionArguments(archivePath, outputDir, options);
+            return await ExecuteRarCommand(arguments, options.Password, cancellationToken).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
         }
         catch (Exception ex)
         {
@@ -585,192 +529,41 @@ public class RarArchiveEngine : IArchiveEngine
         }
     }
     
-    private string BuildCompressionArguments(string input, string output, ArchiveOptions options)
+    private async Task<ArchiveResult> ExecuteRarCommand(
+        IReadOnlyList<string> arguments,
+        string? password,
+        CancellationToken cancellationToken)
     {
-        var args = new StringBuilder();
-        
-        // Add command
-        args.Append("a ");
-        
-        // Basic options
-        args.Append("-ep1 ");  // Exclude base folder from paths
-        args.Append("-IBCK "); // Run in background
-        args.Append("-SCf ");  // Use UTF-8 for filenames
-        
-        // Existing file mode
-        switch (options.ExistingFileMode)
+        var result = await new WinRarProcessRunner(_rarExecutablePath!)
+            .RunAsync(arguments, cancellationToken)
+            .ConfigureAwait(false);
+
+        var success = WinRarExitCodes.IsSuccess(result.ExitCode);
+        var standardOutput = SanitizeOutput(result.StandardOutput, password);
+        var standardError = SanitizeOutput(result.StandardError, password);
+        return new ArchiveResult
         {
-            case ExistingFileMode.Skip:
-                args.Append("-o- ");
-                break;
-            case ExistingFileMode.Update:
-                args.Append("-u ");
-                break;
-            case ExistingFileMode.Overwrite:
-                args.Append("-o+ ");
-                break;
-        }
-        
-        // Password
-        if (!string.IsNullOrEmpty(options.Password))
-        {
-            args.Append($"-p\"{options.Password}\" ");
-        }
-        
-        // Compression level
-        args.Append($"-m{(int)options.CompressionLevel} ");
-        
-        // Solid archive
-        if (options.SolidArchive)
-        {
-            args.Append("-s -md32 -k ");
-        }
-        
-        // Volume size
-        if (!string.IsNullOrEmpty(options.VolumeSize))
-        {
-            args.Append($"-v{options.VolumeSize} ");
-        }
-        
-        // Recovery record
-        if (options.RecoveryRecordPercent > 0)
-        {
-            args.Append($"-rr{options.RecoveryRecordPercent} ");
-        }
-        
-        // Quick open
-        if (options.QuickOpen)
-        {
-            args.Append("-qo+ ");
-        }
-        
-        // Test archive
-        if (options.TestArchive)
-        {
-            args.Append("-t ");
-        }
-        
-        // Comment file
-        if (!string.IsNullOrEmpty(options.CommentFile) && File.Exists(options.CommentFile))
-        {
-            args.Append($"-z\"{options.CommentFile}\" ");
-        }
-        
-        // Temp directory
-        if (!string.IsNullOrEmpty(options.TempDirectory))
-        {
-            if (!Directory.Exists(options.TempDirectory))
-            {
-                Directory.CreateDirectory(options.TempDirectory);
-            }
-            args.Append($"-w\"{options.TempDirectory}\" ");
-        }
-        
-        // Exclude extensions
-        if (options.ExcludeExtensions != null && options.ExcludeExtensions.Length > 0)
-        {
-            args.Append($"-ms{string.Join(";", options.ExcludeExtensions)} ");
-        }
-        
-        // Reference large files
-        args.Append("-oi:50000000 ");
-        
-        // Output and input
-        args.Append($"\"{output}\" \"{input}\"");
-        
-        var command = args.ToString();
-        CurrentCommand = $"{_rarExecutablePath} {command}";
-        return command;
+            Success = success,
+            ExitCode = result.ExitCode,
+            StandardOutput = standardOutput,
+            StandardError = standardError,
+            ErrorMessage = success ? null : BuildFailureMessage(result.ExitCode, standardOutput, standardError)
+        };
     }
-    
-    private string BuildExtractionArguments(string archivePath, string outputDir, ArchiveOptions options)
+
+    private string BuildFailureMessage(int exitCode, string standardOutput, string standardError)
     {
-        var args = new StringBuilder();
-        
-        // Extract command with paths
-        args.Append("x ");
-        
-        // Background mode
-        args.Append("-IBCK ");
-        
-        // Existing file mode
-        if (options.ExistingFileMode == ExistingFileMode.Overwrite)
-        {
-            args.Append("-o+ ");
-        }
-        else
-        {
-            args.Append("-o- ");
-        }
-        
-        // Password
-        if (!string.IsNullOrEmpty(options.Password))
-        {
-            args.Append($"-p\"{options.Password}\" ");
-        }
-        
-        // Archive and output directory
-        args.Append($"\"{archivePath}\" \"{outputDir}\"");
-        
-        var command = args.ToString();
-        CurrentCommand = $"{_rarExecutablePath} {command}";
-        return command;
+        var processMessage = string.IsNullOrWhiteSpace(standardError) ? standardOutput : standardError;
+        return string.IsNullOrWhiteSpace(processMessage)
+            ? GetRarErrorMessage(exitCode)
+            : $"{GetRarErrorMessage(exitCode)}: {processMessage.Trim()}";
     }
-    
-    private async Task<ArchiveResult> ExecuteRarCommand(string arguments, CancellationToken cancellationToken)
+
+    private static string SanitizeOutput(string output, string? password)
     {
-        try
-        {
-            using var process = new Process();
-            process.StartInfo = new ProcessStartInfo
-            {
-                FileName = _rarExecutablePath,
-                Arguments = arguments,
-                UseShellExecute = false,
-                CreateNoWindow = true
-            };
-            
-            process.Start();
-            
-            // Wait for exit with cancellation support
-            try
-            {
-                await process.WaitForExitAsync(cancellationToken);
-            }
-            catch (OperationCanceledException)
-            {
-                if (!process.HasExited)
-                {
-                    try { process.Kill(entireProcessTree: true); } catch { }
-                }
-                
-                return new ArchiveResult
-                {
-                    Success = false,
-                    ExitCode = 255,
-                    ErrorMessage = "Operation cancelled by user"
-                };
-            }
-            
-            int exitCode = process.ExitCode;
-            bool success = exitCode == 0 || exitCode == 1; // 0 = success, 1 = warning
-            
-            return new ArchiveResult
-            {
-                Success = success,
-                ExitCode = exitCode,
-                ErrorMessage = success ? null : GetRarErrorMessage(exitCode)
-            };
-        }
-        catch (Exception ex)
-        {
-            return new ArchiveResult
-            {
-                Success = false,
-                ExitCode = -3,
-                ErrorMessage = $"Exception: {ex.Message}"
-            };
-        }
+        return string.IsNullOrEmpty(password)
+            ? output
+            : output.Replace(password, "***", StringComparison.Ordinal);
     }
     
     private string GetRarErrorMessage(int exitCode)

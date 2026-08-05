@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Program.cs" />
+    <Compile Include="..\Core\Interfaces\IArchiveEngine.cs" Link="Core\Interfaces\IArchiveEngine.cs" />
+    <Compile Include="..\Core\Services\WinRarCommandBuilder.cs" Link="Core\Services\WinRarCommandBuilder.cs" />
+    <Compile Include="..\Core\Services\WinRarProcessRunner.cs" Link="Core\Services\WinRarProcessRunner.cs" />
+  </ItemGroup>
+</Project>

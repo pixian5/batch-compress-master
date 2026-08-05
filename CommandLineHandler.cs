@@ -128,7 +128,7 @@ public static class CommandLineHandler
         _extensionOption = new Option<string>(
             aliases: new[] { "--extension", "-e" },
             getDefaultValue: () => "rar",
-            description: "Archive extension (rar, zip, 7z)");
+            description: "Archive extension (rar, zip; 7z is extract-only)");
 
         // Password options
         _useRandomPasswordOption = new Option<bool>(
