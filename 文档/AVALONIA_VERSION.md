@@ -5,7 +5,7 @@
 | 项目 | 当前值 |
 | --- | --- |
 | 目标框架 | .NET 10 (`net10.0`) |
-| UI | Avalonia 11.3.10 |
+| UI | Avalonia 11.3.18 |
 | MVVM | CommunityToolkit.Mvvm 8.2.1 |
 | 支持系统 | Windows、macOS、Linux |
 | 压缩后端 | RAR/WinRAR 命令行 |

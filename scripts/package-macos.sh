@@ -35,10 +35,15 @@ dotnet publish "$repo_root/BatchCompress.Avalonia.csproj" -c Release -r osx-arm6
   --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -o "$publish_dir" --nologo
 
+# GPT-5, 2026-08-06：编译 macOS 原生状态栏回退，运行时不依赖 Swift 编译器。
+swiftc "$repo_root/macos/StatusBarHelper.swift" -o "$publish_dir/BatchCompress.StatusBarHelper"
+
 rm -rf "$app_path"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp "$publish_dir/BatchCompress.Avalonia" "$app_path/Contents/MacOS/BatchCompress.Avalonia"
+cp "$publish_dir/BatchCompress.StatusBarHelper" "$app_path/Contents/MacOS/BatchCompress.StatusBarHelper"
 chmod +x "$app_path/Contents/MacOS/BatchCompress.Avalonia"
+chmod +x "$app_path/Contents/MacOS/BatchCompress.StatusBarHelper"
 cp "$repo_root/macos/Info.plist" "$app_path/Contents/Info.plist"
 cp "$repo_root/macos/压缩.icns" "$app_path/Contents/Resources/压缩.icns"
 touch "$app_path"

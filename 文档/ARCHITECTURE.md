@@ -1,6 +1,6 @@
 # 当前架构
 
-本仓库根目录即为当前 Avalonia 项目，不包含可构建的 WinForms 应用。目标框架为 `net10.0`，UI 框架为 Avalonia 11.3.10，MVVM 使用 CommunityToolkit.Mvvm。
+本仓库根目录即为当前 Avalonia 项目，不包含可构建的 WinForms 应用。目标框架为 `net10.0`，UI 框架为 Avalonia 11.3.18，MVVM 使用 CommunityToolkit.Mvvm。
 
 ## 分层
 
@@ -30,7 +30,7 @@ Views/MainWindow.axaml + App.axaml
 
 `SystemIntegrationService` 使用 `ArgumentList` 调用系统命令：打开目录、通知、关机和取消关机均由运行时操作系统选择实现。系统通知失败不会中断归档任务；关机则可能因权限或系统策略失败，并通过通知报告。
 
-`App.axaml` 使用 Avalonia 原生 `TrayIcon`。图标显式可见，macOS 启用 `MacOSProperties.IsTemplateIcon`，使状态栏根据深浅菜单栏正确显示图标。
+Windows 与 Linux 使用 Avalonia 原生 `TrayIcon`。由于实测 macOS 上 Avalonia 后端未创建状态栏项目，`App` 会启动随 `.app` 打包的 `BatchCompress.StatusBarHelper`。该原生帮助进程以状态栏文字“压”显示，并通过 Bundle ID 直接显示、隐藏或退出主应用；主进程退出后帮助进程自动结束。
 
 ## 状态与持久化
 
