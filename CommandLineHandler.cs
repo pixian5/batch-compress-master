@@ -11,6 +11,8 @@ namespace BatchCompress.Avalonia;
 /// <summary>
 /// Command-line options for batch compression/decompression
 /// </summary>
+// GPT-5, 2026-08-05: Plain transport object shared by the parser and HeadlessBatchRunner.
+// Defaults here define non-GUI behavior and must stay aligned with the GUI's safe defaults.
 public class CommandLineOptions
 {
     // Mode options
@@ -59,6 +61,8 @@ public class CommandLineOptions
 /// <summary>
 /// Handler for command-line operations
 /// </summary>
+// GPT-5, 2026-08-05: Builds options once per parse and keeps their references so values can be read
+// from System.CommandLine without brittle alias-string lookups.
 public static class CommandLineHandler
 {
     // Cached option references for efficient parsing
@@ -228,7 +232,7 @@ public static class CommandLineHandler
             aliases: new[] { "--verbose" },
             description: "Enable verbose logging");
 
-        // Add all options to the root command
+        // GPT-5, 2026-08-05: Register every option on one root command so help output and parsing share one contract.
         rootCommand.AddOption(_compressOption);
         rootCommand.AddOption(_decompressOption);
         rootCommand.AddOption(_guiOption);
@@ -273,7 +277,7 @@ public static class CommandLineHandler
         {
             var parseResult = context.ParseResult;
 
-            // Use cached options for efficient parsing
+            // GPT-5, 2026-08-05: Copy parsed values into an independent object; downstream code never depends on parser lifetime.
             options.Compress = parseResult.GetValueForOption(_compressOption!);
             options.Decompress = parseResult.GetValueForOption(_decompressOption!);
             options.Gui = parseResult.GetValueForOption(_guiOption!);
@@ -306,13 +310,13 @@ public static class CommandLineHandler
 
         rootCommand.Invoke(args);
 
-        // If password is specified, disable random password
+        // GPT-5, 2026-08-05: An explicit password always wins over deterministic filename-derived passwords.
         if (!string.IsNullOrEmpty(options.Password))
         {
             options.UseRandomPassword = false;
         }
 
-        // If compress or decompress is specified, disable GUI
+        // GPT-5, 2026-08-05: Batch verbs are non-interactive by definition, even if --gui was also supplied.
         if (options.Compress || options.Decompress)
         {
             options.Gui = false;

@@ -1,6 +1,7 @@
 #!/bin/zsh
 set -euo pipefail
 
+# GPT-5, 2026-08-05: Resolve paths from the script location so packaging works from any current directory.
 repo_root="${0:A:h:h}"
 publish_dir="$repo_root/.artifacts/macos-publish"
 app_path="/Applications/BatchCompress.Avalonia.app"
@@ -16,7 +17,7 @@ if [[ ! -f "$icon_source" ]]; then
   exit 1
 fi
 
-# Avalonia and macOS use different icon containers. Keep the ICO as the source,
+# GPT-5, 2026-08-05: Avalonia and Finder require different icon containers. Keep the ICO as the source,
 # derive a normal RGBA PNG for Avalonia, and build the native ICNS for Finder.
 sips -s format png "$icon_source" --out "$icon_png" >/dev/null
 for size in 16 32 128 256 512; do
@@ -29,6 +30,7 @@ done
 iconutil -c icns "$iconset_dir" -o "$repo_root/macos/压缩.icns"
 
 mkdir -p "$publish_dir"
+# GPT-5, 2026-08-05: Publish a self-contained Apple Silicon executable so /Applications does not depend on a user-installed .NET runtime.
 dotnet publish "$repo_root/BatchCompress.Avalonia.csproj" -c Release -r osx-arm64 \
   --self-contained true -p:PublishSingleFile=true -p:IncludeNativeLibrariesForSelfExtract=true \
   -o "$publish_dir" --nologo

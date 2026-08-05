@@ -8,6 +8,8 @@ namespace BatchCompress.Avalonia.Localization;
 /// <summary>
 /// Manages the current language and provides localized strings.
 /// </summary>
+// GPT-5, 2026-08-05: Singleton language coordinator. It publishes a complete LanguageStrings instance and
+// exposes supported culture labels for the main-window selector.
 public class LocalizationService : INotifyPropertyChanged
 {
     private static LocalizationService? _instance;
@@ -56,6 +58,7 @@ public class LocalizationService : INotifyPropertyChanged
         get => _currentLanguage;
         set
         {
+            // GPT-5, 2026-08-05: Reject unknown codes so bindings never observe a partially initialized language.
             if (_currentLanguage != value && AvailableLanguages.ContainsKey(value))
             {
                 _currentLanguage = value;

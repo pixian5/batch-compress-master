@@ -11,6 +11,7 @@
         Title="{Binding L.WindowTitle}"
         Width="1200" Height="800">
 
+    <!-- GPT-5, 2026-08-05: Keep global shortcuts at the window level so they work regardless of the focused panel. -->
     <Window.KeyBindings>
         <KeyBinding Gesture="F5" Command="{Binding RefreshFileListCommand}" />
         <KeyBinding Gesture="Escape" Command="{Binding CancelOperationCommand}" />
@@ -28,7 +29,7 @@
                   VerticalScrollBarVisibility="Visible">
         <StackPanel Margin="10" Spacing="8">
 
-            <!-- Source and Destination Section -->
+            <!-- GPT-5, 2026-08-05: Source and output paths are separated because legacy TXT mode resolves list entries from SaveFilePath. -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
                     <TextBlock Text="{Binding L.SourceAndDestination}" FontWeight="Bold" FontSize="14"/>
@@ -52,7 +53,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- Options Section -->
+            <!-- GPT-5, 2026-08-05: Compression controls bind directly to MainWindowViewModel and are snapshotted when an operation starts. -->
             <Grid ColumnDefinitions="*" Margin="0,5">
                 <!-- Left Column: Compression Options -->
                 <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
@@ -159,7 +160,7 @@
                     </Expander>
                 </Grid>
 
-            <!-- Operation Buttons -->
+            <!-- GPT-5, 2026-08-05: Commands remain enabled/disabled from IsOperating to prevent concurrent WinRAR batches. -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -232,7 +233,7 @@
             </Border>
 
 
-            <!-- Log Sections -->
+            <!-- GPT-5, 2026-08-05: Separate editable source input from read-only result and command diagnostics. -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="0" CornerRadius="5">
                 <TabControl Height="300">
                 <!-- Source File List -->

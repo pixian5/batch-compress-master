@@ -12,6 +12,8 @@ using BatchCompress.Avalonia.Views;
 
 namespace BatchCompress.Avalonia;
 
+// GPT-5, 2026-08-05: Owns desktop lifetime, native tray integration and main-window visibility.
+// A normal window close exits the app; hiding is an explicit user command exposed through the view model.
 public partial class App : Application
 {
     private MainWindow? _mainWindow;
@@ -28,6 +30,7 @@ public partial class App : Application
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
+            // GPT-5, 2026-08-05: CommunityToolkit supplies validation, so remove Avalonia's duplicate data-annotation plugin.
             DisableAvaloniaDataAnnotationValidation();
             desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
             _viewModel = new MainWindowViewModel();
@@ -57,6 +60,7 @@ public partial class App : Application
             return;
         }
 
+        // GPT-5, 2026-08-05: The same tray action is intentionally idempotent from either menu or icon click.
         if (_mainWindow.IsVisible)
         {
             HideMainWindow();

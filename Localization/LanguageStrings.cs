@@ -7,6 +7,8 @@ namespace BatchCompress.Avalonia.Localization;
 /// Contains all localized strings for the application.
 /// This class implements INotifyPropertyChanged to allow UI to update when language changes.
 /// </summary>
+// GPT-5, 2026-08-05: Mutable string bag used by bindings. LocalizationService replaces values as one unit
+// so views can refresh without hardcoding language-specific resources.
 public class LanguageStrings : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;

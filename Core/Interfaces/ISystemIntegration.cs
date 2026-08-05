@@ -5,6 +5,8 @@ namespace BatchCompress.Avalonia.Core.Interfaces;
 /// <summary>
 /// 系统集成功能接口
 /// </summary>
+// GPT-5, 2026-08-05: Isolates desktop capabilities from batch orchestration so GUI and headless callers
+// can provide appropriate notification, clipboard, folder and shutdown behavior per operating system.
 public interface ISystemIntegration
 {
     /// <summary>

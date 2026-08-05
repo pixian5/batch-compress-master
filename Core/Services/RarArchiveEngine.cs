@@ -14,6 +14,8 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// RAR 压缩引擎实现
 /// 跨平台支持 RAR/UnRAR
 /// </summary>
+// GPT-5, 2026-08-05: Locates and validates a single WinRAR/RAR executable per platform, then delegates
+// all archive calls to WinRarProcessRunner without constructing a shell command string.
 public class RarArchiveEngine : IArchiveEngine
 {
     private string? _rarExecutablePath;
@@ -169,16 +171,16 @@ public class RarArchiveEngine : IArchiveEngine
 
     private IEnumerable<string> GetMacCandidates()
     {
-        // 1) 程序运行目录下的 tools/rarmacOS 目录（优先使用）
+        // GPT-5, 2026-08-05: Prefer an app-bundled RAR binary because Finder launches may not inherit the user's PATH.
         var toolsRarDir = Path.Combine(AppContext.BaseDirectory, "tools", "rarmacOS", "rar");
         yield return toolsRarDir;
 
-        // 2) 固定路径（避免 Finder 启动 PATH 不完整）
+        // GPT-5, 2026-08-05: Check common package-manager locations before consulting PATH for deterministic macOS discovery.
         yield return "/opt/homebrew/bin/rar";
         yield return "/usr/local/bin/rar";
         yield return "/usr/bin/rar";
 
-        // 3) PATH/which
+        // GPT-5, 2026-08-05: Use which only as a fallback because it depends on the process environment.
         var which = ExecuteCommandCaptureAll("which", ["rar"], timeoutMs: 2000);
         if (!string.IsNullOrWhiteSpace(which.Output))
         {
@@ -189,11 +191,11 @@ public class RarArchiveEngine : IArchiveEngine
             }
         }
 
-        // 4) 用户目录兜底
+        // GPT-5, 2026-08-05: Preserve historical user-local install locations as a final compatibility fallback.
         yield return ExpandHome("~/rar/rar");
         yield return ExpandHome("~/.local/bin/rar");
         
-        // 5) 程序运行目录（向后兼容，最后使用）
+        // GPT-5, 2026-08-05: Retain the legacy executable location for existing unpacked deployments.
         yield return Path.Combine(AppContext.BaseDirectory, "rar");
     }
 

@@ -2,6 +2,8 @@ using System.Collections.Generic;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Services;
 
+// GPT-5, 2026-08-05: Lightweight executable regression suite for command construction, process cancellation
+// and path fallback. It avoids UI dependencies so it runs consistently on macOS, Windows and Linux.
 internal static class Program
 {
     private static async Task<int> Main()
@@ -16,6 +18,7 @@ internal static class Program
             ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords)
         };
 
+        // GPT-5, 2026-08-05: Stop at the first failure to preserve a clear non-zero exit status for automation.
         foreach (var test in tests)
         {
             try

@@ -9,6 +9,7 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
   
+    <!-- GPT-5, 2026-08-05: Application-wide visual defaults keep standard controls and yellow help balloons consistent. -->
     <Application.Styles>
         <FluentTheme />
         <Style Selector="Button">
@@ -24,6 +25,7 @@
         </Style>
     </Application.Styles>
 
+    <!-- GPT-5, 2026-08-05: Avalonia owns native tray adaptation; menu actions call App lifecycle methods. -->
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/压缩.png" ToolTipText="批量压缩解压工具" Clicked="TrayIcon_Clicked">

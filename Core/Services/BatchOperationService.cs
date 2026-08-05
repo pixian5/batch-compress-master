@@ -14,7 +14,9 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// <summary>
 /// Service for batch compression and decompression operations
 /// </summary>
-public class BatchOperationService      
+// GPT-5, 2026-08-05: Coordinates enumeration, per-item archive execution, progress reporting and
+// post-processing. It is intentionally UI-agnostic and reports every user-visible event through IProgress.
+public class BatchOperationService
 {
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
@@ -297,7 +299,7 @@ public class BatchOperationService
                 password = options.CustomPassword;
             }
             
-            // Build archive options
+            // GPT-5, 2026-08-05: Translate batch-level defaults into the narrower engine contract once per source item.
             var archiveOptions = new ArchiveOptions
             {
                 ArchiveFormat = options.Extension,
@@ -316,7 +318,7 @@ public class BatchOperationService
                     options.VolumeSize + options.VolumeSizeUnit : null
             };
             
-            // Create enclosure directories if needed
+            // GPT-5, 2026-08-05: Ensure requested attachment directories exist before compression so WinRAR can include them.
             if (options.AddEnclosures && Directory.Exists(sourcePath) && 
                 options.EnclosureDirectories != null)
             {

@@ -5,29 +5,31 @@ using BatchCompress.Avalonia.Core.Services;
 
 namespace BatchCompress.Avalonia;
 
+// GPT-5, 2026-08-05: This is the only process entry point. It routes explicit compression/decompression
+// requests to the headless pipeline; every other invocation initializes Avalonia on an STA thread.
 sealed class Program
 {
     // 初始化代码。不要在AppMain调用前使用Avalonia、第三方API或依赖SynchronizationContext的代码：此时尚未初始化，可能导致异常。
     [STAThread]
     public static int Main(string[] args)
     {
-        // Check for help request
+        // GPT-5, 2026-08-05: Help must return before Avalonia initialization so CLI users never create a GUI process.
         if (CommandLineHandler.IsHelpRequested(args))
         {
             CommandLineHandler.ShowHelp();
             return 0;
         }
 
-        // Parse command-line arguments
+        // GPT-5, 2026-08-05: Parsing normalizes mode switches and password precedence before either execution path consumes them.
         var options = CommandLineHandler.ParseArguments(args);
 
-        // If compress or decompress mode is specified, run in headless mode
+        // GPT-5, 2026-08-05: Headless mode deliberately blocks on the async task so Main returns the real batch exit code.
         if (options.Compress || options.Decompress)
         {
             return RunHeadlessAsync(options).GetAwaiter().GetResult();
         }
 
-        // Otherwise, start the GUI application
+        // GPT-5, 2026-08-05: GUI mode owns the desktop lifetime and therefore returns only after the last window closes.
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
         return 0;
     }
@@ -52,7 +54,7 @@ sealed class Program
         }
     }
 
-    // Avalonia配置，请勿移除；也被可视化设计器使用。
+    // GPT-5, 2026-08-05: Keep this builder side-effect free because Avalonia designers also call it outside Program.Main.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()

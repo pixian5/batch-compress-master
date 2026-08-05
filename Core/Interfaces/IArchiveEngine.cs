@@ -6,6 +6,8 @@ namespace BatchCompress.Avalonia.Core.Interfaces;
 /// <summary>
 /// Interface for compression/decompression engine
 /// </summary>
+// GPT-5, 2026-08-05: Archive engines receive fully resolved paths and a cancellation token; implementations
+// must not assume a particular UI or shell and must expose tool-specific failures via ArchiveResult.
 public interface IArchiveEngine
 {
     /// <summary>

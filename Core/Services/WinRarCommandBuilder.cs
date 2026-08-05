@@ -5,6 +5,8 @@ using BatchCompress.Avalonia.Core.Interfaces;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
+// GPT-5, 2026-08-05: Produces one argument per WinRAR token. Callers pass this list through
+// ProcessStartInfo.ArgumentList so spaces and metacharacters in paths cannot alter command structure.
 public static class WinRarCommandBuilder
 {
     public static IReadOnlyList<string> SupportedFormats { get; } = ["rar", "zip"];
@@ -29,6 +31,7 @@ public static class WinRarCommandBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(output);
         ArgumentNullException.ThrowIfNull(options);
 
+        // GPT-5, 2026-08-05: Normalize early because format controls mutually incompatible switches such as -s and -afzip.
         var format = NormalizeArchiveFormat(options.ArchiveFormat);
         var arguments = new List<string> { "a", "-ep1", "-IBCK", "-SCf" };
 

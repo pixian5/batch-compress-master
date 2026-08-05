@@ -12,6 +12,7 @@ namespace BatchCompress.Avalonia;
 [RequiresUnreferencedCode(
     "Default implementation of ViewLocator involves reflection which may be trimmed away.",
     Url = "https://docs.avaloniaui.net/docs/concepts/view-locator")]
+// GPT-5, 2026-08-05: Resolves conventional ViewModel-to-View names at runtime for Avalonia templates.
 public class ViewLocator : IDataTemplate
 {
     public Control? Build(object? param)

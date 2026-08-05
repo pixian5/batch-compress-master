@@ -17,6 +17,8 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace BatchCompress.Avalonia.ViewModels;
 
+// GPT-5, 2026-08-05: Owns all bindable main-window state and translates UI choices into BatchOperationOptions.
+// UI-only operations are injected as callbacks so this class remains testable and independent of Avalonia controls.
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IArchiveEngine _archiveEngine;
@@ -316,7 +318,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
         
-        // Initialize dropdown options with current language strings
+        // GPT-5, 2026-08-05: Populate observable option collections before bindings render, then refresh on language changes.
         RefreshAllDropdownOptions();
         
         // Skip runtime-only initialization when in design mode
@@ -341,7 +343,7 @@ public partial class MainWindowViewModel : ViewModelBase
                        "【解压密码】QQ号：2027123419\n" +
                        "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
 
-        // Try to read clipboard on startup (Runtime only)
+        // GPT-5, 2026-08-05: Adopt clipboard text only when it names an existing directory, never arbitrary copied text.
         Task.Run(async () =>
         {
             try 
@@ -557,7 +559,7 @@ public partial class MainWindowViewModel : ViewModelBase
             
             _cancellationTokenSource = new CancellationTokenSource();
             
-            // Parse source file list
+            // GPT-5, 2026-08-05: Normalize line-based UI input once before processing; blank lines never become archive jobs.
             var sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s))
@@ -582,6 +584,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             }
             
+            // GPT-5, 2026-08-05: Snapshot options at operation start so edits cannot alter in-flight work.
             var options = BuildBatchOperationOptions();
             
             var progress = new Progress<OperationProgressInfo>(info =>
@@ -917,6 +920,7 @@ public partial class MainWindowViewModel : ViewModelBase
     
     private BatchOperationOptions BuildBatchOperationOptions()
     {
+        // GPT-5, 2026-08-05: Clamp all index-backed controls before converting them to engine enums or WinRAR units.
         string[] volumeUnits = { "g", "m", "k" };
         var volumeUnitIndex = VolumeUnit >= 0 && VolumeUnit < volumeUnits.Length ? VolumeUnit : 0;
         
