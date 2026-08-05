@@ -8,8 +8,7 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// <summary>
 /// File-based logger service for logging all operations to a file
 /// </summary>
-// GPT-5, 2026-08-05: Thread-safe file logger for headless execution. One lock protects writer lifecycle
-// and multi-threaded progress messages so each physical log entry remains intact.
+// GPT-5, 2026-08-05：用于无界面执行的线程安全文件日志器。一个锁同时保护写入器生命周期和多线程进度消息，确保每条日志完整。
 public class FileLoggerService : ILogger, IDisposable
 {
     private readonly string _logFilePath;
@@ -80,7 +79,7 @@ public class FileLoggerService : ILogger, IDisposable
             return;
         }
 
-        // GPT-5, 2026-08-05: The same lock guards disposal and writes to prevent a race that writes to a disposed stream.
+        // GPT-5, 2026-08-05：同一把锁保护释放和写入，避免竞态条件向已释放流写入。
         lock (_lock)
         {
             if (_writer == null || _disposed)
@@ -152,7 +151,7 @@ public class FileLoggerService : ILogger, IDisposable
 /// <summary>
 /// Provider for FileLoggerService
 /// </summary>
-// GPT-5, 2026-08-05: Reuses one logger instance so all categories write to the same configured batch log file.
+// GPT-5, 2026-08-05：复用一个日志实例，使所有分类写入同一个配置的批处理日志文件。
 public class FileLoggerProvider : ILoggerProvider
 {
     private readonly string? _logFilePath;

@@ -8,8 +8,7 @@ namespace BatchCompress.Avalonia.Localization;
 /// <summary>
 /// Manages the current language and provides localized strings.
 /// </summary>
-// GPT-5, 2026-08-05: Singleton language coordinator. It publishes a complete LanguageStrings instance and
-// exposes supported culture labels for the main-window selector.
+// GPT-5, 2026-08-05：单例语言协调器。它发布完整的 LanguageStrings 实例，并向主窗口选择器提供支持的语言标签。
 public class LocalizationService : INotifyPropertyChanged
 {
     private static LocalizationService? _instance;
@@ -58,7 +57,7 @@ public class LocalizationService : INotifyPropertyChanged
         get => _currentLanguage;
         set
         {
-            // GPT-5, 2026-08-05: Reject unknown codes so bindings never observe a partially initialized language.
+            // GPT-5, 2026-08-05：拒绝未知语言代码，避免绑定观察到未完整初始化的语言对象。
             if (_currentLanguage != value && AvailableLanguages.ContainsKey(value))
             {
                 _currentLanguage = value;

@@ -11,7 +11,7 @@
         Title="{Binding L.WindowTitle}"
         Width="1200" Height="800">
 
-    <!-- GPT-5, 2026-08-05: Keep global shortcuts at the window level so they work regardless of the focused panel. -->
+    <!-- GPT-5, 2026-08-05：将全局快捷键放在窗口级别，使其不受当前焦点面板影响。 -->
     <Window.KeyBindings>
         <KeyBinding Gesture="F5" Command="{Binding RefreshFileListCommand}" />
         <KeyBinding Gesture="Escape" Command="{Binding CancelOperationCommand}" />
@@ -29,7 +29,7 @@
                   VerticalScrollBarVisibility="Visible">
         <StackPanel Margin="10" Spacing="8">
 
-            <!-- GPT-5, 2026-08-05: Source and output paths are separated because legacy TXT mode resolves list entries from SaveFilePath. -->
+            <!-- GPT-5, 2026-08-05：来源和输出路径分离，因为旧版 TXT 模式从 SaveFilePath 解析列表项。 -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
                     <TextBlock Text="{Binding L.SourceAndDestination}" FontWeight="Bold" FontSize="14"/>
@@ -53,7 +53,7 @@
                 </StackPanel>
             </Border>
 
-            <!-- GPT-5, 2026-08-05: Compression controls bind directly to MainWindowViewModel and are snapshotted when an operation starts. -->
+            <!-- GPT-5, 2026-08-05：压缩控件直接绑定 MainWindowViewModel，并在操作开始时快照。 -->
             <Grid ColumnDefinitions="*" Margin="0,5">
                 <!-- Left Column: Compression Options -->
                 <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
@@ -160,7 +160,7 @@
                     </Expander>
                 </Grid>
 
-            <!-- GPT-5, 2026-08-05: Commands remain enabled/disabled from IsOperating to prevent concurrent WinRAR batches. -->
+            <!-- GPT-5, 2026-08-05：命令依据 IsOperating 保持启用/禁用，防止并发 WinRAR 批处理。 -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                 <StackPanel Spacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="10">
@@ -233,7 +233,7 @@
             </Border>
 
 
-            <!-- GPT-5, 2026-08-05: Separate editable source input from read-only result and command diagnostics. -->
+            <!-- GPT-5, 2026-08-05：将可编辑来源输入与只读结果、命令诊断信息分离。 -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="0" CornerRadius="5">
                 <TabControl Height="300">
                 <!-- Source File List -->

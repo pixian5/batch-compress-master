@@ -5,7 +5,7 @@ namespace BatchCompress.Avalonia.Core.Models;
 /// <summary>
 /// Progress information for compression/decompression operations
 /// </summary>
-// GPT-5, 2026-08-05: Mutable progress snapshot reported from long-running batch work to UI or CLI observers.
+// GPT-5, 2026-08-05：长时间批处理向 GUI 或命令行观察者报告的可变进度快照。
 public class OperationProgressInfo
 {
     public string CurrentFile { get; set; } = string.Empty;
@@ -23,7 +23,7 @@ public class OperationProgressInfo
 /// <summary>
 /// File entry for decompression with password
 /// </summary>
-// GPT-5, 2026-08-05: Represents a source item and its optional per-file password from a TXT list.
+// GPT-5, 2026-08-05：表示来源项目及其从 TXT 列表读取的可选单文件密码。
 public class FileEntry
 {
     public string FilePath { get; set; } = string.Empty;
@@ -34,7 +34,7 @@ public class FileEntry
 /// <summary>
 /// Operation options for batch processing
 /// </summary>
-// GPT-5, 2026-08-05: Aggregates all UI/CLI choices before BatchOperationService translates them to engine options.
+// GPT-5, 2026-08-05：聚合 GUI/命令行选择，之后由 BatchOperationService 转换为引擎选项。
 public class BatchOperationOptions
 {
     public string SourcePath { get; set; } = string.Empty;

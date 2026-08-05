@@ -11,8 +11,8 @@ namespace BatchCompress.Avalonia;
 /// <summary>
 /// Command-line options for batch compression/decompression
 /// </summary>
-// GPT-5, 2026-08-05: Plain transport object shared by the parser and HeadlessBatchRunner.
-// Defaults here define non-GUI behavior and must stay aligned with the GUI's safe defaults.
+// GPT-5, 2026-08-05：解析器与 HeadlessBatchRunner 共用的纯数据对象。
+// 此处默认值定义无界面行为，必须与 GUI 的安全默认值保持一致。
 public class CommandLineOptions
 {
     // Mode options
@@ -61,8 +61,7 @@ public class CommandLineOptions
 /// <summary>
 /// Handler for command-line operations
 /// </summary>
-// GPT-5, 2026-08-05: Builds options once per parse and keeps their references so values can be read
-// from System.CommandLine without brittle alias-string lookups.
+// GPT-5, 2026-08-05：每次解析只构建一次选项并保留引用，避免按易碎的别名字串读取 System.CommandLine 值。
 public static class CommandLineHandler
 {
     // Cached option references for efficient parsing
@@ -232,7 +231,7 @@ public static class CommandLineHandler
             aliases: new[] { "--verbose" },
             description: "Enable verbose logging");
 
-        // GPT-5, 2026-08-05: Register every option on one root command so help output and parsing share one contract.
+        // GPT-5, 2026-08-05：将所有选项注册到同一个根命令，使帮助输出和解析共用同一份契约。
         rootCommand.AddOption(_compressOption);
         rootCommand.AddOption(_decompressOption);
         rootCommand.AddOption(_guiOption);
@@ -277,7 +276,7 @@ public static class CommandLineHandler
         {
             var parseResult = context.ParseResult;
 
-            // GPT-5, 2026-08-05: Copy parsed values into an independent object; downstream code never depends on parser lifetime.
+            // GPT-5, 2026-08-05：将解析值复制到独立对象，下游代码不依赖解析器生命周期。
             options.Compress = parseResult.GetValueForOption(_compressOption!);
             options.Decompress = parseResult.GetValueForOption(_decompressOption!);
             options.Gui = parseResult.GetValueForOption(_guiOption!);
@@ -310,13 +309,13 @@ public static class CommandLineHandler
 
         rootCommand.Invoke(args);
 
-        // GPT-5, 2026-08-05: An explicit password always wins over deterministic filename-derived passwords.
+        // GPT-5, 2026-08-05：显式密码始终优先于按文件名生成的确定性密码。
         if (!string.IsNullOrEmpty(options.Password))
         {
             options.UseRandomPassword = false;
         }
 
-        // GPT-5, 2026-08-05: Batch verbs are non-interactive by definition, even if --gui was also supplied.
+        // GPT-5, 2026-08-05：批处理动词按定义是非交互的，即使同时提供了 --gui 也不启动界面。
         if (options.Compress || options.Decompress)
         {
             options.Gui = false;

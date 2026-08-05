@@ -12,8 +12,8 @@ using BatchCompress.Avalonia.Views;
 
 namespace BatchCompress.Avalonia;
 
-// GPT-5, 2026-08-05: Owns desktop lifetime, native tray integration and main-window visibility.
-// A normal window close exits the app; hiding is an explicit user command exposed through the view model.
+// GPT-5, 2026-08-05：负责桌面生命周期、原生托盘集成与主窗口可见性。
+// 普通关闭窗口会退出应用；隐藏是由 ViewModel 明确发起的用户命令。
 public partial class App : Application
 {
     private MainWindow? _mainWindow;
@@ -30,7 +30,7 @@ public partial class App : Application
         {
             // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
             // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            // GPT-5, 2026-08-05: CommunityToolkit supplies validation, so remove Avalonia's duplicate data-annotation plugin.
+            // GPT-5, 2026-08-05：CommunityToolkit 已提供验证功能，因此移除 Avalonia 重复的数据注解插件。
             DisableAvaloniaDataAnnotationValidation();
             desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
             _viewModel = new MainWindowViewModel();
@@ -60,7 +60,7 @@ public partial class App : Application
             return;
         }
 
-        // GPT-5, 2026-08-05: The same tray action is intentionally idempotent from either menu or icon click.
+        // GPT-5, 2026-08-05：菜单和图标点击共用同一个幂等的显示/隐藏托盘动作。
         if (_mainWindow.IsVisible)
         {
             HideMainWindow();

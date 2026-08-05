@@ -29,8 +29,7 @@ public partial class MainWindow : Window
     private WindowState _lastWindowState = WindowState.Normal;
     private bool _isApplyingNormalBounds;
     private static readonly JsonSerializerOptions WindowSettingsSerializerOptions = new();
-    // GPT-5, 2026-08-05: Store user window state outside the app bundle so it survives updates,
-    // does not invalidate the macOS signature, and uses the correct data directory on every platform.
+    // GPT-5, 2026-08-05：将用户窗口状态存放在应用包外，确保更新后仍保留、不破坏 macOS 签名，并使用各平台正确的数据目录。
     private static readonly string WindowSettingsFilePath = GetWindowSettingsFilePath();
     public MainWindow()
     {
@@ -61,8 +60,8 @@ public partial class MainWindow : Window
             return;
         }
 
-        // GPT-5, 2026-08-05: Some platform backends briefly report maximized geometry while restoring.
-        // Re-apply the previous normal bounds only after the UI has finished its state transition.
+        // GPT-5, 2026-08-05：部分平台后端在恢复时会短暂报告最大化几何信息。
+        // 仅在 UI 完成状态切换后重新应用此前的普通窗口边界。
         if (_lastWindowState == WindowState.Maximized && newState == WindowState.Normal)
         {
             global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
@@ -148,7 +147,7 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // GPT-5, 2026-08-05: Invalid or stale user settings must never prevent the main window from opening.
+            // GPT-5, 2026-08-05：无效或过期的用户设置绝不能阻止主窗口打开。
         }
     }
 
@@ -198,7 +197,7 @@ public partial class MainWindow : Window
         }
         catch
         {
-            // GPT-5, 2026-08-05: Window-state persistence is best-effort and must not block application shutdown.
+            // GPT-5, 2026-08-05：窗口状态持久化是尽力而为的操作，绝不能阻塞应用退出。
         }
     }
 
@@ -215,8 +214,8 @@ public partial class MainWindow : Window
 
     private static string GetWindowSettingsFilePath()
     {
-        // GPT-5, 2026-08-05: ApplicationData resolves to AppData on Windows, Application Support on macOS,
-        // and the user's data directory on Linux. LocalApplicationData is a fallback for unusual runtimes.
+        // GPT-5, 2026-08-05：ApplicationData 在 Windows 对应 AppData、在 macOS 对应 Application Support、
+        // 在 Linux 对应用户数据目录。LocalApplicationData 用于异常运行时的回退。
         var applicationData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
         if (string.IsNullOrWhiteSpace(applicationData))
         {
@@ -334,8 +333,7 @@ public partial class MainWindow : Window
 
     private void Drop(object? sender, DragEventArgs e)
     {
-        // GPT-5, 2026-08-05: Accept only one actionable drop. A folder becomes the scan root;
-        // a TXT file becomes the password/list source, so extra dropped items are intentionally ignored.
+        // GPT-5, 2026-08-05：仅接受一个可执行的拖放项目。目录成为扫描根目录，TXT 成为密码/列表来源，故有意忽略额外项目。
         if (e.DataTransfer.TryGetFiles() is IEnumerable<IStorageItem> files && DataContext is MainWindowViewModel viewModel)
         {
             foreach (var file in files)
@@ -343,14 +341,14 @@ public partial class MainWindow : Window
                 var firstPath = file.Path.LocalPath;
                 if (string.IsNullOrEmpty(firstPath)) continue;
                 
-                // GPT-5, 2026-08-05: A dropped directory is the source directory for folder-scan mode.
+                // GPT-5, 2026-08-05：拖入目录即为文件夹扫描模式的来源目录。
                 if (Directory.Exists(firstPath))
                 {
                     viewModel.SaveFilePath = firstPath;
                     viewModel.CommandLog += L.DroppedFolder + firstPath + "\n";
                     break;
                 }
-                // GPT-5, 2026-08-05: A dropped TXT file supplies the file list and optional passwords.
+                // GPT-5, 2026-08-05：拖入 TXT 文件提供文件列表和可选密码。
                 else if (File.Exists(firstPath) && firstPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
                 {
                     viewModel.SourcePath = firstPath;
@@ -367,8 +365,8 @@ public partial class MainWindow : Window
         
         if (DataContext is MainWindowViewModel viewModel)
         {
-            // GPT-5, 2026-08-05: StorageProvider and Window.Hide require a live Avalonia window.
-            // Injecting these callbacks keeps the view model independent of platform controls.
+            // GPT-5, 2026-08-05：StorageProvider 和 Window.Hide 需要存活的 Avalonia 窗口。
+            // 注入这些回调可使 ViewModel 不依赖平台控件。
             viewModel.BrowseSourceRequested = BrowseSourceAsync;
             viewModel.BrowseOutputRequested = BrowseOutputAsync;
             viewModel.BrowseTextFileRequested = BrowseTextFileAsync;
@@ -397,8 +395,8 @@ public partial class MainWindow : Window
             AllowMultiple = true
         });
 
-        // GPT-5, 2026-08-05: Convert storage items to paths, then merge them with the existing newline list.
-        // Case-insensitive de-duplication matches common Windows/macOS filesystem behavior while preserving order.
+        // GPT-5, 2026-08-05：将存储项目转换为路径，再与现有换行列表合并。
+        // 不区分大小写的去重符合常见 Windows/macOS 文件系统行为，同时保留顺序。
         var paths = folders.Select(folder => folder.Path.LocalPath)
             .Where(path => !string.IsNullOrWhiteSpace(path))
             .ToArray();
@@ -430,18 +428,18 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel viewModel)
             return;
         
-        // GPT-5, 2026-08-05: TXT mode chooses the legacy list/password file; folder mode chooses the scan root.
+        // GPT-5, 2026-08-05：TXT 模式选择旧版列表/密码文件；文件夹模式选择扫描根目录。
         if (viewModel.SourceMode == 0)
         {
-            // GPT-5, 2026-08-05: The legacy TXT workflow resolves filenames relative to SaveFilePath,
-            // so require that directory before allowing the user to select the list file.
+            // GPT-5, 2026-08-05：旧版 TXT 流程相对 SaveFilePath 解析文件名，
+            // 因此允许选择列表文件前必须先确定该目录。
             if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
             {
                 bool shouldContinue = await ShowOkCancelMessageBoxAsync(L.Hint, L.SelectSaveDirectory);
                 
                 if (shouldContinue)
                 {
-                    // GPT-5, 2026-08-05: Reuse the standard picker so every platform follows the same path rules.
+                    // GPT-5, 2026-08-05：复用标准选择器，使每个平台遵循相同的路径规则。
                     await BrowseSaveFileAsync();
                     
                     if (string.IsNullOrWhiteSpace(viewModel.SaveFilePath))
@@ -453,7 +451,7 @@ public partial class MainWindow : Window
                 }
             }
             
-            // GPT-5, 2026-08-05: Normalize only the trailing separator before combining the selected filename.
+            // GPT-5, 2026-08-05：合并选择的文件名之前仅规范化末尾分隔符。
             string savePath = viewModel.SaveFilePath;
             if (!savePath.EndsWith(Path.DirectorySeparatorChar) && 
                 !savePath.EndsWith(Path.AltDirectorySeparatorChar))
@@ -463,7 +461,7 @@ public partial class MainWindow : Window
             
 
             
-            // GPT-5, 2026-08-05: Prefer text files while retaining an all-files escape hatch for legacy lists.
+            // GPT-5, 2026-08-05：优先显示文本文件，同时保留所有文件入口以兼容旧列表。
             var fileOptions = new FilePickerOpenOptions
             {
                 Title = L.SelectPasswordTxt,
@@ -478,7 +476,7 @@ public partial class MainWindow : Window
             var files = await this.StorageProvider.OpenFilePickerAsync(fileOptions);
             if (files.Count > 0)
             {
-                // GPT-5, 2026-08-05: Keep only the selected filename and anchor it to SaveFilePath for compatibility.
+                // GPT-5, 2026-08-05：仅保留选择的文件名并锚定到 SaveFilePath，以保持兼容性。
                 string passwordFileName = Path.GetFileName(files[0].Path.LocalPath);
                 
                 string fullPath = Path.Combine(savePath, passwordFileName);
@@ -504,7 +502,7 @@ public partial class MainWindow : Window
     
     private async Task BrowseOutputAsync()
     {
-        // GPT-5, 2026-08-05: Output selection is always a folder and does not alter the source-mode state.
+        // GPT-5, 2026-08-05：输出选择始终是目录，且不会改变来源模式状态。
         var options = new FolderPickerOpenOptions
         {
             Title = L.SelectOutputFolder,
@@ -524,7 +522,7 @@ public partial class MainWindow : Window
         {
             if (DataContext is MainWindowViewModel viewModel)
             {
-                // GPT-5, 2026-08-05: Record picker entry for diagnosing platform-specific storage-provider failures.
+                // GPT-5, 2026-08-05：记录选择器入口，用于诊断平台特定的存储提供程序失败。
                 viewModel.CommandLog += "BrowseSaveFileAsync called\n";
             }
             
@@ -534,12 +532,12 @@ public partial class MainWindow : Window
                 AllowMultiple = false
             };
             
-            // GPT-5, 2026-08-05: Use Avalonia StorageProvider rather than a platform-native API to keep selection behavior portable.
+            // GPT-5, 2026-08-05：使用 Avalonia StorageProvider 而不是平台原生 API，以保持选择行为可移植。
             var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
             
             if (DataContext is MainWindowViewModel viewModel2)
             {
-                // GPT-5, 2026-08-05: Preserve the returned count because cancellation is represented by an empty collection.
+                // GPT-5, 2026-08-05：保留返回数量，因为取消操作以空集合表示。
                 viewModel2.CommandLog += $"Folder picker returned {folders.Count} items\n";
                 
                 if (folders.Count > 0)
@@ -560,7 +558,7 @@ public partial class MainWindow : Window
     
     private async Task BrowseTextFileAsync()
     {
-        // GPT-5, 2026-08-05: This picker stores the actual TXT path, unlike the legacy SourceMode path builder above.
+        // GPT-5, 2026-08-05：此选择器存储实际 TXT 路径，不同于上方旧版 SourceMode 路径构建逻辑。
         var options = new FilePickerOpenOptions
         {
             Title = L.SelectTextFile,
@@ -581,7 +579,7 @@ public partial class MainWindow : Window
     
     private async Task<bool> ShowMessageBoxAsync(string title, string message)
     {
-        // GPT-5, 2026-08-05: Keep this dialog self-contained so callers receive a completed Task only after the user acknowledges it.
+        // GPT-5, 2026-08-05：保持此对话框自包含，使调用方仅在用户确认后收到完成的 Task。
         Window? dialog = null;
         dialog = new Window
         {
@@ -605,7 +603,7 @@ public partial class MainWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         
-        // GPT-5, 2026-08-05: Close with true so the modal Task has an explicit successful acknowledgement result.
+        // GPT-5, 2026-08-05：以 true 关闭，使模态 Task 获得明确的成功确认结果。
         var button = (Button)((StackPanel)dialog.Content).Children[1];
         button.Click += (sender, e) => dialog.Close(true);
         
@@ -614,7 +612,7 @@ public partial class MainWindow : Window
     
     private async Task<bool> ShowOkCancelMessageBoxAsync(string title, string message)
     {
-        // GPT-5, 2026-08-05: Use an explicit boolean result to distinguish user cancellation from a failed picker operation.
+        // GPT-5, 2026-08-05：使用明确布尔结果，区分用户取消与选择器失败。
         Window? dialog = null;
         dialog = new Window
         {

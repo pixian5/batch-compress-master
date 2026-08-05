@@ -6,37 +6,36 @@ using BatchCompress.Avalonia.Core.Services;
 
 namespace BatchCompress.Avalonia;
 
-// GPT-5, 2026-08-05: This is the only process entry point. It routes explicit compression/decompression
-// requests to the headless pipeline; every other invocation initializes Avalonia on an STA thread.
+// GPT-5, 2026-08-05：这是唯一的进程入口。显式压缩/解压请求进入无界面流程，其余请求在 STA 线程初始化 Avalonia。
 sealed class Program
 {
     // 初始化代码。不要在AppMain调用前使用Avalonia、第三方API或依赖SynchronizationContext的代码：此时尚未初始化，可能导致异常。
     [STAThread]
     public static int Main(string[] args)
     {
-        // GPT-5, 2026-08-05: Finder and LaunchServices append a -psn_* process serial argument when opening a
-        // macOS .app. It is not an application option and must be removed before System.CommandLine parsing.
+        // GPT-5, 2026-08-05：Finder 和 LaunchServices 打开 macOS .app 时会附加 -psn_* 进程序列参数。
+        // 它不是应用选项，必须在 System.CommandLine 解析前移除。
         var applicationArgs = args
             .Where(argument => !argument.StartsWith("-psn_", StringComparison.OrdinalIgnoreCase))
             .ToArray();
 
-        // GPT-5, 2026-08-05: Help must return before Avalonia initialization so CLI users never create a GUI process.
+        // GPT-5, 2026-08-05：帮助信息必须在初始化 Avalonia 前返回，避免命令行用户创建 GUI 进程。
         if (CommandLineHandler.IsHelpRequested(applicationArgs))
         {
             CommandLineHandler.ShowHelp();
             return 0;
         }
 
-        // GPT-5, 2026-08-05: Parsing normalizes mode switches and password precedence before either execution path consumes them.
+        // GPT-5, 2026-08-05：解析阶段统一模式开关与密码优先级，两个执行路径共用同一份结果。
         var options = CommandLineHandler.ParseArguments(applicationArgs);
 
-        // GPT-5, 2026-08-05: Headless mode deliberately blocks on the async task so Main returns the real batch exit code.
+        // GPT-5, 2026-08-05：无界面模式同步等待异步任务，确保 Main 返回真实的批处理退出码。
         if (options.Compress || options.Decompress)
         {
             return RunHeadlessAsync(options).GetAwaiter().GetResult();
         }
 
-        // GPT-5, 2026-08-05: GUI mode owns the desktop lifetime and therefore returns only after the last window closes.
+        // GPT-5, 2026-08-05：GUI 模式拥有桌面生命周期，仅在最后一个窗口关闭后返回。
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(applicationArgs);
         return 0;
     }
@@ -61,7 +60,7 @@ sealed class Program
         }
     }
 
-    // GPT-5, 2026-08-05: Keep this builder side-effect free because Avalonia designers also call it outside Program.Main.
+    // GPT-5, 2026-08-05：保持构建器无副作用，因为 Avalonia 设计器也会在 Program.Main 之外调用它。
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()

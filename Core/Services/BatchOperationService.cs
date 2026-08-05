@@ -14,8 +14,8 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// <summary>
 /// Service for batch compression and decompression operations
 /// </summary>
-// GPT-5, 2026-08-05: Coordinates enumeration, per-item archive execution, progress reporting and
-// post-processing. It is intentionally UI-agnostic and reports every user-visible event through IProgress.
+// GPT-5, 2026-08-05：协调枚举、逐项归档执行、进度报告和后处理。
+// 该服务不依赖界面，并通过 IProgress 报告所有用户可见事件。
 public class BatchOperationService
 {
     private readonly IArchiveEngine _archiveEngine;
@@ -57,8 +57,7 @@ public class BatchOperationService
             {
                 var name = Path.GetFileName(itemPath);
 
-                // GPT-5, 2026-08-05: Apply the shared filter before extension or processed-item logic so
-                // desktop metadata is excluded identically on Windows, macOS and Linux.
+                // GPT-5, 2026-08-05：在扩展名和已处理判断前使用统一过滤器，确保 Windows、macOS、Linux 结果一致。
                 if (SystemMetadataFileFilter.ShouldSkip(itemPath) ||
                     name.StartsWith(".tmp", StringComparison.OrdinalIgnoreCase))
                 {
@@ -244,7 +243,7 @@ public class BatchOperationService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // GPT-5, 2026-08-05: Defend against manually edited source lists that bypassed normal enumeration.
+            // GPT-5, 2026-08-05：防御手工编辑列表绕过正常枚举的情况。
             if (SystemMetadataFileFilter.ShouldSkip(sourcePath))
             {
                 Log(LogLevel.Debug, $"Skipping system metadata path: {sourcePath}");
@@ -306,7 +305,7 @@ public class BatchOperationService
                 password = options.CustomPassword;
             }
             
-            // GPT-5, 2026-08-05: Translate batch-level defaults into the narrower engine contract once per source item.
+            // GPT-5, 2026-08-05：每个来源项目只转换一次批处理默认值到更窄的引擎契约。
             var archiveOptions = new ArchiveOptions
             {
                 ArchiveFormat = options.Extension,
@@ -325,7 +324,7 @@ public class BatchOperationService
                     options.VolumeSize + options.VolumeSizeUnit : null
             };
             
-            // GPT-5, 2026-08-05: Ensure requested attachment directories exist before compression so WinRAR can include them.
+            // GPT-5, 2026-08-05：压缩前确保请求的附件目录存在，使 WinRAR 能够包含它们。
             if (options.AddEnclosures && Directory.Exists(sourcePath) && 
                 options.EnclosureDirectories != null)
             {
@@ -478,7 +477,7 @@ public class BatchOperationService
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            // GPT-5, 2026-08-05: TXT lists are user-editable, so enforce the same metadata exclusion at execution time.
+            // GPT-5, 2026-08-05：TXT 列表可由用户编辑，因此执行时再次实施相同的元数据过滤。
             if (SystemMetadataFileFilter.ShouldSkip(entry.FilePath))
             {
                 Log(LogLevel.Debug, $"Skipping system metadata archive: {entry.FilePath}");

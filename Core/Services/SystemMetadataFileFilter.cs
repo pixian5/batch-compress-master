@@ -4,9 +4,8 @@ using System.IO;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
-// GPT-5, 2026-08-05: Centralized cross-platform filter for filesystem metadata that should never become
-// a compression or extraction job. The check examines every path segment so files inside metadata folders
-// are rejected even when supplied manually or through a TXT list.
+// GPT-5, 2026-08-05：集中过滤不应成为压缩或解压任务的跨平台文件系统元数据。
+// 检查路径的每个片段，因此即使通过手工列表或 TXT 列表提供，元数据目录内的文件也会被拒绝。
 public static class SystemMetadataFileFilter
 {
     private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)

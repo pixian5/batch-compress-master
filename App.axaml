@@ -9,7 +9,7 @@
         <local:ViewLocator/>
     </Application.DataTemplates>
   
-    <!-- GPT-5, 2026-08-05: Application-wide visual defaults keep standard controls and yellow help balloons consistent. -->
+    <!-- GPT-5, 2026-08-05：应用级视觉默认值使标准控件和黄色提示气泡保持一致。 -->
     <Application.Styles>
         <FluentTheme />
         <Style Selector="Button">
@@ -25,7 +25,7 @@
         </Style>
     </Application.Styles>
 
-    <!-- GPT-5, 2026-08-05: Avalonia owns native tray adaptation; menu actions call App lifecycle methods. -->
+    <!-- GPT-5, 2026-08-05：Avalonia 负责原生托盘适配；菜单动作调用 App 生命周期方法。 -->
     <TrayIcon.Icons>
         <TrayIcons>
             <TrayIcon Icon="/Assets/压缩.png" ToolTipText="批量压缩解压工具" Clicked="TrayIcon_Clicked">

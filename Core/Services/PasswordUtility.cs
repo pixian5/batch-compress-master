@@ -9,8 +9,8 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// MD5-based password generation utilities
 /// Ported from the original WinForms application
 /// </summary>
-// GPT-5, 2026-08-05: Centralizes deterministic legacy-compatible password derivation. These helpers are
-// intentionally not cryptographic protection for user data; they reproduce historical archive passwords.
+// GPT-5, 2026-08-05：集中处理确定性的旧版兼容密码派生。这些方法不是用户数据的密码学保护，
+// 仅用于复现历史归档密码。
 public static class PasswordUtility
 {
     /// <summary>
@@ -18,7 +18,7 @@ public static class PasswordUtility
     /// </summary>
     public static string MD5UTF878(string text)
     {
-        // GPT-5, 2026-08-05: Preserve UTF-8 byte encoding and the historical substring offset for compatibility.
+        // GPT-5, 2026-08-05：保留 UTF-8 字节编码和历史截取偏移，确保密码兼容。
         using var md5 = MD5.Create();
         byte[] buffer = Encoding.UTF8.GetBytes(text);
         byte[] hash = md5.ComputeHash(buffer);
@@ -61,7 +61,7 @@ public static class PasswordUtility
         using var md5 = MD5.Create();
         
         // Register code pages provider for GB2312
-        // GPT-5, 2026-08-05: GB2312 is not registered by default on modern .NET; register it only for legacy queries.
+        // GPT-5, 2026-08-05：现代 .NET 默认未注册 GB2312，仅在旧版密码查询时注册该编码。
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         byte[] buffer = Encoding.GetEncoding("gb2312").GetBytes(text);
         byte[] hash = md5.ComputeHash(buffer);
@@ -98,7 +98,7 @@ public static class PasswordUtility
     
     public static IReadOnlyList<string> GetLegacyPasswordCandidates(string filenameWithExtension)
     {
-        // GPT-5, 2026-08-05: Return candidates in the original WinForms order so users can compare familiar values.
+        // GPT-5, 2026-08-05：按原 WinForms 顺序返回候选值，方便用户核对熟悉的结果。
         return
         [
             MD5GB2312(filenameWithExtension + "5") + "@" + MD5GB2312(filenameWithExtension + "2") + ".com#" + MD5GB2312(filenameWithExtension + "tt"),

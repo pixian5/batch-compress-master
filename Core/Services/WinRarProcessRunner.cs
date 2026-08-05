@@ -8,8 +8,7 @@ namespace BatchCompress.Avalonia.Core.Services;
 
 public sealed record WinRarProcessResult(int ExitCode, string StandardOutput, string StandardError);
 
-// GPT-5, 2026-08-05: Runs WinRAR with asynchronous stdout/stderr draining so a verbose child process
-// cannot deadlock on a full redirected pipe; cancellation terminates the entire process tree.
+// GPT-5, 2026-08-05：异步读取 WinRAR 的 stdout/stderr，避免高输出量子进程因重定向管道已满而死锁；取消时终止整个进程树。
 public sealed class WinRarProcessRunner
 {
     private readonly string _executablePath;

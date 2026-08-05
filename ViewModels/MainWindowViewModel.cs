@@ -17,8 +17,8 @@ using CommunityToolkit.Mvvm.Input;
 
 namespace BatchCompress.Avalonia.ViewModels;
 
-// GPT-5, 2026-08-05: Owns all bindable main-window state and translates UI choices into BatchOperationOptions.
-// UI-only operations are injected as callbacks so this class remains testable and independent of Avalonia controls.
+// GPT-5, 2026-08-05：持有主窗口全部可绑定状态，并将 UI 选择转换为 BatchOperationOptions。
+// 仅界面相关的操作通过回调注入，使本类保持可测试且不依赖 Avalonia 控件。
 public partial class MainWindowViewModel : ViewModelBase
 {
     private readonly IArchiveEngine _archiveEngine;
@@ -318,7 +318,7 @@ public partial class MainWindowViewModel : ViewModelBase
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
         
-        // GPT-5, 2026-08-05: Populate observable option collections before bindings render, then refresh on language changes.
+        // GPT-5, 2026-08-05：在绑定渲染前填充可观察选项集合，并在语言变化时刷新。
         RefreshAllDropdownOptions();
         
         // Skip runtime-only initialization when in design mode
@@ -343,7 +343,7 @@ public partial class MainWindowViewModel : ViewModelBase
                        "【解压密码】QQ号：2027123419\n" +
                        "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
 
-        // GPT-5, 2026-08-05: Adopt clipboard text only when it names an existing directory, never arbitrary copied text.
+        // GPT-5, 2026-08-05：仅在剪贴板文本是现有目录时采用，绝不把任意复制文本作为路径。
         Task.Run(async () =>
         {
             try 
@@ -559,7 +559,7 @@ public partial class MainWindowViewModel : ViewModelBase
             
             _cancellationTokenSource = new CancellationTokenSource();
             
-            // GPT-5, 2026-08-05: Normalize line-based UI input once before processing; blank lines never become archive jobs.
+            // GPT-5, 2026-08-05：处理前统一规范按行输入；空行绝不能成为归档任务。
             var sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
@@ -584,7 +584,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
             }
             
-            // GPT-5, 2026-08-05: Snapshot options at operation start so edits cannot alter in-flight work.
+            // GPT-5, 2026-08-05：在操作开始时快照选项，避免处理中修改影响在途任务。
             var options = BuildBatchOperationOptions();
             
             var progress = new Progress<OperationProgressInfo>(info =>
@@ -920,7 +920,7 @@ public partial class MainWindowViewModel : ViewModelBase
     
     private BatchOperationOptions BuildBatchOperationOptions()
     {
-        // GPT-5, 2026-08-05: Clamp all index-backed controls before converting them to engine enums or WinRAR units.
+        // GPT-5, 2026-08-05：转换为引擎枚举或 WinRAR 单位前，钳制所有由索引驱动的控件值。
         string[] volumeUnits = { "g", "m", "k" };
         var volumeUnitIndex = VolumeUnit >= 0 && VolumeUnit < volumeUnits.Length ? VolumeUnit : 0;
         

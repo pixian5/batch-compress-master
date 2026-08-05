@@ -14,8 +14,8 @@ namespace BatchCompress.Avalonia.Core.Services;
 /// RAR 压缩引擎实现
 /// 跨平台支持 RAR/UnRAR
 /// </summary>
-// GPT-5, 2026-08-05: Locates and validates a single WinRAR/RAR executable per platform, then delegates
-// all archive calls to WinRarProcessRunner without constructing a shell command string.
+// GPT-5, 2026-08-05：按平台定位并验证唯一的 WinRAR/RAR 可执行文件，再交由 WinRarProcessRunner 执行归档操作。
+// 不在此处拼接 Shell 命令字符串，所有参数边界由参数列表保证。
 public class RarArchiveEngine : IArchiveEngine
 {
     private string? _rarExecutablePath;
@@ -171,16 +171,16 @@ public class RarArchiveEngine : IArchiveEngine
 
     private IEnumerable<string> GetMacCandidates()
     {
-        // GPT-5, 2026-08-05: Prefer an app-bundled RAR binary because Finder launches may not inherit the user's PATH.
+        // GPT-5, 2026-08-05：优先使用应用包内的 RAR；Finder 启动的进程可能不会继承用户 PATH。
         var toolsRarDir = Path.Combine(AppContext.BaseDirectory, "tools", "rarmacOS", "rar");
         yield return toolsRarDir;
 
-        // GPT-5, 2026-08-05: Check common package-manager locations before consulting PATH for deterministic macOS discovery.
+        // GPT-5, 2026-08-05：在查询 PATH 前先检查常见包管理器目录，保证 macOS 查找顺序确定。
         yield return "/opt/homebrew/bin/rar";
         yield return "/usr/local/bin/rar";
         yield return "/usr/bin/rar";
 
-        // GPT-5, 2026-08-05: Use which only as a fallback because it depends on the process environment.
+        // GPT-5, 2026-08-05：仅将 which 作为后备方案，因为其结果依赖当前进程环境。
         var which = ExecuteCommandCaptureAll("which", ["rar"], timeoutMs: 2000);
         if (!string.IsNullOrWhiteSpace(which.Output))
         {
@@ -191,11 +191,11 @@ public class RarArchiveEngine : IArchiveEngine
             }
         }
 
-        // GPT-5, 2026-08-05: Preserve historical user-local install locations as a final compatibility fallback.
+        // GPT-5, 2026-08-05：保留历史用户目录安装位置，作为最后的兼容性后备方案。
         yield return ExpandHome("~/rar/rar");
         yield return ExpandHome("~/.local/bin/rar");
         
-        // GPT-5, 2026-08-05: Retain the legacy executable location for existing unpacked deployments.
+        // GPT-5, 2026-08-05：保留旧版可执行文件位置，兼容未打包部署。
         yield return Path.Combine(AppContext.BaseDirectory, "rar");
     }
 
@@ -482,7 +482,7 @@ public class RarArchiveEngine : IArchiveEngine
         try
         {
             var arguments = WinRarCommandBuilder.BuildCompressionArguments(input, output, options);
-            return await ExecuteRarCommand(arguments, options.Password, cancellationToken).ConfigureAwait(false);
+            return await ExecuteRarCommand(arguments, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -514,7 +514,7 @@ public class RarArchiveEngine : IArchiveEngine
         try
         {
             var arguments = WinRarCommandBuilder.BuildExtractionArguments(archivePath, outputDir, options);
-            return await ExecuteRarCommand(arguments, options.Password, cancellationToken).ConfigureAwait(false);
+            return await ExecuteRarCommand(arguments, cancellationToken).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -533,7 +533,6 @@ public class RarArchiveEngine : IArchiveEngine
     
     private async Task<ArchiveResult> ExecuteRarCommand(
         IReadOnlyList<string> arguments,
-        string? password,
         CancellationToken cancellationToken)
     {
         var result = await new WinRarProcessRunner(_rarExecutablePath!)
@@ -541,8 +540,8 @@ public class RarArchiveEngine : IArchiveEngine
             .ConfigureAwait(false);
 
         var success = WinRarExitCodes.IsSuccess(result.ExitCode);
-        // GPT-5, 2026-08-05: Preserve raw WinRAR stdout/stderr, including password echoes, so the process
-        // output tab remains an exact diagnostic record. Command construction is still kept separate.
+        // GPT-5, 2026-08-05：进程标准输出和错误输出是原始诊断记录，必须保留其中的密码文本。
+        // 禁止对 stdout/stderr 执行脱敏、替换或掩码；命令参数记录使用独立策略处理。
         var standardOutput = result.StandardOutput;
         var standardError = result.StandardError;
         return new ArchiveResult

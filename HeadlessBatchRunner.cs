@@ -13,8 +13,7 @@ namespace BatchCompress.Avalonia;
 /// <summary>
 /// Headless runner for batch operations via command-line
 /// </summary>
-// GPT-5, 2026-08-05: Adapts CLI input to the same BatchOperationService used by the GUI while emitting
-// stable console output and process exit codes suitable for scripts and CI.
+// GPT-5, 2026-08-05：将命令行输入适配到 GUI 共用的 BatchOperationService，同时输出稳定的控制台信息和退出码，便于脚本与 CI 使用。
 public class HeadlessBatchRunner
 {
     private readonly FileLoggerService _logger;
@@ -88,7 +87,7 @@ public class HeadlessBatchRunner
         var batchOptions = BuildBatchOperationOptions();
         var cts = new CancellationTokenSource();
 
-        // GPT-5, 2026-08-05: Convert Ctrl+C into cooperative cancellation so WinRAR child processes receive cleanup handling.
+        // GPT-5, 2026-08-05：将 Ctrl+C 转为协作式取消，使 WinRAR 子进程能够执行清理流程。
         Console.CancelKeyPress += (_, e) =>
         {
             e.Cancel = true;

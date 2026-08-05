@@ -10,8 +10,7 @@ using BatchCompress.Avalonia.Core.Interfaces;
 namespace BatchCompress.Avalonia.Core.Services;
 
 /// <summary>Cross-platform system integration implementation.</summary>
-// GPT-5, 2026-08-05: Maps application actions to native macOS, Windows and Linux commands while keeping
-// paths and notification text in ProcessStartInfo.ArgumentList rather than shell-interpreted strings.
+// GPT-5, 2026-08-05：将应用动作映射到 macOS、Windows、Linux 原生命令，同时使用 ArgumentList 传递路径和通知文本，避免 Shell 解释。
 public class SystemIntegrationService : ISystemIntegration
 {
     public async Task OpenFolderAsync(string path)
@@ -20,7 +19,7 @@ public class SystemIntegrationService : ISystemIntegration
 
         try
         {
-            // GPT-5, 2026-08-05: Select the native file-manager launcher without requiring a desktop-specific dependency.
+            // GPT-5, 2026-08-05：选择原生文件管理器启动命令，不引入桌面环境专属依赖。
             var command = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "explorer.exe" :
                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "open" : "xdg-open";
             await RunDetachedAsync(command, new[] { path });
@@ -65,7 +64,7 @@ public class SystemIntegrationService : ISystemIntegration
     {
         try
         {
-            // GPT-5, 2026-08-05: Each platform uses its available native notification bridge; failure remains non-fatal.
+            // GPT-5, 2026-08-05：各平台使用可用的原生通知桥接；失败不影响批处理主流程。
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
                 var script = $"display notification {AppleScriptString(message)} with title {AppleScriptString(title)}";
@@ -107,7 +106,7 @@ public class SystemIntegrationService : ISystemIntegration
         {
             try
             {
-                // GPT-5, 2026-08-05: Shutdown is awaited so non-zero results can surface a permission or command failure.
+                // GPT-5, 2026-08-05：等待关机命令结束，以便通过非零结果发现权限或命令失败。
                 using var process = StartProcess(fileName, arguments);
                 process.WaitForExit();
                 if (process.ExitCode != 0)
@@ -134,7 +133,7 @@ public class SystemIntegrationService : ISystemIntegration
 
     private static Process StartProcess(string fileName, string[] arguments)
     {
-        // GPT-5, 2026-08-05: Use ArgumentList to preserve argument boundaries for all file paths and user-provided text.
+        // GPT-5, 2026-08-05：使用 ArgumentList 保留所有文件路径和用户文本的参数边界。
         var info = new ProcessStartInfo { FileName = fileName, UseShellExecute = false, CreateNoWindow = true };
         foreach (var argument in arguments) info.ArgumentList.Add(argument);
         return Process.Start(info) ?? throw new InvalidOperationException($"无法启动 {fileName}");

@@ -1,5 +1,5 @@
 <Project Sdk="Microsoft.NET.Sdk">
-  <!-- GPT-5, 2026-08-05: Desktop target shared by Windows, macOS and Linux; macOS packaging supplies the native app bundle separately. -->
+  <!-- GPT-5, 2026-08-05：Windows、macOS、Linux 共用的桌面目标；macOS 打包流程另行提供原生应用包。 -->
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
@@ -9,7 +9,7 @@
     <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
   </PropertyGroup>
 
-  <!-- GPT-5, 2026-08-05: Exclude legacy and generated trees so only the Avalonia implementation participates in compilation. -->
+  <!-- GPT-5, 2026-08-05：排除旧版和生成目录，使仅 Avalonia 实现参与编译。 -->
   <ItemGroup>
     <Compile Remove="old\**\*.cs" />
     <Compile Remove="BatchCompress.Avalonia\**\*.cs" />
