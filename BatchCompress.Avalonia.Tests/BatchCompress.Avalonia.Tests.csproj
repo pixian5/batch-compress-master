@@ -16,5 +16,6 @@
     <Compile Include="..\Core\Services\WinRarProcessRunner.cs" Link="Core\Services\WinRarProcessRunner.cs" />
     <Compile Include="..\Core\Services\OutputPathResolver.cs" Link="Core\Services\OutputPathResolver.cs" />
     <Compile Include="..\Core\Services\PasswordUtility.cs" Link="Core\Services\PasswordUtility.cs" />
+    <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
   </ItemGroup>
 </Project>

@@ -56,10 +56,10 @@ public class BatchOperationService
             foreach (var itemPath in allItems)
             {
                 var name = Path.GetFileName(itemPath);
-                
-                // Skip system files
-                if (name.Equals("desktop.ini", StringComparison.OrdinalIgnoreCase) ||
-                    name.Equals(".DS_Store", StringComparison.OrdinalIgnoreCase) ||
+
+                // GPT-5, 2026-08-05: Apply the shared filter before extension or processed-item logic so
+                // desktop metadata is excluded identically on Windows, macOS and Linux.
+                if (SystemMetadataFileFilter.ShouldSkip(itemPath) ||
                     name.StartsWith(".tmp", StringComparison.OrdinalIgnoreCase))
                 {
                     Log(LogLevel.Debug, $"Skipping system file: {name}");
@@ -146,7 +146,7 @@ public class BatchOperationService
                     fullPath = firstVolumePath;
                 }
                 
-                if (File.Exists(fullPath))
+                if (!SystemMetadataFileFilter.ShouldSkip(fullPath) && File.Exists(fullPath))
                 {
                     entries.Add(new FileEntry
                     {
@@ -243,6 +243,13 @@ public class BatchOperationService
         foreach (var sourcePath in sourcePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // GPT-5, 2026-08-05: Defend against manually edited source lists that bypassed normal enumeration.
+            if (SystemMetadataFileFilter.ShouldSkip(sourcePath))
+            {
+                Log(LogLevel.Debug, $"Skipping system metadata path: {sourcePath}");
+                continue;
+            }
             
             // Check if file/directory exists
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
@@ -470,6 +477,13 @@ public class BatchOperationService
         foreach (var entry in archives)
         {
             cancellationToken.ThrowIfCancellationRequested();
+
+            // GPT-5, 2026-08-05: TXT lists are user-editable, so enforce the same metadata exclusion at execution time.
+            if (SystemMetadataFileFilter.ShouldSkip(entry.FilePath))
+            {
+                Log(LogLevel.Debug, $"Skipping system metadata archive: {entry.FilePath}");
+                continue;
+            }
             
             var archivePath = entry.FilePath;
             

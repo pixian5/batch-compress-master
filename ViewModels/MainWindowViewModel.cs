@@ -562,7 +562,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // GPT-5, 2026-08-05: Normalize line-based UI input once before processing; blank lines never become archive jobs.
             var sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrEmpty(s))
+                .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
                 .ToList();
             
             // If no files in list, try to load them first
@@ -574,7 +574,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 // Try again
                 sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrEmpty(s))
+                    .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
                     .ToList();
                     
                 if (sourcePaths.Count == 0)
@@ -700,7 +700,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     var filePath = lines[i].Trim();
                     var password = i + 1 < lines.Length ? lines[i + 1].Trim() : null;
                     
-                    if (File.Exists(filePath))
+                    if (!SystemMetadataFileFilter.ShouldSkip(filePath) && File.Exists(filePath))
                     {
                         entries.Add(new FileEntry
                         {
@@ -716,7 +716,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 // From folder - just file paths
                 var files = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrEmpty(s) && File.Exists(s));
+                    .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s) && File.Exists(s));
                 
                 entries = files.Select(f => new FileEntry
                 {
@@ -1087,7 +1087,9 @@ public partial class MainWindowViewModel : ViewModelBase
         try
         {
             // Get all files in the directory
-            string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories);
+            string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories)
+                .Where(file => !SystemMetadataFileFilter.ShouldSkip(file))
+                .ToArray();
             
             // Calculate total size
             foreach (string file in files)

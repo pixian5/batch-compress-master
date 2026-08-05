@@ -15,7 +15,8 @@ internal static class Program
             ("取消传播", TestCancellation),
             ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
             ("空保存路径回退", TestOutputPathFallback),
-            ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords)
+            ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords),
+            ("跨平台系统元数据过滤", TestSystemMetadataFiltering)
         };
 
         // GPT-5, 2026-08-05: Stop at the first failure to preserve a clear non-zero exit status for automation.
@@ -143,6 +144,33 @@ internal static class Program
         var legacy = PasswordUtility.GetLegacyPasswordCandidates("archive.rar");
         AssertEqual(5, legacy.Count);
         Assert(legacy.All(password => !string.IsNullOrWhiteSpace(password)), "旧密码候选不能包含空值");
+        return Task.CompletedTask;
+    }
+
+    private static Task TestSystemMetadataFiltering()
+    {
+        var skippedPaths = new[]
+        {
+            "/tmp/desktop.ini",
+            "/tmp/Thumbs.db",
+            "/tmp/.DS_Store",
+            "/tmp/._document.pdf",
+            "/tmp/.AppleDouble/data",
+            "/tmp/.Spotlight-V100/index",
+            "/tmp/.Trash-1000/file.rar",
+            "/tmp/.directory",
+            "/tmp/.gvfs/mount",
+            "/tmp/lost+found/block",
+            "/tmp/~$document.docx"
+        };
+
+        foreach (var path in skippedPaths)
+        {
+            Assert(SystemMetadataFileFilter.ShouldSkip(path), $"系统元数据必须跳过: {path}");
+        }
+
+        Assert(!SystemMetadataFileFilter.ShouldSkip("/tmp/source/report.rar"), "普通归档文件不能被跳过");
+        Assert(!SystemMetadataFileFilter.ShouldSkip("/tmp/source/desktop-notes.txt"), "名称相似的普通文件不能被跳过");
         return Task.CompletedTask;
     }
 
