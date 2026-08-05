@@ -21,6 +21,12 @@ Views/MainWindow.axaml + App.axaml
 - `Core/Services/`：批处理编排、归档格式路由、WinRAR 与 7-Zip 定位、密码兼容、平台集成和系统元数据过滤。
 - `BatchCompress.Avalonia.Tests/`：无需第三方测试框架的回归测试控制台。
 
+## 命令行入口
+
+`Program` 在初始化 Avalonia 前处理帮助、版本和参数错误。`CommandLineHandler` 同时接受 `compress`/`extract` 动词与旧版 `--compress`/`--decompress` 开关，统一规范格式、单位和布尔默认值，并验证互斥模式、输入来源、密码来源、数值范围及文件路径。解析失败返回退出码 2，不会继续启动 GUI。
+
+`HeadlessBatchRunner` 支持来源目录、精确重复 `--input` 和 TXT 密码清单。`--source` 在压缩时展开目录直接子项，`--input` 中的目录作为单个压缩来源；解压目录只枚举匹配格式的归档。CLI 使用同步进度接收器维持 stdout/stderr 和计数顺序，`--dry-run` 不创建输出目录。
+
 ## 归档执行
 
 `ArchiveEngineRouter` 在压缩时按 `ArchiveFormat` 路由：RAR/ZIP 进入 `RarArchiveEngine`，7z 进入 `SevenZipArchiveEngine`；解压时优先根据实际文件名识别 `.7z` 和 `.7z.001` 分卷。两个命令构建器都将每个开关与路径生成为独立参数，通用 `ArchiveProcessRunner` 仅通过 `ProcessStartInfo.ArgumentList` 启动进程，并同时异步读取标准输出和错误输出。取消会终止整个进程树。

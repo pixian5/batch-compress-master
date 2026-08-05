@@ -19,7 +19,9 @@ internal static class Program
             ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
             ("7z 压缩与解压参数", TestSevenZipArguments),
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
-            ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke)
+            ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke),
+            ("完整命令行解析", TestCommandLineParsing),
+            ("命令行错误校验", TestCommandLineValidation)
         };
 
         // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
@@ -294,6 +296,64 @@ internal static class Program
         }
     }
 
+    private static Task TestCommandLineParsing()
+    {
+        var outcome = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+        [
+            "compress",
+            "--input", "/tmp/one file",
+            "--input", "/tmp/two",
+            "--output", "/tmp/output",
+            "--format", ".7Z",
+            "--password", "visible password",
+            "--no-solid",
+            "--no-skip-processed",
+            "--no-add-enclosures",
+            "--max-size-gb", "0",
+            "--volume-size", "20",
+            "--volume-unit", "MB",
+            "--dry-run"
+        ]);
+
+        Assert(outcome.Success, string.Join(" | ", outcome.Errors));
+        var options = outcome.Options;
+        Assert(options.Compress && !options.Decompress && !options.Gui, "compress 动词必须进入无界面压缩模式");
+        AssertEqual(2, options.InputPaths.Length);
+        AssertEqual("7z", options.Extension);
+        AssertEqual("m", options.VolumeUnit);
+        Assert(!options.UseRandomPassword, "显式密码必须关闭随机密码");
+        Assert(!options.Solid, "--no-solid 必须关闭固实压缩");
+        Assert(!options.SkipProcessed, "--no-skip-processed 必须生效");
+        Assert(!options.AddEnclosures, "--no-add-enclosures 必须生效");
+        Assert(options.DryRun, "--dry-run 必须生效");
+
+        var legacy = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+            ["--decompress", "-s", "/tmp", "-o", "/tmp/out", "-e", "rar"]);
+        Assert(legacy.Success && legacy.Options.Decompress, "旧 --decompress 开关必须保持兼容");
+
+        var gui = BatchCompress.Avalonia.CommandLineHandler.ParseArguments([]);
+        Assert(gui.Success && gui.Options.Gui, "无参数必须继续启动 GUI");
+        return Task.CompletedTask;
+    }
+
+    private static Task TestCommandLineValidation()
+    {
+        AssertCommandLineFails(
+            ["--compress", "--decompress", "-i", "/tmp/a", "-o", "/tmp/out"],
+            "不能同时指定");
+        AssertCommandLineFails(["compress", "-i", "/tmp/a"], "--output");
+        AssertCommandLineFails(["compress", "-i", "/tmp/a", "-o", "/tmp/out", "-e", "tar"], "仅支持 rar");
+        AssertCommandLineFails(["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--level", "6"], "0 到 5");
+        AssertCommandLineFails(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--password", "a", "--password-stdin"],
+            "只能选择一种");
+        AssertCommandLineFails(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--delete-source", "--move-source"],
+            "不能同时使用");
+        AssertCommandLineFails(["--source", "/tmp"], "请指定 compress");
+        return Task.CompletedTask;
+    }
+
     private static ArchiveOptions CreateOptions() => new()
     {
         ArchiveFormat = "rar",
@@ -357,6 +417,15 @@ internal static class Program
         }
 
         throw new InvalidOperationException($"应抛出 {typeof(TException).Name}");
+    }
+
+    private static void AssertCommandLineFails(string[] arguments, string expectedErrorPart)
+    {
+        var outcome = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(arguments);
+        Assert(!outcome.Success, "无效命令行必须解析失败");
+        Assert(
+            outcome.Errors.Any(error => error.Contains(expectedErrorPart, StringComparison.OrdinalIgnoreCase)),
+            $"错误信息必须包含 {expectedErrorPart}，实际: {string.Join(" | ", outcome.Errors)}");
     }
 
     private sealed class RecordingArchiveEngine : IArchiveEngine

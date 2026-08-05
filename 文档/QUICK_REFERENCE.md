@@ -18,6 +18,14 @@
 - “退出”或窗口关闭会结束应用。
 - macOS 菜单栏显示“压”图标，由应用包内的原生状态栏帮助进程提供；菜单可显示/隐藏或退出主程序。
 
+## 命令行
+
+- `compress` 创建归档，`extract` 解压；旧 `--compress`、`--decompress` 继续兼容。
+- `--source` 表示批处理目录，`--input` 表示精确项目并可重复，`--text-file` 表示解压密码清单。
+- 默认启用随机密码、固实、跳过已处理和附件；分别用 `--no-random-password`、`--no-solid`、`--no-skip-processed`、`--no-add-enclosures` 关闭。
+- `--password-file` 或 `--password-stdin` 可避免把密码直接写在命令参数中。
+- `--dry-run` 只列出任务；`--verbose` 显示完整归档程序输出；`--quiet` 只输出错误。
+
 ## 常见问题
 
 - 找不到 RAR：安装完整 RAR/WinRAR，而非仅 unrar；这只影响 RAR/ZIP，7z 仍可使用项目内官方 `7zz`。

@@ -94,15 +94,15 @@
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩格式仅支持 rar 或 zip"/>
-                                <CheckBox Grid.Row="0" Grid.Column="2" Content="{Binding L.Verify}" IsChecked="{Binding TestArchive}" Margin="20,0,0,3" ToolTip.Tip="压缩后使用 WinRAR 校验归档"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩格式支持 rar、zip 或 7z"/>
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="{Binding L.Verify}" IsChecked="{Binding TestArchive}" Margin="20,0,0,3" ToolTip.Tip="压缩完成后使用对应归档程序校验结果"/>
                                 <!-- 自定义密码文本框已移至随机密码复选框右侧 -->
 
                                 <!-- Row 1 -->
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.CompressionLevelLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
                                 <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" ItemsSource="{Binding CompressionLevelOptions}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩率越高，处理时间通常越长"/>
 
-                                <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3" ToolTip.Tip="仅 RAR 可用，适合大量相似文件"/>
+                                <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3" ToolTip.Tip="RAR 和 7z 可用，适合大量相似文件"/>
                                 <CheckBox Grid.Row="1" Grid.Column="3" Content="{Binding L.QuickOpen}" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3" ToolTip.Tip="为 RAR 添加快速打开信息"/>
 
                                 <!-- Row 2 -->
@@ -123,16 +123,16 @@
 
                                 <!-- Row 4 -->
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L.TempDirectory}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3" ToolTip.Tip="WinRAR 操作时使用的临时目录"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3" ToolTip.Tip="归档程序操作时使用的临时目录"/>
 
-                                <!-- Row 5: Max Size -->
+                                <!-- GPT-5, 2026-08-06：恢复记录位于添加附件上方，并与右侧最大处理大小组成同一行。 -->
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="恢复记录 (%)" VerticalAlignment="Center" Margin="0,0,10,3" ToolTip.Tip="RAR 恢复记录占比，范围 0 到 100"/>
+                                <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding RecoveryRecordPercent}" Minimum="0" Maximum="100" Increment="1" Width="90" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="仅 RAR 使用；ZIP 和 7z 会忽略该值"/>
                                 <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="20,0,10,3"/>
                                 <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="达到该总大小后停止继续处理"/>
 
                                 <!-- Row 6: Add Enclosures -->
                                 <CheckBox Grid.Row="6" Grid.Column="0" Content="{Binding L.AddAttachments}" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
-                                <TextBlock Grid.Row="6" Grid.Column="1" Text="恢复记录 (%)" VerticalAlignment="Center" Margin="0,0,10,3" ToolTip.Tip="RAR 恢复记录占比，范围 0 到 100"/>
-                                <NumericUpDown Grid.Row="6" Grid.Column="2" Value="{Binding RecoveryRecordPercent}" Minimum="0" Maximum="100" Increment="1" Width="90" HorizontalAlignment="Left" Margin="20,0,0,3" ToolTip.Tip="RAR 恢复记录占比，范围 0 到 100"/>
                             </Grid>
 
                             <!-- Enclosure List -->

@@ -619,7 +619,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     EstimatedCompletionTime = DateTime.MinValue;
                 }
                 
-                if (info.IsError)
+                // GPT-5, 2026-08-06：底层归档输出只进入命令日志，避免 stdout/stderr 被重复计入成功或失败记录。
+                var isCommandOutput = info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]");
+                if (isCommandOutput)
+                {
+                    CommandLog += info.Message + "\n";
+                }
+                else if (info.IsError)
                 {
                     FailLog += info.Message + "\n";
                 }
@@ -628,11 +634,6 @@ public partial class MainWindowViewModel : ViewModelBase
                     SuccessLog += info.Message + "\n";
                 }
                 
-                // Only add command messages to CommandLog (those starting with [压缩命令] or [解压命令])
-                if (info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]"))
-                {
-                    CommandLog += info.Message + "\n";
-                }
             });
             
             await _batchOperationService.BatchCompressAsync(
@@ -766,7 +767,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     EstimatedCompletionTime = DateTime.MinValue;
                 }
                 
-                if (info.IsError)
+                // GPT-5, 2026-08-06：解压进程的原始输出与压缩使用同一分类规则。
+                var isCommandOutput = info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]");
+                if (isCommandOutput)
+                {
+                    CommandLog += info.Message + "\n";
+                }
+                else if (info.IsError)
                 {
                     FailLog += info.Message + "\n";
                 }
@@ -775,11 +782,6 @@ public partial class MainWindowViewModel : ViewModelBase
                     SuccessLog += info.Message + "\n";
                 }
                 
-                // Only add command messages to CommandLog (those starting with [压缩命令] or [解压命令])
-                if (info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]"))
-                {
-                    CommandLog += info.Message + "\n";
-                }
             });
             
             await _batchOperationService.BatchDecompressAsync(

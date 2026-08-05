@@ -9,6 +9,7 @@
 - [Avalonia 版本说明](AVALONIA_VERSION.md)：技术版本和打包方式。
 - [当前实现摘要](IMPLEMENTATION_SUMMARY.md)：已实现能力。
 - [快速参考](QUICK_REFERENCE.md)：使用与排障。
+- [命令行参考](COMMAND_LINE.md)：动词、参数、输入语义、退出码和脚本示例。
 - [界面说明](UI_DOCUMENTATION.md)：界面行为。
 - [维护与重构指南](REFACTORING_GUIDE.md)：代码约束。
 - [跨平台功能现状](跨平台功能补充评估.md)：平台支持矩阵。

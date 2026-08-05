@@ -176,7 +176,21 @@ public class BatchOperationService
         var directory = Path.GetDirectoryName(path) ?? string.Empty;
         
         // Check for .partXXX.extension pattern
-        var partMatch = Regex.Match(filename, @"\.part(\d+)\." + extension + "$", RegexOptions.IgnoreCase);
+        // GPT-5, 2026-08-06：7-Zip 分卷使用 archive.7z.001 形式，只有编号 1 的卷可以作为任务入口。
+        var sevenZipMatch = Regex.Match(filename, @"^(?<base>.+\.7z)\.(?<number>\d+)$", RegexOptions.IgnoreCase);
+        if (sevenZipMatch.Success)
+        {
+            var digits = sevenZipMatch.Groups["number"].Value.Length;
+            var firstName = sevenZipMatch.Groups["base"].Value + "." + 1.ToString().PadLeft(digits, '0');
+            var candidate = Path.Combine(directory, firstName);
+            if (File.Exists(candidate))
+            {
+                firstVolumePath = candidate;
+                return true;
+            }
+        }
+
+        var partMatch = Regex.Match(filename, @"\.part(\d+)\." + Regex.Escape(extension) + "$", RegexOptions.IgnoreCase);
         if (partMatch.Success)
         {
             // Try to find part001 or part01 or part0001
@@ -347,6 +361,7 @@ public class BatchOperationService
             
             // Compress
             var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
+            ReportArchiveOutput("压缩命令", result, progressInfo, progress);
             
             if (result.Success)
             {
@@ -550,6 +565,7 @@ public class BatchOperationService
             
             // Extract
             var result = await _archiveEngine.ExtractAsync(archivePath, outputDirectory, archiveOptions, cancellationToken);
+            ReportArchiveOutput("解压命令", result, progressInfo, progress);
             
             if (result.Success)
             {
@@ -638,6 +654,50 @@ public class BatchOperationService
             await _systemIntegration.ShutdownAsync();
         }
     }
+
+    // GPT-5, 2026-08-06：归档进程输出是用户要求保留的原始诊断证据。
+    // 此处明确不调用脱敏、掩码或替换逻辑，即使 stdout/stderr 中包含密码也原样转发。
+    private static void ReportArchiveOutput(
+        string prefix,
+        ArchiveResult result,
+        OperationProgressInfo progressInfo,
+        IProgress<OperationProgressInfo> progress)
+    {
+        if (!string.IsNullOrWhiteSpace(result.StandardOutput))
+        {
+            progress.Report(CloneProgress(
+                progressInfo,
+                $"[{prefix}] stdout{Environment.NewLine}{result.StandardOutput.TrimEnd()}",
+                isError: false));
+        }
+
+        if (!string.IsNullOrWhiteSpace(result.StandardError))
+        {
+            progress.Report(CloneProgress(
+                progressInfo,
+                $"[{prefix}] stderr{Environment.NewLine}{result.StandardError.TrimEnd()}",
+                isError: !result.Success));
+        }
+    }
+
+    // GPT-5, 2026-08-06：IProgress 可能异步投递回调，因此命令输出必须使用独立快照，
+    // 防止下一条状态消息改写同一个可变对象后导致 stdout/stderr 丢失。
+    private static OperationProgressInfo CloneProgress(
+        OperationProgressInfo source,
+        string message,
+        bool isError) => new()
+    {
+        CurrentFile = source.CurrentFile,
+        SuccessCount = source.SuccessCount,
+        FailCount = source.FailCount,
+        IgnoreCount = source.IgnoreCount,
+        NonExistCount = source.NonExistCount,
+        ProcessedSizeGB = source.ProcessedSizeGB,
+        Message = message,
+        IsError = isError,
+        StartTime = source.StartTime,
+        Elapsed = source.Elapsed
+    };
     
     /// <summary>
     /// Get all volume files for a multi-volume archive
@@ -650,7 +710,20 @@ public class BatchOperationService
         var directory = Path.GetDirectoryName(archivePath) ?? string.Empty;
         
         // Check for .partXXX.extension pattern
-        var partMatch = Regex.Match(filename, @"\.part(\d+)\." + extension + "$", RegexOptions.IgnoreCase);
+        // GPT-5, 2026-08-06：成功后的删除或移动必须覆盖同一 7z 数字分卷组，不能只处理 .001。
+        var sevenZipMatch = Regex.Match(filename, @"^(?<base>.+\.7z)\.(?<number>\d+)$", RegexOptions.IgnoreCase);
+        if (sevenZipMatch.Success && Directory.Exists(directory))
+        {
+            var baseName = sevenZipMatch.Groups["base"].Value;
+            var digitCount = sevenZipMatch.Groups["number"].Value.Length;
+            files.AddRange(Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => Regex.IsMatch(
+                    Path.GetFileName(path),
+                    "^" + Regex.Escape(baseName) + @"\.\d{" + digitCount + "}$",
+                    RegexOptions.IgnoreCase)));
+        }
+
+        var partMatch = Regex.Match(filename, @"\.part(\d+)\." + Regex.Escape(extension) + "$", RegexOptions.IgnoreCase);
         if (partMatch.Success)
         {
             var baseName = filename.Substring(0, partMatch.Index);
@@ -673,6 +746,6 @@ public class BatchOperationService
             }
         }
         
-        return files;
+        return files.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
     }
 }

@@ -42,31 +42,36 @@ public class HeadlessBatchRunner
         _logger.LogOperation("EXTENSION", _options.Extension);
         _logger.LogOperation("LOG_FILE", _logger.LogFilePath);
 
+        if (!TryResolvePassword(out var passwordError))
+        {
+            _logger.LogError(passwordError);
+            Console.Error.WriteLine($"Error: {passwordError}");
+            return 2;
+        }
+
+        if (!ValidateSourcePaths(out var sourceError))
+        {
+            _logger.LogError(sourceError);
+            Console.Error.WriteLine($"Error: {sourceError}");
+            return 2;
+        }
+
+        if (_options.DryRun)
+        {
+            return RunDryRun();
+        }
+
         if (!_archiveEngine.IsAvailable())
         {
             _logger.LogError("No supported archive engine was found.");
-            Console.WriteLine("Error: no supported archive engine was found (WinRAR/RAR or 7-Zip).");
-            return 1;
-        }
-
-        if (string.IsNullOrEmpty(_options.SourcePath))
-        {
-            _logger.LogError("Source path is required for headless operation.");
-            Console.WriteLine("Error: Source path is required. Use --source or -s option.");
+            Console.Error.WriteLine("Error: no supported archive engine was found (WinRAR/RAR or 7-Zip).");
             return 1;
         }
 
         if (string.IsNullOrEmpty(_options.OutputPath))
         {
             _logger.LogError("Output path is required for headless operation.");
-            Console.WriteLine("Error: Output path is required. Use --output or -o option.");
-            return 1;
-        }
-
-        if (!Directory.Exists(_options.SourcePath))
-        {
-            _logger.LogError($"Source path does not exist: {_options.SourcePath}");
-            Console.WriteLine($"Error: Source path does not exist: {_options.SourcePath}");
+            Console.Error.WriteLine("Error: Output path is required. Use --output or -o option.");
             return 1;
         }
 
@@ -80,7 +85,7 @@ public class HeadlessBatchRunner
             catch (Exception ex)
             {
                 _logger.LogError($"Failed to create output directory: {_options.OutputPath}", ex);
-                Console.WriteLine($"Error: Failed to create output directory: {ex.Message}");
+                Console.Error.WriteLine($"Error: Failed to create output directory: {ex.Message}");
                 return 1;
             }
         }
@@ -93,12 +98,13 @@ public class HeadlessBatchRunner
         {
             e.Cancel = true;
             _logger.LogWarning("Operation cancelled by user (Ctrl+C)");
-            Console.WriteLine("\nCancelling operation...");
+            WriteLine("\nCancelling operation...");
             cts.Cancel();
         };
 
         var progressInfo = new OperationProgressInfo();
-        var progress = new Progress<OperationProgressInfo>(info =>
+        // GPT-5, 2026-08-06：CLI 没有 UI 同步上下文，内联报告可保证输出顺序和最终计数稳定。
+        var progress = new InlineProgress<OperationProgressInfo>(info =>
         {
             progressInfo = info;
             var status = info.IsError ? "ERROR" : "INFO";
@@ -106,9 +112,9 @@ public class HeadlessBatchRunner
             
             if (_options.Verbose)
             {
-                Console.WriteLine($"[{status}] {info.Message}");
+                WriteLine($"[{status}] {info.Message}");
             }
-            else
+            else if (!_options.Quiet)
             {
                 // Simple progress indicator
                 Console.Write($"\rProcessed: {info.SuccessCount} success, {info.FailCount} failed, {info.IgnoreCount} skipped    ");
@@ -126,43 +132,40 @@ public class HeadlessBatchRunner
                 await RunDecompressAsync(batchOptions, progress, cts.Token);
             }
 
-            Console.WriteLine();
+            WriteLine(string.Empty);
             var summary = $"Completed: Success={progressInfo.SuccessCount}, Failed={progressInfo.FailCount}, " +
                          $"Skipped={progressInfo.IgnoreCount}, NotFound={progressInfo.NonExistCount}";
             _logger.LogOperation("COMPLETE", summary);
-            Console.WriteLine(summary);
-            Console.WriteLine($"Log file: {_logger.LogFilePath}");
+            WriteLine(summary);
+            WriteLine($"Log file: {_logger.LogFilePath}");
 
-            return progressInfo.FailCount > 0 ? 1 : 0;
+            return progressInfo.SuccessCount == 0 || progressInfo.FailCount > 0 ? 1 : 0;
         }
         catch (OperationCanceledException)
         {
             _logger.LogWarning("Operation was cancelled");
-            Console.WriteLine("\nOperation cancelled.");
-            return 2;
+            WriteLine("\nOperation cancelled.");
+            return 130;
         }
         catch (Exception ex)
         {
             _logger.LogError("Unhandled exception during operation", ex);
-            Console.WriteLine($"\nError: {ex.Message}");
+            Console.Error.WriteLine($"\nError: {ex.Message}");
             return 1;
         }
     }
 
     private async Task RunCompressAsync(BatchOperationOptions options, IProgress<OperationProgressInfo> progress, CancellationToken cancellationToken)
     {
-        var sourcePaths = _batchOperationService.LoadFilesFromFolder(
-            _options.SourcePath!,
-            _options.Extension,
-            _options.SkipProcessed);
+        var sourcePaths = CollectCompressionSources();
 
         _logger.LogOperation("FILES_FOUND", $"Found {sourcePaths.Count} files to compress");
-        Console.WriteLine($"Found {sourcePaths.Count} files to compress");
+        WriteLine($"Found {sourcePaths.Count} items to compress");
 
         if (sourcePaths.Count == 0)
         {
             _logger.LogWarning("No files found to compress");
-            Console.WriteLine("No files found to compress.");
+            WriteLine("No files found to compress.");
             return;
         }
 
@@ -171,47 +174,214 @@ public class HeadlessBatchRunner
 
     private async Task RunDecompressAsync(BatchOperationOptions options, IProgress<OperationProgressInfo> progress, CancellationToken cancellationToken)
     {
-        List<FileEntry> entries;
-
-        if (!string.IsNullOrEmpty(_options.TextFile) && File.Exists(_options.TextFile))
-        {
-            // Load from text file with passwords
-            entries = _batchOperationService.LoadFilesFromTextFile(
-                _options.TextFile,
-                _options.SourcePath!,
-                _options.Extension);
-            _logger.LogOperation("FILES_LOADED", $"Loaded {entries.Count} files from text file");
-        }
-        else
-        {
-            // Load from folder
-            var files = _batchOperationService.LoadFilesFromFolder(
-                _options.SourcePath!,
-                _options.Extension,
-                _options.SkipProcessed);
-
-            entries = files
-                .Where(f => File.Exists(f))
-                .Select(f => new FileEntry
-                {
-                    FilePath = f,
-                    Password = null,
-                    FileSize = new FileInfo(f).Length
-                })
-                .ToList();
-        }
+        var entries = CollectDecompressionEntries();
 
         _logger.LogOperation("FILES_FOUND", $"Found {entries.Count} files to decompress");
-        Console.WriteLine($"Found {entries.Count} files to decompress");
+        WriteLine($"Found {entries.Count} files to decompress");
 
         if (entries.Count == 0)
         {
             _logger.LogWarning("No files found to decompress");
-            Console.WriteLine("No files found to decompress.");
+            WriteLine("No files found to decompress.");
             return;
         }
 
         await _batchOperationService.BatchDecompressAsync(entries, options, progress, cancellationToken);
+    }
+
+    // GPT-5, 2026-08-06：直接密码、密码文件与标准输入在解析层已保证互斥。
+    // 此处只解析选中的秘密来源，并且绝不把密码值写入日志或控制台。
+    private bool TryResolvePassword(out string error)
+    {
+        error = string.Empty;
+        try
+        {
+            if (!string.IsNullOrWhiteSpace(_options.PasswordFile))
+            {
+                _options.Password = File.ReadLines(_options.PasswordFile).FirstOrDefault() ?? string.Empty;
+                _options.UseRandomPassword = false;
+            }
+            else if (_options.ReadPasswordFromStandardInput)
+            {
+                _options.Password = Console.In.ReadLine();
+                _options.UseRandomPassword = false;
+            }
+
+            if (_options.ReadPasswordFromStandardInput && _options.Password == null)
+            {
+                error = "无法从指定来源读取密码。";
+                return false;
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            error = $"读取密码失败: {ex.Message}";
+            return false;
+        }
+    }
+
+    private bool ValidateSourcePaths(out string error)
+    {
+        error = string.Empty;
+        var paths = _options.InputPaths.AsEnumerable();
+        if (!string.IsNullOrWhiteSpace(_options.SourcePath))
+        {
+            paths = paths.Append(_options.SourcePath);
+        }
+
+        foreach (var path in paths)
+        {
+            if (!File.Exists(path) && !Directory.Exists(path))
+            {
+                error = $"来源不存在: {path}";
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    private int RunDryRun()
+    {
+        var paths = _options.Compress
+            ? CollectCompressionSources()
+            : CollectDecompressionEntries().Select(entry => entry.FilePath).ToList();
+
+        WriteLine($"DRY-RUN mode={(_options.Compress ? "compress" : "extract")} format={_options.Extension}");
+        WriteLine($"Output: {_options.OutputPath}");
+        foreach (var path in paths)
+        {
+            WriteLine(path);
+        }
+
+        WriteLine($"Total: {paths.Count}. No files or directories were changed.");
+        return paths.Count > 0 ? 0 : 1;
+    }
+
+    private List<string> CollectCompressionSources()
+    {
+        var paths = new List<string>();
+        if (!string.IsNullOrWhiteSpace(_options.SourcePath))
+        {
+            if (Directory.Exists(_options.SourcePath))
+            {
+                paths.AddRange(_batchOperationService.LoadFilesFromFolder(
+                    _options.SourcePath,
+                    _options.Extension,
+                    _options.SkipProcessed));
+            }
+            else if (File.Exists(_options.SourcePath))
+            {
+                paths.Add(_options.SourcePath);
+            }
+        }
+
+        // GPT-5, 2026-08-06：--input 表示精确项目，所以指定目录本身作为一个归档来源，不展开其直接子项。
+        paths.AddRange(_options.InputPaths.Where(path => File.Exists(path) || Directory.Exists(path)));
+        return paths
+            .Where(path => !SystemMetadataFileFilter.ShouldSkip(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .ToList();
+    }
+
+    private List<FileEntry> CollectDecompressionEntries()
+    {
+        var entries = new List<FileEntry>();
+        if (!string.IsNullOrWhiteSpace(_options.TextFile))
+        {
+            var sourceDirectory = Directory.Exists(_options.SourcePath)
+                ? _options.SourcePath
+                : Path.GetDirectoryName(Path.GetFullPath(_options.TextFile)) ?? Directory.GetCurrentDirectory();
+            var textEntries = _batchOperationService.LoadFilesFromTextFile(
+                _options.TextFile,
+                sourceDirectory,
+                _options.Extension);
+            entries.AddRange(textEntries);
+            _logger.LogOperation("FILES_LOADED", $"Loaded {textEntries.Count} files from text file");
+        }
+
+        // GPT-5, 2026-08-06：TXT 模式中的 --source 只作为相对文件名的基准目录，不能再把整个目录重复加入任务。
+        if (string.IsNullOrWhiteSpace(_options.TextFile) && !string.IsNullOrWhiteSpace(_options.SourcePath))
+        {
+            AddDecompressionPath(entries, _options.SourcePath);
+        }
+
+        foreach (var input in _options.InputPaths)
+        {
+            AddDecompressionPath(entries, input);
+        }
+
+        return entries
+            .Where(entry => !SystemMetadataFileFilter.ShouldSkip(entry.FilePath))
+            .GroupBy(entry => Path.GetFullPath(entry.FilePath), StringComparer.OrdinalIgnoreCase)
+            .Select(group => group.First())
+            .ToList();
+    }
+
+    private void AddDecompressionPath(List<FileEntry> entries, string path)
+    {
+        if (File.Exists(path))
+        {
+            if (MatchesArchiveFormat(path))
+            {
+                entries.Add(CreateFileEntry(path));
+            }
+            return;
+        }
+
+        if (!Directory.Exists(path))
+        {
+            return;
+        }
+
+        foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly))
+        {
+            if (MatchesArchiveFormat(file))
+            {
+                entries.Add(CreateFileEntry(file));
+            }
+        }
+    }
+
+    private bool MatchesArchiveFormat(string path)
+    {
+        var name = Path.GetFileName(path);
+        var extension = _options.Extension.Trim().TrimStart('.');
+        if (name.EndsWith($".{extension}", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        return extension.Equals("7z", StringComparison.OrdinalIgnoreCase) &&
+               System.Text.RegularExpressions.Regex.IsMatch(name, @"\.7z\.0*1$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
+    }
+
+    private static FileEntry CreateFileEntry(string path) => new()
+    {
+        FilePath = path,
+        FileSize = new FileInfo(path).Length
+    };
+
+    private void WriteLine(string message)
+    {
+        if (!_options.Quiet)
+        {
+            Console.WriteLine(message);
+        }
+    }
+
+    private sealed class InlineProgress<T> : IProgress<T>
+    {
+        private readonly Action<T> _handler;
+
+        public InlineProgress(Action<T> handler)
+        {
+            _handler = handler;
+        }
+
+        public void Report(T value) => _handler(value);
     }
 
     private BatchOperationOptions BuildBatchOperationOptions()
@@ -259,8 +429,13 @@ public class HeadlessBatchRunner
             ExistingFileMode = existingMode,
             RecoveryRecordPercent = _options.RecoveryRecord,
             AddEnclosures = _options.AddEnclosures,
-            EnclosureDirectories = _options.AddEnclosures && !string.IsNullOrEmpty(_options.EnclosureList)
-                ? _options.EnclosureList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            EnclosureDirectories = _options.AddEnclosures
+                ? _options.EnclosurePaths
+                    .Concat((_options.EnclosureList ?? string.Empty)
+                        .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries))
+                    .Where(path => !string.IsNullOrWhiteSpace(path))
+                    .Distinct(StringComparer.OrdinalIgnoreCase)
+                    .ToArray()
                 : null
         };
     }

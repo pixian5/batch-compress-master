@@ -1,36 +1,28 @@
 using System;
+using System.Collections.Generic;
 using System.CommandLine;
-using System.CommandLine.Invocation;
+using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Threading.Tasks;
-using BatchCompress.Avalonia.Core.Services;
 
 namespace BatchCompress.Avalonia;
 
-/// <summary>
-/// Command-line options for batch compression/decompression
-/// </summary>
-// GPT-5, 2026-08-05：解析器与 HeadlessBatchRunner 共用的纯数据对象。
-// 此处默认值定义无界面行为，必须与 GUI 的安全默认值保持一致。
-public class CommandLineOptions
+// GPT-5, 2026-08-06：命令行数据对象覆盖 GUI 可脚本化的批处理能力。
+// 密码可来自参数、文件或标准输入；下游不得把密码写入普通操作日志。
+public sealed class CommandLineOptions
 {
-    // Mode options
     public bool Compress { get; set; }
     public bool Decompress { get; set; }
     public bool Gui { get; set; } = true;
-
-    // Source options
     public string? SourcePath { get; set; }
+    public string[] InputPaths { get; set; } = [];
     public string? OutputPath { get; set; }
     public string? TextFile { get; set; }
     public string Extension { get; set; } = "rar";
-
-    // Password options
     public bool UseRandomPassword { get; set; } = true;
     public string? Password { get; set; }
-
-    // Compression options
+    public string? PasswordFile { get; set; }
+    public bool ReadPasswordFromStandardInput { get; set; }
     public int CompressionLevel { get; set; } = 3;
     public bool Solid { get; set; } = true;
     public string? VolumeSize { get; set; }
@@ -40,304 +32,373 @@ public class CommandLineOptions
     public string? CommentFile { get; set; }
     public string? TempDir { get; set; }
     public int RecoveryRecord { get; set; } = 3;
-
-    // File handling options
     public string ExistingFileMode { get; set; } = "overwrite";
     public bool SkipProcessed { get; set; } = true;
     public bool DeleteSource { get; set; }
     public bool MoveSource { get; set; }
     public double MaxSizeGB { get; set; } = 666;
     public bool ShutdownAfter { get; set; }
-
-    // Enclosure options
     public bool AddEnclosures { get; set; } = true;
     public string? EnclosureList { get; set; }
-
-    // Logging options
+    public string[] EnclosurePaths { get; set; } = [];
     public string? LogFile { get; set; }
     public bool Verbose { get; set; }
+    public bool Quiet { get; set; }
+    public bool DryRun { get; set; }
 }
 
-/// <summary>
-/// Handler for command-line operations
-/// </summary>
-// GPT-5, 2026-08-05：每次解析只构建一次选项并保留引用，避免按易碎的别名字串读取 System.CommandLine 值。
+// GPT-5, 2026-08-06：解析结果显式携带错误，入口进程可用退出码 2 拒绝无效参数，
+// 不会像旧实现那样在解析失败后继续使用默认值并意外启动 GUI。
+public sealed class CommandLineParseOutcome
+{
+    public CommandLineOptions Options { get; init; } = new();
+    public IReadOnlyList<string> Errors { get; init; } = [];
+    public bool Success => Errors.Count == 0;
+}
+
+// GPT-5, 2026-08-06：集中定义命令行契约、兼容动词和跨选项验证。
+// 旧的 --compress/--decompress 仍可使用，compress/extract 动词会在解析前规范为相同开关。
 public static class CommandLineHandler
 {
-    // Cached option references for efficient parsing
-    private static Option<bool>? _compressOption;
-    private static Option<bool>? _decompressOption;
-    private static Option<bool>? _guiOption;
-    private static Option<string?>? _sourcePathOption;
-    private static Option<string?>? _outputPathOption;
-    private static Option<string?>? _textFileOption;
-    private static Option<string>? _extensionOption;
-    private static Option<bool>? _useRandomPasswordOption;
-    private static Option<string?>? _passwordOption;
-    private static Option<int>? _compressionLevelOption;
-    private static Option<bool>? _solidOption;
-    private static Option<string?>? _volumeSizeOption;
-    private static Option<string>? _volumeUnitOption;
-    private static Option<bool>? _quickOpenOption;
-    private static Option<bool>? _testArchiveOption;
-    private static Option<string?>? _commentFileOption;
-    private static Option<string?>? _tempDirOption;
-    private static Option<int>? _recoveryRecordOption;
-    private static Option<string>? _existingFileModeOption;
-    private static Option<bool>? _skipProcessedOption;
-    private static Option<bool>? _deleteSourceOption;
-    private static Option<bool>? _moveSourceOption;
-    private static Option<double>? _maxSizeOption;
-    private static Option<bool>? _shutdownOption;
-    private static Option<bool>? _addEnclosuresOption;
-    private static Option<string?>? _enclosureListOption;
-    private static Option<string?>? _logFileOption;
-    private static Option<bool>? _verboseOption;
-
-    /// <summary>
-    /// Build the root command with all options
-    /// </summary>
-    public static RootCommand BuildRootCommand()
+    private sealed class Definition
     {
-        var rootCommand = new RootCommand("BatchCompress - Batch compression and decompression tool");
+        public RootCommand Root { get; } = new(
+            "批量压缩解压工具。支持 compress、extract 和 GUI，归档格式为 rar、zip、7z。\n" +
+            "示例: BatchCompress.Avalonia compress -i ./data -o ./out -e 7z --password-file ./password.txt");
 
-        // Mode options
-        _compressOption = new Option<bool>(
-            aliases: new[] { "--compress", "-c" },
-            description: "Run in compress mode (headless)");
+        public Option<bool> Compress { get; } = new(["--compress", "-c"], "执行无界面批量压缩");
+        public Option<bool> Decompress { get; } = new(["--decompress", "-d"], "执行无界面批量解压");
+        public Option<bool> Gui { get; } = new(["--gui", "-g"], "显式启动图形界面");
+        public Option<string?> Source { get; } = new(["--source", "-s"], "批处理来源目录，压缩时处理其直接子项");
+        public Option<string[]> Inputs { get; } = new(
+            ["--input", "-i"],
+            () => [],
+            "明确输入的文件或目录，可重复指定");
+        public Option<string?> Output { get; } = new(["--output", "-o"], "输出目录");
+        public Option<string?> TextFile { get; } = new(["--text-file", "-t"], "解压文件名与逐项密码 TXT 清单");
+        public Option<string> Extension { get; } = new(
+            ["--extension", "--format", "-e"],
+            () => "rar",
+            "归档格式：rar、zip、7z");
+        public Option<bool> RandomPassword { get; } = new(
+            ["--random-password", "-r"],
+            () => true,
+            "按归档文件名生成兼容随机密码（默认开启）");
+        public Option<bool> NoRandomPassword { get; } = new(["--no-random-password"], "关闭按文件名生成密码");
+        public Option<string?> Password { get; } = new(["--password", "-p"], "直接提供自定义密码");
+        public Option<string?> PasswordFile { get; } = new(["--password-file"], "从文件第一行读取密码");
+        public Option<bool> PasswordStdin { get; } = new(["--password-stdin"], "从标准输入第一行读取密码");
+        public Option<int> Level { get; } = new(
+            ["--level", "-l"],
+            () => 3,
+            "压缩级别：0 存储、1 最快、2 快速、3 标准、4 较好、5 最佳");
+        public Option<bool> Solid { get; } = new(["--solid"], () => true, "启用固实压缩（默认开启）");
+        public Option<bool> NoSolid { get; } = new(["--no-solid"], "关闭固实压缩");
+        public Option<string?> VolumeSize { get; } = new(["--volume-size", "-v"], "分卷数值，例如 20");
+        public Option<string> VolumeUnit { get; } = new(["--volume-unit"], () => "g", "分卷单位：b、k、m、g、t");
+        public Option<bool> QuickOpen { get; } = new(["--quick-open"], "添加 RAR 快速打开信息");
+        public Option<bool> Test { get; } = new(["--test"], "创建后校验归档");
+        public Option<string?> Comment { get; } = new(["--comment"], "RAR/ZIP 注释文本文件");
+        public Option<string?> TempDir { get; } = new(["--temp-dir"], "归档程序临时目录");
+        public Option<int> Recovery { get; } = new(["--recovery"], () => 3, "RAR 恢复记录百分比：0 到 100");
+        public Option<string> Existing { get; } = new(
+            ["--existing"],
+            () => "overwrite",
+            "已有文件策略：skip、update、overwrite");
+        public Option<bool> SkipProcessed { get; } = new(
+            ["--skip-processed"],
+            () => true,
+            "跳过已处理项目（默认开启）");
+        public Option<bool> NoSkipProcessed { get; } = new(["--no-skip-processed"], "不跳过已处理项目");
+        public Option<bool> DeleteSource { get; } = new(["--delete-source"], "成功后删除源文件");
+        public Option<bool> MoveSource { get; } = new(["--move-source"], "成功后移动源文件");
+        public Option<double> MaxSize { get; } = new(["--max-size", "--max-size-gb"], () => 666, "最大处理总量（GB），0 表示不限");
+        public Option<bool> Shutdown { get; } = new(["--shutdown"], "全部完成后请求关机");
+        public Option<bool> AddEnclosures { get; } = new(["--add-enclosures"], () => true, "添加附件目录（默认开启）");
+        public Option<bool> NoAddEnclosures { get; } = new(["--no-add-enclosures"], "关闭附件目录功能");
+        public Option<string?> EnclosureList { get; } = new(["--enclosure-list"], "旧版兼容：换行分隔的附件目录");
+        public Option<string[]> Enclosures { get; } = new(
+            ["--enclosure"],
+            () => [],
+            "附件目录，可重复指定");
+        public Option<string?> LogFile { get; } = new(["--log-file"], "日志文件路径");
+        public Option<bool> Verbose { get; } = new(["--verbose"], "逐项输出详细进度");
+        public Option<bool> Quiet { get; } = new(["--quiet", "-q"], "仅向 stderr 输出错误");
+        public Option<bool> DryRun { get; } = new(["--dry-run"], "列出将处理的项目，不创建目录或归档");
 
-        _decompressOption = new Option<bool>(
-            aliases: new[] { "--decompress", "-d" },
-            description: "Run in decompress mode (headless)");
+        public Definition()
+        {
+            Inputs.AllowMultipleArgumentsPerToken = true;
+            Enclosures.AllowMultipleArgumentsPerToken = true;
 
-        _guiOption = new Option<bool>(
-            aliases: new[] { "--gui", "-g" },
-            getDefaultValue: () => true,
-            description: "Run with graphical user interface (default: true)");
-
-        // Source options
-        _sourcePathOption = new Option<string?>(
-            aliases: new[] { "--source", "-s" },
-            description: "Source folder path for compression/decompression");
-
-        _outputPathOption = new Option<string?>(
-            aliases: new[] { "--output", "-o" },
-            description: "Output folder path");
-
-        _textFileOption = new Option<string?>(
-            aliases: new[] { "--text-file", "-t" },
-            description: "Text file containing file list with passwords");
-
-        _extensionOption = new Option<string>(
-            aliases: new[] { "--extension", "-e" },
-            getDefaultValue: () => "rar",
-            description: "Archive extension (rar, zip, or 7z)");
-
-        // Password options
-        _useRandomPasswordOption = new Option<bool>(
-            aliases: new[] { "--random-password", "-r" },
-            getDefaultValue: () => true,
-            description: "Use random password based on filename");
-
-        _passwordOption = new Option<string?>(
-            aliases: new[] { "--password", "-p" },
-            description: "Custom password for archive (disables random password)");
-
-        // Compression options
-        _compressionLevelOption = new Option<int>(
-            aliases: new[] { "--level", "-l" },
-            getDefaultValue: () => 3,
-            description: "Compression level (0=store, 1=fastest, 2=fast, 3=normal, 4=good, 5=best)");
-
-        _solidOption = new Option<bool>(
-            aliases: new[] { "--solid" },
-            getDefaultValue: () => true,
-            description: "Create solid archive");
-
-        _volumeSizeOption = new Option<string?>(
-            aliases: new[] { "--volume-size", "-v" },
-            description: "Volume size for split archives (e.g., '20')");
-
-        _volumeUnitOption = new Option<string>(
-            aliases: new[] { "--volume-unit" },
-            getDefaultValue: () => "g",
-            description: "Volume size unit (g=GB, m=MB, k=KB)");
-
-        _quickOpenOption = new Option<bool>(
-            aliases: new[] { "--quick-open" },
-            description: "Enable quick open for archive");
-
-        _testArchiveOption = new Option<bool>(
-            aliases: new[] { "--test" },
-            description: "Test archive after creation");
-
-        _commentFileOption = new Option<string?>(
-            aliases: new[] { "--comment" },
-            description: "Path to comment file");
-
-        _tempDirOption = new Option<string?>(
-            aliases: new[] { "--temp-dir" },
-            description: "Temporary directory for operations");
-
-        _recoveryRecordOption = new Option<int>(
-            aliases: new[] { "--recovery" },
-            getDefaultValue: () => 3,
-            description: "Recovery record percentage (0-100)");
-
-        // File handling options
-        _existingFileModeOption = new Option<string>(
-            aliases: new[] { "--existing" },
-            getDefaultValue: () => "overwrite",
-            description: "How to handle existing files (skip, update, overwrite)");
-
-        _skipProcessedOption = new Option<bool>(
-            aliases: new[] { "--skip-processed" },
-            getDefaultValue: () => true,
-            description: "Skip already processed files");
-
-        _deleteSourceOption = new Option<bool>(
-            aliases: new[] { "--delete-source" },
-            description: "Delete source after successful operation");
-
-        _moveSourceOption = new Option<bool>(
-            aliases: new[] { "--move-source" },
-            description: "Move source to processed folder after operation");
-
-        _maxSizeOption = new Option<double>(
-            aliases: new[] { "--max-size" },
-            getDefaultValue: () => 666,
-            description: "Maximum total size in GB before stopping");
-
-        _shutdownOption = new Option<bool>(
-            aliases: new[] { "--shutdown" },
-            description: "Shutdown computer after completion");
-
-        // Enclosure options
-        _addEnclosuresOption = new Option<bool>(
-            aliases: new[] { "--add-enclosures" },
-            getDefaultValue: () => true,
-            description: "Add enclosure directories to archives");
-
-        _enclosureListOption = new Option<string?>(
-            aliases: new[] { "--enclosure-list" },
-            description: "Newline-separated list of enclosure directory names");
-
-        // Logging options
-        _logFileOption = new Option<string?>(
-            aliases: new[] { "--log-file" },
-            description: "Path to log file (default: logs/batchcompress_timestamp.log)");
-
-        _verboseOption = new Option<bool>(
-            aliases: new[] { "--verbose" },
-            description: "Enable verbose logging");
-
-        // GPT-5, 2026-08-05：将所有选项注册到同一个根命令，使帮助输出和解析共用同一份契约。
-        rootCommand.AddOption(_compressOption);
-        rootCommand.AddOption(_decompressOption);
-        rootCommand.AddOption(_guiOption);
-        rootCommand.AddOption(_sourcePathOption);
-        rootCommand.AddOption(_outputPathOption);
-        rootCommand.AddOption(_textFileOption);
-        rootCommand.AddOption(_extensionOption);
-        rootCommand.AddOption(_useRandomPasswordOption);
-        rootCommand.AddOption(_passwordOption);
-        rootCommand.AddOption(_compressionLevelOption);
-        rootCommand.AddOption(_solidOption);
-        rootCommand.AddOption(_volumeSizeOption);
-        rootCommand.AddOption(_volumeUnitOption);
-        rootCommand.AddOption(_quickOpenOption);
-        rootCommand.AddOption(_testArchiveOption);
-        rootCommand.AddOption(_commentFileOption);
-        rootCommand.AddOption(_tempDirOption);
-        rootCommand.AddOption(_recoveryRecordOption);
-        rootCommand.AddOption(_existingFileModeOption);
-        rootCommand.AddOption(_skipProcessedOption);
-        rootCommand.AddOption(_deleteSourceOption);
-        rootCommand.AddOption(_moveSourceOption);
-        rootCommand.AddOption(_maxSizeOption);
-        rootCommand.AddOption(_shutdownOption);
-        rootCommand.AddOption(_addEnclosuresOption);
-        rootCommand.AddOption(_enclosureListOption);
-        rootCommand.AddOption(_logFileOption);
-        rootCommand.AddOption(_verboseOption);
-
-        return rootCommand;
+            Root.AddOption(Compress);
+            Root.AddOption(Decompress);
+            Root.AddOption(Gui);
+            Root.AddOption(Source);
+            Root.AddOption(Inputs);
+            Root.AddOption(Output);
+            Root.AddOption(TextFile);
+            Root.AddOption(Extension);
+            Root.AddOption(RandomPassword);
+            Root.AddOption(NoRandomPassword);
+            Root.AddOption(Password);
+            Root.AddOption(PasswordFile);
+            Root.AddOption(PasswordStdin);
+            Root.AddOption(Level);
+            Root.AddOption(Solid);
+            Root.AddOption(NoSolid);
+            Root.AddOption(VolumeSize);
+            Root.AddOption(VolumeUnit);
+            Root.AddOption(QuickOpen);
+            Root.AddOption(Test);
+            Root.AddOption(Comment);
+            Root.AddOption(TempDir);
+            Root.AddOption(Recovery);
+            Root.AddOption(Existing);
+            Root.AddOption(SkipProcessed);
+            Root.AddOption(NoSkipProcessed);
+            Root.AddOption(DeleteSource);
+            Root.AddOption(MoveSource);
+            Root.AddOption(MaxSize);
+            Root.AddOption(Shutdown);
+            Root.AddOption(AddEnclosures);
+            Root.AddOption(NoAddEnclosures);
+            Root.AddOption(EnclosureList);
+            Root.AddOption(Enclosures);
+            Root.AddOption(LogFile);
+            Root.AddOption(Verbose);
+            Root.AddOption(Quiet);
+            Root.AddOption(DryRun);
+        }
     }
 
-    /// <summary>
-    /// Parse command-line arguments into options
-    /// </summary>
-    public static CommandLineOptions ParseArguments(string[] args)
+    public static RootCommand BuildRootCommand() => new Definition().Root;
+
+    public static CommandLineParseOutcome ParseArguments(string[] args)
     {
-        var options = new CommandLineOptions();
-        var rootCommand = BuildRootCommand();
+        ArgumentNullException.ThrowIfNull(args);
+        var effectiveArgs = NormalizeVerb(args);
+        var definition = new Definition();
+        var parseResult = definition.Root.Parse(effectiveArgs);
+        var errors = parseResult.Errors.Select(error => error.Message).ToList();
 
-        rootCommand.SetHandler((InvocationContext context) =>
+        if (errors.Count > 0)
         {
-            var parseResult = context.ParseResult;
-
-            // GPT-5, 2026-08-05：将解析值复制到独立对象，下游代码不依赖解析器生命周期。
-            options.Compress = parseResult.GetValueForOption(_compressOption!);
-            options.Decompress = parseResult.GetValueForOption(_decompressOption!);
-            options.Gui = parseResult.GetValueForOption(_guiOption!);
-            options.SourcePath = parseResult.GetValueForOption(_sourcePathOption!);
-            options.OutputPath = parseResult.GetValueForOption(_outputPathOption!);
-            options.TextFile = parseResult.GetValueForOption(_textFileOption!);
-            options.Extension = parseResult.GetValueForOption(_extensionOption!) ?? "rar";
-            options.UseRandomPassword = parseResult.GetValueForOption(_useRandomPasswordOption!);
-            options.Password = parseResult.GetValueForOption(_passwordOption!);
-            options.CompressionLevel = parseResult.GetValueForOption(_compressionLevelOption!);
-            options.Solid = parseResult.GetValueForOption(_solidOption!);
-            options.VolumeSize = parseResult.GetValueForOption(_volumeSizeOption!);
-            options.VolumeUnit = parseResult.GetValueForOption(_volumeUnitOption!) ?? "g";
-            options.QuickOpen = parseResult.GetValueForOption(_quickOpenOption!);
-            options.TestArchive = parseResult.GetValueForOption(_testArchiveOption!);
-            options.CommentFile = parseResult.GetValueForOption(_commentFileOption!);
-            options.TempDir = parseResult.GetValueForOption(_tempDirOption!);
-            options.RecoveryRecord = parseResult.GetValueForOption(_recoveryRecordOption!);
-            options.ExistingFileMode = parseResult.GetValueForOption(_existingFileModeOption!) ?? "overwrite";
-            options.SkipProcessed = parseResult.GetValueForOption(_skipProcessedOption!);
-            options.DeleteSource = parseResult.GetValueForOption(_deleteSourceOption!);
-            options.MoveSource = parseResult.GetValueForOption(_moveSourceOption!);
-            options.MaxSizeGB = parseResult.GetValueForOption(_maxSizeOption!);
-            options.ShutdownAfter = parseResult.GetValueForOption(_shutdownOption!);
-            options.AddEnclosures = parseResult.GetValueForOption(_addEnclosuresOption!);
-            options.EnclosureList = parseResult.GetValueForOption(_enclosureListOption!);
-            options.LogFile = parseResult.GetValueForOption(_logFileOption!);
-            options.Verbose = parseResult.GetValueForOption(_verboseOption!);
-        });
-
-        rootCommand.Invoke(args);
-
-        // GPT-5, 2026-08-05：显式密码始终优先于按文件名生成的确定性密码。
-        if (!string.IsNullOrEmpty(options.Password))
-        {
-            options.UseRandomPassword = false;
+            return new CommandLineParseOutcome { Errors = errors };
         }
 
-        // GPT-5, 2026-08-05：批处理动词按定义是非交互的，即使同时提供了 --gui 也不启动界面。
-        if (options.Compress || options.Decompress)
+        var options = new CommandLineOptions
         {
-            options.Gui = false;
-        }
+            Compress = parseResult.GetValueForOption(definition.Compress),
+            Decompress = parseResult.GetValueForOption(definition.Decompress),
+            SourcePath = parseResult.GetValueForOption(definition.Source),
+            InputPaths = parseResult.GetValueForOption(definition.Inputs) ?? [],
+            OutputPath = parseResult.GetValueForOption(definition.Output),
+            TextFile = parseResult.GetValueForOption(definition.TextFile),
+            Extension = NormalizeFormat(parseResult.GetValueForOption(definition.Extension)),
+            Password = parseResult.GetValueForOption(definition.Password),
+            PasswordFile = parseResult.GetValueForOption(definition.PasswordFile),
+            ReadPasswordFromStandardInput = parseResult.GetValueForOption(definition.PasswordStdin),
+            CompressionLevel = parseResult.GetValueForOption(definition.Level),
+            Solid = parseResult.GetValueForOption(definition.Solid) && !parseResult.GetValueForOption(definition.NoSolid),
+            VolumeSize = parseResult.GetValueForOption(definition.VolumeSize),
+            VolumeUnit = NormalizeVolumeUnit(parseResult.GetValueForOption(definition.VolumeUnit)),
+            QuickOpen = parseResult.GetValueForOption(definition.QuickOpen),
+            TestArchive = parseResult.GetValueForOption(definition.Test),
+            CommentFile = parseResult.GetValueForOption(definition.Comment),
+            TempDir = parseResult.GetValueForOption(definition.TempDir),
+            RecoveryRecord = parseResult.GetValueForOption(definition.Recovery),
+            ExistingFileMode = (parseResult.GetValueForOption(definition.Existing) ?? "overwrite").Trim().ToLowerInvariant(),
+            SkipProcessed = parseResult.GetValueForOption(definition.SkipProcessed) && !parseResult.GetValueForOption(definition.NoSkipProcessed),
+            DeleteSource = parseResult.GetValueForOption(definition.DeleteSource),
+            MoveSource = parseResult.GetValueForOption(definition.MoveSource),
+            MaxSizeGB = parseResult.GetValueForOption(definition.MaxSize),
+            ShutdownAfter = parseResult.GetValueForOption(definition.Shutdown),
+            AddEnclosures = parseResult.GetValueForOption(definition.AddEnclosures) && !parseResult.GetValueForOption(definition.NoAddEnclosures),
+            EnclosureList = parseResult.GetValueForOption(definition.EnclosureList),
+            EnclosurePaths = parseResult.GetValueForOption(definition.Enclosures) ?? [],
+            LogFile = parseResult.GetValueForOption(definition.LogFile),
+            Verbose = parseResult.GetValueForOption(definition.Verbose),
+            Quiet = parseResult.GetValueForOption(definition.Quiet),
+            DryRun = parseResult.GetValueForOption(definition.DryRun)
+        };
 
-        return options;
+        var explicitGui = parseResult.GetValueForOption(definition.Gui);
+        options.Gui = effectiveArgs.Length == 0 || explicitGui;
+
+        // GPT-5, 2026-08-06：直接密码、密码文件和标准输入都优先于随机密码派生。
+        var explicitPasswordSourceCount = new[]
+        {
+            !string.IsNullOrEmpty(options.Password),
+            !string.IsNullOrWhiteSpace(options.PasswordFile),
+            options.ReadPasswordFromStandardInput
+        }.Count(value => value);
+        options.UseRandomPassword = parseResult.GetValueForOption(definition.RandomPassword) &&
+                                    !parseResult.GetValueForOption(definition.NoRandomPassword) &&
+                                    explicitPasswordSourceCount == 0;
+
+        Validate(options, explicitGui, explicitPasswordSourceCount, effectiveArgs, errors);
+        return new CommandLineParseOutcome { Options = options, Errors = errors };
     }
 
-    /// <summary>
-    /// Check if help is requested
-    /// </summary>
     public static bool IsHelpRequested(string[] args)
     {
-        return args.Any(a => a == "--help" || a == "-h" || a == "-?" || a == "/?");
+        return args.Any(argument => argument is "--help" or "-h" or "-?" or "/?");
     }
 
-    /// <summary>
-    /// Show help information
-    /// </summary>
+    public static bool IsVersionRequested(string[] args)
+    {
+        return args.Any(argument => argument.Equals("--version", StringComparison.OrdinalIgnoreCase));
+    }
+
     public static void ShowHelp()
     {
-        var rootCommand = BuildRootCommand();
-        rootCommand.Invoke(new[] { "--help" });
+        BuildRootCommand().Invoke(["--help"]);
+    }
+
+    private static string[] NormalizeVerb(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            return args;
+        }
+
+        var mode = args[0].Trim().ToLowerInvariant();
+        var replacement = mode switch
+        {
+            "compress" => "--compress",
+            "extract" or "decompress" => "--decompress",
+            "gui" => "--gui",
+            _ => null
+        };
+        return replacement == null ? args : [replacement, .. args.Skip(1)];
+    }
+
+    private static void Validate(
+        CommandLineOptions options,
+        bool explicitGui,
+        int explicitPasswordSourceCount,
+        string[] effectiveArgs,
+        List<string> errors)
+    {
+        if (options.Compress && options.Decompress)
+        {
+            errors.Add("压缩和解压模式不能同时指定。");
+        }
+
+        if (explicitGui && (options.Compress || options.Decompress))
+        {
+            errors.Add("--gui 不能与压缩或解压模式同时指定。");
+        }
+
+        var isHeadless = options.Compress || options.Decompress;
+        if (!isHeadless && !explicitGui && effectiveArgs.Length > 0)
+        {
+            errors.Add("请指定 compress、extract、--compress、--decompress 或 --gui。");
+        }
+
+        if (!isHeadless)
+        {
+            return;
+        }
+
+        options.Gui = false;
+        if (string.IsNullOrWhiteSpace(options.OutputPath))
+        {
+            errors.Add("无界面模式必须指定 --output。");
+        }
+
+        if (string.IsNullOrWhiteSpace(options.SourcePath) &&
+            options.InputPaths.Length == 0 &&
+            string.IsNullOrWhiteSpace(options.TextFile))
+        {
+            errors.Add("必须通过 --source、--input 或 --text-file 提供至少一个来源。");
+        }
+
+        if (options.Compress && !string.IsNullOrWhiteSpace(options.TextFile))
+        {
+            errors.Add("--text-file 是解压密码清单，只能用于 extract 模式。");
+        }
+
+        if (explicitPasswordSourceCount > 1)
+        {
+            errors.Add("--password、--password-file、--password-stdin 只能选择一种。");
+        }
+
+        if (options.CompressionLevel is < 0 or > 5)
+        {
+            errors.Add("--level 必须在 0 到 5 之间。");
+        }
+
+        if (options.RecoveryRecord is < 0 or > 100)
+        {
+            errors.Add("--recovery 必须在 0 到 100 之间。");
+        }
+
+        if (options.MaxSizeGB < 0)
+        {
+            errors.Add("--max-size 不能小于 0。");
+        }
+
+        if (options.Extension is not ("rar" or "zip" or "7z"))
+        {
+            errors.Add("--extension 仅支持 rar、zip、7z。");
+        }
+
+        if (options.ExistingFileMode is not ("skip" or "update" or "overwrite"))
+        {
+            errors.Add("--existing 仅支持 skip、update、overwrite。");
+        }
+
+        if (options.VolumeUnit is not ("b" or "k" or "m" or "g" or "t"))
+        {
+            errors.Add("--volume-unit 仅支持 b、k、m、g、t。");
+        }
+
+        if (!string.IsNullOrWhiteSpace(options.VolumeSize) &&
+            (!double.TryParse(options.VolumeSize, NumberStyles.Float, CultureInfo.InvariantCulture, out var volumeSize) || volumeSize <= 0))
+        {
+            errors.Add("--volume-size 必须是大于 0 的数字。");
+        }
+
+        if (options.DeleteSource && options.MoveSource)
+        {
+            errors.Add("--delete-source 和 --move-source 不能同时使用。");
+        }
+
+        if (options.Verbose && options.Quiet)
+        {
+            errors.Add("--verbose 和 --quiet 不能同时使用。");
+        }
+
+        ValidateExistingFile(options.TextFile, "--text-file", errors);
+        ValidateExistingFile(options.PasswordFile, "--password-file", errors);
+        ValidateExistingFile(options.CommentFile, "--comment", errors);
+    }
+
+    private static void ValidateExistingFile(string? path, string optionName, List<string> errors)
+    {
+        if (!string.IsNullOrWhiteSpace(path) && !File.Exists(path))
+        {
+            errors.Add($"{optionName} 指定的文件不存在: {path}");
+        }
+    }
+
+    private static string NormalizeFormat(string? format)
+    {
+        return (format ?? "rar").Trim().TrimStart('.').ToLowerInvariant();
+    }
+
+    private static string NormalizeVolumeUnit(string? unit)
+    {
+        return (unit ?? "g").Trim().ToLowerInvariant() switch
+        {
+            "bytes" => "b",
+            "kb" => "k",
+            "mb" => "m",
+            "gb" => "g",
+            "tb" => "t",
+            var value => value
+        };
     }
 }

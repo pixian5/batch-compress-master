@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using System;
 using System.Linq;
+using System.Reflection;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Services;
 
@@ -26,8 +27,30 @@ sealed class Program
             return 0;
         }
 
-        // GPT-5, 2026-08-05：解析阶段统一模式开关与密码优先级，两个执行路径共用同一份结果。
-        var options = CommandLineHandler.ParseArguments(applicationArgs);
+        // GPT-5, 2026-08-06：版本查询不初始化 Avalonia，也不创建日志或归档引擎。
+        if (CommandLineHandler.IsVersionRequested(applicationArgs))
+        {
+            var version = Assembly.GetExecutingAssembly()
+                .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+                .InformationalVersion?.Split('+')[0] ?? "unknown";
+            Console.WriteLine($"BatchCompress.Avalonia {version}");
+            return 0;
+        }
+
+        // GPT-5, 2026-08-06：参数错误使用退出码 2 返回，不创建 GUI，也不使用不完整的默认选项执行任务。
+        var parseOutcome = CommandLineHandler.ParseArguments(applicationArgs);
+        if (!parseOutcome.Success)
+        {
+            foreach (var error in parseOutcome.Errors)
+            {
+                Console.Error.WriteLine($"参数错误: {error}");
+            }
+
+            Console.Error.WriteLine("使用 --help 查看完整用法。");
+            return 2;
+        }
+
+        var options = parseOutcome.Options;
 
         // GPT-5, 2026-08-05：无界面模式同步等待异步任务，确保 Main 返回真实的批处理退出码。
         if (options.Compress || options.Decompress)
@@ -55,7 +78,7 @@ sealed class Program
         catch (Exception ex)
         {
             logger.LogError("Fatal error in headless mode", ex);
-            Console.WriteLine($"Fatal error: {ex.Message}");
+            Console.Error.WriteLine($"Fatal error: {ex.Message}");
             return 1;
         }
     }

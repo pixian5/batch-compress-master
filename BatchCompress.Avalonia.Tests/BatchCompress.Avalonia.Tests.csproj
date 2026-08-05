@@ -11,6 +11,7 @@
   <!-- GPT-5, 2026-08-05：直接链接生产源码，以测试应用实际交付的同一套命令和进程代码。 -->
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="..\CommandLineHandler.cs" Link="CommandLineHandler.cs" />
     <Compile Include="..\Core\Interfaces\IArchiveEngine.cs" Link="Core\Interfaces\IArchiveEngine.cs" />
     <Compile Include="..\Core\Services\WinRarCommandBuilder.cs" Link="Core\Services\WinRarCommandBuilder.cs" />
     <Compile Include="..\Core\Services\WinRarProcessRunner.cs" Link="Core\Services\WinRarProcessRunner.cs" />
@@ -22,6 +23,10 @@
     <Compile Include="..\Core\Services\OutputPathResolver.cs" Link="Core\Services\OutputPathResolver.cs" />
     <Compile Include="..\Core\Services\PasswordUtility.cs" Link="Core\Services\PasswordUtility.cs" />
     <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
   </ItemGroup>
 
   <!-- GPT-5, 2026-08-06：macOS 回归测试使用项目内官方 7zz，不依赖机器全局安装。 -->
