@@ -45,7 +45,6 @@ public class LanguageStrings : INotifyPropertyChanged
     public string CompressionOptions { get; set; } = "压缩选项";
     public string FileNameLabel { get; set; } = "文件名（不含扩展名）：";
     public string QueryPassword { get; set; } = "查询密码";
-    public string ConfirmPassword { get; set; } = "确认密码/解锁";
     public string RandomPassword { get; set; } = "随机密码";
     public string CustomPasswordWatermark { get; set; } = "自定义密码";
     public string CopiedToClipboard { get; set; } = "（已复制到剪贴板）";
@@ -129,7 +128,6 @@ public class LanguageStrings : INotifyPropertyChanged
     public string TryingToLoadAutomatically { get; set; } = "列表中没有文件，正在自动加载...";
     public string StillNoFiles { get; set; } = "仍然没有要处理的文件";
     public string CancellingOperation { get; set; } = "正在取消操作...";
-    public string AdvancedFeaturesUnlocked { get; set; } = "高级功能已解锁！";
     public string PasswordSetSuccessfully { get; set; } = "密码设置成功";
     public string Warning7zFormat { get; set; } = "警告: WinRAR 无法压缩为7z格式，只能解压。请考虑使用rar或zip。";
     public string SolidDisabledForStore { get; set; } = "存储模式下已禁用固实压缩";

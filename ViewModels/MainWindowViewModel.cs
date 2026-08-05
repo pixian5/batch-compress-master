@@ -310,9 +310,6 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _passwordQueryResult = string.Empty;
     
-    [ObservableProperty]
-    private bool _advancedFeaturesUnlocked = false;
-    
     public MainWindowViewModel()
     {
         _archiveEngine = new RarArchiveEngine();
@@ -890,23 +887,6 @@ public partial class MainWindowViewModel : ViewModelBase
             // Copy to clipboard
             await _systemIntegration.WriteClipboardTextAsync(finalPassword);
         });
-    }
-    
-    [RelayCommand]
-    private void UnlockAdvancedFeatures()
-    {
-        var unlockPassword = PasswordUtility.GenerateUnlockPassword();
-        
-        if (CustomPassword == unlockPassword)
-        {
-            AdvancedFeaturesUnlocked = true;
-            EnclosureList = string.Empty;
-            CommandLog += "Advanced features unlocked!\n";
-        }
-        else
-        {
-            CommandLog += "Password set successfully\n";
-        }
     }
     
     [RelayCommand]

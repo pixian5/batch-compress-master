@@ -92,17 +92,6 @@ public static class PasswordUtility
         return GenerateCompressionPassword(archiveFilename);
     }
     
-    /// <summary>
-    /// Generate unlock password for advanced features
-    /// Based on day of year
-    /// </summary>
-    public static string GenerateUnlockPassword()
-    {
-        int dayOfYear = DateTime.Now.DayOfYear;
-        string source = dayOfYear.ToString();
-        return MD5UTF874(source + "我爱") + MD5UTF874(source + "胖田田");
-    }
-
     public static IReadOnlyList<string> GetLegacyPasswordCandidates(string filenameWithExtension)
     {
         return

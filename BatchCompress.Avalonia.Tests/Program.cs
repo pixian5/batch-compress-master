@@ -140,9 +140,6 @@ internal static class Program
         var legacy = PasswordUtility.GetLegacyPasswordCandidates("archive.rar");
         AssertEqual(5, legacy.Count);
         Assert(legacy.All(password => !string.IsNullOrWhiteSpace(password)), "旧密码候选不能包含空值");
-        var expectedUnlock = PasswordUtility.MD5UTF874(DateTime.Now.DayOfYear + "我爱") +
-            PasswordUtility.MD5UTF874(DateTime.Now.DayOfYear + "胖田田");
-        AssertEqual(expectedUnlock, PasswordUtility.GenerateUnlockPassword());
         return Task.CompletedTask;
     }
 

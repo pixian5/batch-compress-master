@@ -75,7 +75,6 @@
                                         <TextBlock Text="{Binding L.FileNameLabel}" VerticalAlignment="Center"/>
                                         <TextBox Text="{Binding PasswordQueryFileName}" Width="200" ToolTip.Tip="输入文件名以生成或查询兼容密码"/>
                                         <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80" ToolTip.Tip="生成密码并复制当前压缩密码"/>
-                                        <Button Content="{Binding L.ConfirmPassword}" Command="{Binding UnlockAdvancedFeaturesCommand}" Width="120" ToolTip.Tip="验证高级功能解锁密码"/>
                                     </StackPanel>
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="按文件名生成压缩密码"/>
