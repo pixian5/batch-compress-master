@@ -28,7 +28,12 @@
     <!-- GPT-5, 2026-08-05：Avalonia 负责原生托盘适配；菜单动作调用 App 生命周期方法。 -->
     <TrayIcon.Icons>
         <TrayIcons>
-            <TrayIcon Icon="/Assets/压缩.png" ToolTipText="批量压缩解压工具" Clicked="TrayIcon_Clicked">
+            <!-- GPT-5, 2026-08-06：显式保持托盘可见；macOS 模板图标会随菜单栏深浅色自动反相，防止图标不可见。 -->
+            <TrayIcon Icon="/Assets/压缩.png"
+                      IsVisible="True"
+                      MacOSProperties.IsTemplateIcon="True"
+                      ToolTipText="批量压缩解压工具"
+                      Clicked="TrayIcon_Clicked">
                 <TrayIcon.Menu>
                     <NativeMenu>
                         <NativeMenuItem Header="显示/隐藏" Click="TrayShowHide_Clicked" />
