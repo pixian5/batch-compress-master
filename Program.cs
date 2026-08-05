@@ -1,5 +1,6 @@
 ﻿using Avalonia;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Services;
 
@@ -13,15 +14,21 @@ sealed class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        // GPT-5, 2026-08-05: Finder and LaunchServices append a -psn_* process serial argument when opening a
+        // macOS .app. It is not an application option and must be removed before System.CommandLine parsing.
+        var applicationArgs = args
+            .Where(argument => !argument.StartsWith("-psn_", StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+
         // GPT-5, 2026-08-05: Help must return before Avalonia initialization so CLI users never create a GUI process.
-        if (CommandLineHandler.IsHelpRequested(args))
+        if (CommandLineHandler.IsHelpRequested(applicationArgs))
         {
             CommandLineHandler.ShowHelp();
             return 0;
         }
 
         // GPT-5, 2026-08-05: Parsing normalizes mode switches and password precedence before either execution path consumes them.
-        var options = CommandLineHandler.ParseArguments(args);
+        var options = CommandLineHandler.ParseArguments(applicationArgs);
 
         // GPT-5, 2026-08-05: Headless mode deliberately blocks on the async task so Main returns the real batch exit code.
         if (options.Compress || options.Decompress)
@@ -30,7 +37,7 @@ sealed class Program
         }
 
         // GPT-5, 2026-08-05: GUI mode owns the desktop lifetime and therefore returns only after the last window closes.
-        BuildAvaloniaApp().StartWithClassicDesktopLifetime(args);
+        BuildAvaloniaApp().StartWithClassicDesktopLifetime(applicationArgs);
         return 0;
     }
 
