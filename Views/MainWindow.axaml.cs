@@ -352,7 +352,54 @@ public partial class MainWindow : Window
             viewModel.BrowseOutputRequested = BrowseOutputAsync;
             viewModel.BrowseTextFileRequested = BrowseTextFileAsync;
             viewModel.BrowseSaveFileRequested = BrowseSaveFileAsync;
+            viewModel.BrowseAttachmentRequested = BrowseAttachmentAsync;
+            viewModel.ShowHelpRequested = ShowHelpAsync;
+            viewModel.HideWindowRequested = HideWindowFromViewModel;
         }
+    }
+
+    private void HideWindowFromViewModel()
+    {
+        base.Hide();
+    }
+
+    private async Task BrowseAttachmentAsync()
+    {
+        if (DataContext is not MainWindowViewModel viewModel)
+        {
+            return;
+        }
+
+        var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
+        {
+            Title = "选择附件目录",
+            AllowMultiple = true
+        });
+
+        var paths = folders.Select(folder => folder.Path.LocalPath)
+            .Where(path => !string.IsNullOrWhiteSpace(path))
+            .ToArray();
+        if (paths.Length == 0)
+        {
+            return;
+        }
+
+        var existing = viewModel.EnclosureList
+            .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+            .Select(path => path.Trim())
+            .Where(path => path.Length > 0)
+            .ToList();
+        foreach (var path in paths.Where(path => !existing.Contains(path, StringComparer.OrdinalIgnoreCase)))
+        {
+            existing.Add(path);
+        }
+
+        viewModel.EnclosureList = string.Join(Environment.NewLine, existing);
+    }
+
+    private async Task ShowHelpAsync()
+    {
+        await ShowMessageBoxAsync("帮助", "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nWinRAR 支持 RAR 和 ZIP；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会隐藏到托盘，使用托盘菜单中的退出才会真正退出程序。");
     }
     
     private async Task BrowseSourceAsync()
@@ -596,4 +643,3 @@ public partial class MainWindow : Window
         public WindowState WindowState { get; set; } = WindowState.Normal;
     }
 }
-

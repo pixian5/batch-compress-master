@@ -13,5 +13,6 @@
     <Compile Include="..\Core\Services\WinRarCommandBuilder.cs" Link="Core\Services\WinRarCommandBuilder.cs" />
     <Compile Include="..\Core\Services\WinRarProcessRunner.cs" Link="Core\Services\WinRarProcessRunner.cs" />
     <Compile Include="..\Core\Services\OutputPathResolver.cs" Link="Core\Services\OutputPathResolver.cs" />
+    <Compile Include="..\Core\Services\PasswordUtility.cs" Link="Core\Services\PasswordUtility.cs" />
   </ItemGroup>
 </Project>

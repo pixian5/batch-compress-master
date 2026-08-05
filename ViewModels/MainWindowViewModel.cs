@@ -198,6 +198,9 @@ public partial class MainWindowViewModel : ViewModelBase
     
     [ObservableProperty]
     private int _volumeUnit = 0; // 0=G, 1=M, 2=K
+
+    [ObservableProperty]
+    private int _recoveryRecordPercent;
     
     [ObservableProperty]
     private int _existingFileMode = 2; // 0=Skip, 1=Update, 2=Overwrite
@@ -420,6 +423,9 @@ public partial class MainWindowViewModel : ViewModelBase
     public Func<Task>? BrowseOutputRequested { get; set; }
     public Func<Task>? BrowseTextFileRequested { get; set; }
     public Func<Task>? BrowseSaveFileRequested { get; set; }
+    public Func<Task>? BrowseAttachmentRequested { get; set; }
+    public Func<Task>? ShowHelpRequested { get; set; }
+    public Action? HideWindowRequested { get; set; }
     
     [RelayCommand]
     private async Task BrowseSourceAsync()
@@ -454,6 +460,24 @@ public partial class MainWindowViewModel : ViewModelBase
         if (BrowseSaveFileRequested != null)
         {
             await BrowseSaveFileRequested();
+        }
+    }
+
+    [RelayCommand]
+    private async Task BrowseAttachmentAsync()
+    {
+        if (BrowseAttachmentRequested != null)
+        {
+            await BrowseAttachmentRequested();
+        }
+    }
+
+    [RelayCommand]
+    private async Task ShowHelpAsync()
+    {
+        if (ShowHelpRequested != null)
+        {
+            await ShowHelpRequested();
         }
     }
     
@@ -792,10 +816,34 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ClearLogs()
     {
-        SourceFileList = string.Empty;
-        SuccessLog = string.Empty;
-        FailLog = string.Empty;
-        CommandLog = string.Empty;
+        ClearAllLogs();
+    }
+
+    [RelayCommand]
+    private void ClearSourceList() => SourceFileList = string.Empty;
+
+    [RelayCommand]
+    private void ClearSuccessLog() => SuccessLog = string.Empty;
+
+    [RelayCommand]
+    private void ClearFailLog() => FailLog = string.Empty;
+
+    [RelayCommand]
+    private void ClearCommandLog() => CommandLog = string.Empty;
+
+    [RelayCommand]
+    private void ClearAllLogs()
+    {
+        ClearSourceList();
+        ClearSuccessLog();
+        ClearFailLog();
+        ClearCommandLog();
+    }
+
+    [RelayCommand]
+    private void HideWindow()
+    {
+        HideWindowRequested?.Invoke();
     }
     
     [RelayCommand]
@@ -831,6 +879,8 @@ public partial class MainWindowViewModel : ViewModelBase
             results.Add($"UTF8-8位: {PasswordUtility.MD5UTF878(filename)}");
             results.Add($"UTF8-4位: {PasswordUtility.MD5UTF874(filename)}");
             results.Add($"GB2312-4位: {PasswordUtility.MD5GB2312(filename)}");
+            results.Add("旧版兼容密码:");
+            results.AddRange(PasswordUtility.GetLegacyPasswordCandidates(filename));
             
             var finalPassword = PasswordUtility.GenerateCompressionPassword(filename);
             PasswordQueryResult = finalPassword;
@@ -916,7 +966,7 @@ public partial class MainWindowViewModel : ViewModelBase
             CommentFile = EnableComment && File.Exists(CommentFilePath) ? CommentFilePath : null,
             TempDirectory = !string.IsNullOrEmpty(TempDirectory) ? TempDirectory : OutputPath,
             ExistingFileMode = (Core.Interfaces.ExistingFileMode)clampedExistingFileMode,
-            RecoveryRecordPercent = 3,
+            RecoveryRecordPercent = Math.Clamp(RecoveryRecordPercent, 0, 100),
             AddEnclosures = AddEnclosures,
             EnclosureDirectories = AddEnclosures ? 
                 EnclosureList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries) : null

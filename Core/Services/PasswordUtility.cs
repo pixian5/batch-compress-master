@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -99,6 +100,18 @@ public static class PasswordUtility
     {
         int dayOfYear = DateTime.Now.DayOfYear;
         string source = dayOfYear.ToString();
-        return MD5UTF878(source + "unlock");
+        return MD5UTF874(source + "我爱") + MD5UTF874(source + "胖田田");
+    }
+
+    public static IReadOnlyList<string> GetLegacyPasswordCandidates(string filenameWithExtension)
+    {
+        return
+        [
+            MD5GB2312(filenameWithExtension + "5") + "@" + MD5GB2312(filenameWithExtension + "2") + ".com#" + MD5GB2312(filenameWithExtension + "tt"),
+            MD5GB2312(filenameWithExtension + "592") + "@" + MD5GB2312(filenameWithExtension + "ptt") + ".com#" + MD5GB2312(filenameWithExtension + "1314"),
+            MD5UTF874(filenameWithExtension + "5") + "@" + MD5UTF874(filenameWithExtension + "2") + ".com#" + MD5UTF874(filenameWithExtension + "tt"),
+            MD5UTF874(filenameWithExtension + "592") + "@" + MD5UTF874(filenameWithExtension + "ptt") + ".com#" + MD5UTF874(filenameWithExtension + "1314"),
+            MD5UTF878(filenameWithExtension + "592ptt1314") + MD5UTF878(filenameWithExtension + "592pnn1314 7,8")
+        ];
     }
 }

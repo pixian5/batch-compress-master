@@ -12,7 +12,8 @@ internal static class Program
             ("密码与失败返回码", TestPasswordAndFailureExitCodes),
             ("取消传播", TestCancellation),
             ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
-            ("空保存路径回退", TestOutputPathFallback)
+            ("空保存路径回退", TestOutputPathFallback),
+            ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords)
         };
 
         foreach (var test in tests)
@@ -122,6 +123,26 @@ internal static class Program
             Directory.Delete(testRoot, recursive: true);
         }
 
+        return Task.CompletedTask;
+    }
+
+    private static Task TestRecoveryRecordAndLegacyPasswords()
+    {
+        var options = CreateOptions();
+        options.RecoveryRecordPercent = 5;
+        var arguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.rar", options);
+        AssertContains(arguments, "-rr5");
+
+        options.RecoveryRecordPercent = 101;
+        var invalidArguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.rar", options);
+        AssertNotContains(invalidArguments, "-rr101");
+
+        var legacy = PasswordUtility.GetLegacyPasswordCandidates("archive.rar");
+        AssertEqual(5, legacy.Count);
+        Assert(legacy.All(password => !string.IsNullOrWhiteSpace(password)), "旧密码候选不能包含空值");
+        var expectedUnlock = PasswordUtility.MD5UTF874(DateTime.Now.DayOfYear + "我爱") +
+            PasswordUtility.MD5UTF874(DateTime.Now.DayOfYear + "胖田田");
+        AssertEqual(expectedUnlock, PasswordUtility.GenerateUnlockPassword());
         return Task.CompletedTask;
     }
 

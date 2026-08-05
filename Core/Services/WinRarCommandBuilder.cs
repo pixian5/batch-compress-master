@@ -52,7 +52,7 @@ public static class WinRarCommandBuilder
             arguments.Add($"-v{options.VolumeSize.Trim()}");
         }
 
-        if (options.RecoveryRecordPercent > 0)
+        if (options.RecoveryRecordPercent is > 0 and <= 100)
         {
             arguments.Add($"-rr{options.RecoveryRecordPercent}");
         }

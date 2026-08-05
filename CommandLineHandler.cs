@@ -179,7 +179,7 @@ public static class CommandLineHandler
         _recoveryRecordOption = new Option<int>(
             aliases: new[] { "--recovery" },
             getDefaultValue: () => 3,
-            description: "Recovery record percentage (0-10)");
+            description: "Recovery record percentage (0-100)");
 
         // File handling options
         _existingFileModeOption = new Option<string>(

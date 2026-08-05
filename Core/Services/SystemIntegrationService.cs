@@ -9,160 +9,133 @@ using BatchCompress.Avalonia.Core.Interfaces;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
-/// <summary>
-/// Cross-platform system integration implementation
-/// </summary>
+/// <summary>Cross-platform system integration implementation.</summary>
 public class SystemIntegrationService : ISystemIntegration
 {
     public async Task OpenFolderAsync(string path)
     {
-        if (!Directory.Exists(path))
+        if (!Directory.Exists(path)) return;
+
+        try
         {
-            return;
+            var command = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "explorer.exe" :
+                RuntimeInformation.IsOSPlatform(OSPlatform.OSX) ? "open" : "xdg-open";
+            await RunDetachedAsync(command, new[] { path });
         }
-        
-        await Task.Run(() =>
+        catch (Exception ex)
         {
-            try
-            {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    Process.Start("explorer.exe", path);
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    Process.Start("xdg-open", path);
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Process.Start("open", path);
-                }
-            }
-            catch { }
-        });
+            Debug.WriteLine($"打开目录失败: {ex.Message}");
+        }
     }
-    
+
     public async Task<string?> ReadClipboardTextAsync()
     {
         try
         {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+                desktop.MainWindow?.Clipboard is { } clipboard)
             {
-                var clipboard = desktop.MainWindow?.Clipboard;
-                if (clipboard != null)
-                {
-#pragma warning disable CS0618 // Type or member is obsolete
-                    return await clipboard.GetTextAsync();
-#pragma warning restore CS0618 // Type or member is obsolete
-                }
+#pragma warning disable CS0618
+                return await clipboard.GetTextAsync();
+#pragma warning restore CS0618
             }
         }
-        catch { }
-        
+        catch (Exception ex) { Debug.WriteLine($"读取剪贴板失败: {ex.Message}"); }
+
         return null;
     }
-    
+
     public async Task WriteClipboardTextAsync(string text)
     {
         try
         {
-            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
+                desktop.MainWindow?.Clipboard is { } clipboard)
             {
-                var clipboard = desktop.MainWindow?.Clipboard;
-                if (clipboard != null)
-                {
-                    await clipboard.SetTextAsync(text);
-                }
+                await clipboard.SetTextAsync(text);
             }
         }
-        catch { }
+        catch (Exception ex) { Debug.WriteLine($"写入剪贴板失败: {ex.Message}"); }
     }
-    
+
     public void ShowNotification(string title, string message)
     {
-        Debug.WriteLine($"Notification: {title} - {message}");
-        
         try
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             {
-                var script = $"display notification \"{message.Replace("\"", "\\\"")}\" with title \"{title.Replace("\"", "\\\"")}\"";
-                Process.Start("osascript", $"-e '{script}'");
+                var script = $"display notification {AppleScriptString(message)} with title {AppleScriptString(title)}";
+                StartDetached("osascript", new[] { "-e", script });
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                // 使用 PowerShell 发送通知 (Windows 10+)
-                var psCommand = $"[void] [System.Reflection.Assembly]::LoadWithPartialName('System.Windows.Forms'); " +
-                                $"$objNotifyIcon = New-Object System.Windows.Forms.NotifyIcon; " +
-                                $"$objNotifyIcon.Icon = [System.Drawing.SystemIcons]::Information; " +
-                                $"$objNotifyIcon.BalloonTipTitle = '{title.Replace("'", "''")}'; " +
-                                $"$objNotifyIcon.BalloonTipText = '{message.Replace("'", "''")}'; " +
-                                $"$objNotifyIcon.Visible = $True; " +
-                                $"$objNotifyIcon.ShowBalloonTip(5000); " +
-                                $"Start-Sleep -Seconds 1; " +
-                                $"$objNotifyIcon.Dispose()";
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = "powershell",
-                    Arguments = $"-NoProfile -ExecutionPolicy Bypass -Command \"{psCommand}\"",
-                    CreateNoWindow = true,
-                    UseShellExecute = false
-                });
+                var script = "Add-Type -AssemblyName System.Windows.Forms; " +
+                    "$n = New-Object System.Windows.Forms.NotifyIcon; " +
+                    "$n.Icon = [System.Drawing.SystemIcons]::Information; " +
+                    $"$n.BalloonTipTitle = '{PowerShellString(title)}'; " +
+                    $"$n.BalloonTipText = '{PowerShellString(message)}'; " +
+                    "$n.Visible = $true; $n.ShowBalloonTip(5000); Start-Sleep -Seconds 1; $n.Dispose()";
+                StartDetached("powershell", new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-Command", script });
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                Process.Start("notify-send", $"\"{title}\" \"{message}\"");
+                StartDetached("notify-send", new[] { title, message });
             }
         }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Failed to show notification: {ex.Message}");
-        }
+        catch (Exception ex) { Debug.WriteLine($"显示通知失败: {ex.Message}"); }
     }
-    
-    public async Task ShutdownAsync()
+
+    public Task ShutdownAsync() => RunSystemCommandAsync("启动关机",
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? "shutdown" : "shutdown",
+        RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? new[] { "/s", "/t", "60" } : new[] { "-h", "+1" });
+
+    public Task CancelShutdownAsync()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            return RunSystemCommandAsync("取消关机", "killall", new[] { "shutdown" });
+        return RunSystemCommandAsync("取消关机", "shutdown",
+            RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? new[] { "/a" } : new[] { "-c" });
+    }
+
+    private async Task RunSystemCommandAsync(string operation, string fileName, string[] arguments)
     {
         await Task.Run(() =>
         {
             try
             {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    Process.Start("shutdown", "/s /t 60");
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    Process.Start("shutdown", "-h +1");
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Process.Start("shutdown", "-h +1");
-                }
+                using var process = StartProcess(fileName, arguments);
+                process.WaitForExit();
+                if (process.ExitCode != 0)
+                    ShowNotification("操作失败", $"{operation}失败，可能需要管理员权限。");
             }
-            catch { }
-        });
-    }
-    
-    public async Task CancelShutdownAsync()
-    {
-        await Task.Run(() =>
-        {
-            try
+            catch (Exception ex)
             {
-                if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-                {
-                    Process.Start("shutdown", "/a");
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-                {
-                    Process.Start("shutdown", "-c");
-                }
-                else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-                {
-                    Process.Start("killall", "shutdown");
-                }
+                Debug.WriteLine($"{operation}失败: {ex.Message}");
+                ShowNotification("操作失败", $"{operation}失败，可能未安装系统命令或权限不足。");
             }
-            catch { }
         });
     }
+
+    private static async Task RunDetachedAsync(string fileName, string[] arguments)
+    {
+        using var process = StartProcess(fileName, arguments);
+        await Task.CompletedTask;
+    }
+
+    private static void StartDetached(string fileName, string[] arguments)
+    {
+        _ = StartProcess(fileName, arguments);
+    }
+
+    private static Process StartProcess(string fileName, string[] arguments)
+    {
+        var info = new ProcessStartInfo { FileName = fileName, UseShellExecute = false, CreateNoWindow = true };
+        foreach (var argument in arguments) info.ArgumentList.Add(argument);
+        return Process.Start(info) ?? throw new InvalidOperationException($"无法启动 {fileName}");
+    }
+
+    private static string AppleScriptString(string value) =>
+        $"\"{value.Replace("\\", "\\\\").Replace("\"", "\\\"").Replace("\r", " ").Replace("\n", " ")}\"";
+
+    private static string PowerShellString(string value) => value.Replace("'", "''").Replace("\r", " ").Replace("\n", " ");
 }

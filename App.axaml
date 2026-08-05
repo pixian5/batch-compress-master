@@ -16,4 +16,17 @@
             <Setter Property="VerticalContentAlignment" Value="Center" />
         </Style>
     </Application.Styles>
+
+    <TrayIcon.Icons>
+        <TrayIcons>
+            <TrayIcon Icon="/Assets/压缩.ico" ToolTipText="批量压缩解压工具" Clicked="TrayIcon_Clicked">
+                <TrayIcon.Menu>
+                    <NativeMenu>
+                        <NativeMenuItem Header="显示/隐藏" Click="TrayShowHide_Clicked" />
+                        <NativeMenuItem Header="退出" Click="TrayExit_Clicked" />
+                    </NativeMenu>
+                </TrayIcon.Menu>
+            </TrayIcon>
+        </TrayIcons>
+    </TrayIcon.Icons>
 </Application>
