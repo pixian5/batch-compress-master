@@ -14,8 +14,18 @@
     <Compile Include="..\Core\Interfaces\IArchiveEngine.cs" Link="Core\Interfaces\IArchiveEngine.cs" />
     <Compile Include="..\Core\Services\WinRarCommandBuilder.cs" Link="Core\Services\WinRarCommandBuilder.cs" />
     <Compile Include="..\Core\Services\WinRarProcessRunner.cs" Link="Core\Services\WinRarProcessRunner.cs" />
+    <Compile Include="..\Core\Services\ArchiveProcessRunner.cs" Link="Core\Services\ArchiveProcessRunner.cs" />
+    <Compile Include="..\Core\Services\SevenZipCommandBuilder.cs" Link="Core\Services\SevenZipCommandBuilder.cs" />
+    <Compile Include="..\Core\Services\SevenZipArchiveEngine.cs" Link="Core\Services\SevenZipArchiveEngine.cs" />
+    <Compile Include="..\Core\Services\ArchiveEngineRouter.cs" Link="Core\Services\ArchiveEngineRouter.cs" />
+    <Compile Include="..\Core\Services\RarArchiveEngine.cs" Link="Core\Services\RarArchiveEngine.cs" />
     <Compile Include="..\Core\Services\OutputPathResolver.cs" Link="Core\Services\OutputPathResolver.cs" />
     <Compile Include="..\Core\Services\PasswordUtility.cs" Link="Core\Services\PasswordUtility.cs" />
     <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
+  </ItemGroup>
+
+  <!-- GPT-5, 2026-08-06：macOS 回归测试使用项目内官方 7zz，不依赖机器全局安装。 -->
+  <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
+    <None Include="..\tools\7zip\macos\7zz" Link="tools\7zip\macos\7zz" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 </Project>

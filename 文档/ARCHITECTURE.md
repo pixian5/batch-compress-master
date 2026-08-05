@@ -8,23 +8,26 @@
 Views/MainWindow.axaml + App.axaml
         -> ViewModels/MainWindowViewModel
         -> Core/Services/BatchOperationService
-        -> Core/Services/RarArchiveEngine
-        -> Core/Services/WinRarProcessRunner
-        -> RAR/WinRAR 可执行文件
+        -> Core/Services/ArchiveEngineRouter
+           -> RarArchiveEngine -> WinRAR/RAR
+           -> SevenZipArchiveEngine -> 官方 7zz
+        -> Core/Services/ArchiveProcessRunner
 ```
 
 - `Views/`：Avalonia 视图、拖放、快捷键和窗口状态事件。
 - `ViewModels/`：绑定状态、命令、文件选择器和日志集合；不直接拼接 Shell 命令。
 - `Core/Models/`：批处理、归档和进度模型。
 - `Core/Interfaces/`：归档引擎与系统集成边界。
-- `Core/Services/`：批处理编排、WinRAR 定位、密码兼容、平台集成和系统元数据过滤。
+- `Core/Services/`：批处理编排、归档格式路由、WinRAR 与 7-Zip 定位、密码兼容、平台集成和系统元数据过滤。
 - `BatchCompress.Avalonia.Tests/`：无需第三方测试框架的回归测试控制台。
 
 ## 归档执行
 
-`WinRarCommandBuilder` 将每个 WinRAR 开关和路径生成一个独立参数；`WinRarProcessRunner` 仅通过 `ProcessStartInfo.ArgumentList` 启动进程，并异步读取标准输出和错误输出。取消操作会终止整个进程树，退出码 `0`、`1` 视为成功，其余返回码为失败。
+`ArchiveEngineRouter` 在压缩时按 `ArchiveFormat` 路由：RAR/ZIP 进入 `RarArchiveEngine`，7z 进入 `SevenZipArchiveEngine`；解压时优先根据实际文件名识别 `.7z` 和 `.7z.001` 分卷。两个命令构建器都将每个开关与路径生成为独立参数，通用 `ArchiveProcessRunner` 仅通过 `ProcessStartInfo.ArgumentList` 启动进程，并同时异步读取标准输出和错误输出。取消会终止整个进程树。
 
-日志记录保留 WinRAR 的原始 stdout/stderr，可能包含密码；这是用户明确选择的诊断行为，因此不得加入脱敏、替换或掩码逻辑。
+WinRAR 和 7-Zip 的退出码 `0`、`1` 视为成功或非致命警告，其余返回码为失败。日志保留归档程序的原始 stdout/stderr，可能包含密码；这是用户明确选择的诊断行为，因此不得加入脱敏、替换或掩码逻辑。
+
+7z 支持密码及文件名加密、固实压缩、分卷、压缩级别、临时目录、创建后测试和解压覆盖策略。恢复记录、快速打开和注释文件是 RAR 专属能力，不会传给 7zz。
 
 ## 平台能力
 

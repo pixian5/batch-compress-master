@@ -16,7 +16,10 @@ internal static class Program
             ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
             ("空保存路径回退", TestOutputPathFallback),
             ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords),
-            ("跨平台系统元数据过滤", TestSystemMetadataFiltering)
+            ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
+            ("7z 压缩与解压参数", TestSevenZipArguments),
+            ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
+            ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke)
         };
 
         // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
@@ -93,12 +96,14 @@ internal static class Program
         }
 
         var runner = new WinRarProcessRunner("/bin/sh");
+        const string rawPassword = "password must stay visible";
         var result = await runner.RunAsync(
-            ["-c", "printf '%s' \"$1\"; printf '%s' stderr-marker >&2; exit 7", "sh", "path with space"],
+            ["-c", "printf '%s' \"$1\"; printf '%s' stderr-marker >&2; exit 7", "sh", rawPassword],
             CancellationToken.None);
 
         AssertEqual(7, result.ExitCode);
-        AssertEqual("path with space", result.StandardOutput);
+        // GPT-5, 2026-08-06：进程输出是原始诊断记录，密码文本明确不得被替换为 ***。
+        AssertEqual(rawPassword, result.StandardOutput);
         AssertEqual("stderr-marker", result.StandardError);
     }
 
@@ -174,6 +179,121 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    private static Task TestSevenZipArguments()
+    {
+        var options = CreateOptions();
+        options.ArchiveFormat = "7z";
+        options.Password = "secret password !@#";
+        options.CompressionLevel = CompressionLevel.Best;
+        options.SolidArchive = true;
+        options.VolumeSize = "20m";
+        options.TempDirectory = Path.Combine(Path.GetTempPath(), "7z temp");
+
+        var compressionArguments = SevenZipCommandBuilder.BuildCompressionArguments(
+            "/tmp/source with space",
+            "/tmp/archive with space.7z",
+            options);
+        AssertContains(compressionArguments, "-t7z");
+        AssertContains(compressionArguments, "-mx=9");
+        AssertContains(compressionArguments, "-ms=on");
+        AssertContains(compressionArguments, "-psecret password !@#");
+        AssertContains(compressionArguments, "-mhe=on");
+        AssertContains(compressionArguments, "-v20m");
+        AssertContains(compressionArguments, $"-w{options.TempDirectory}");
+        AssertEqual(1, compressionArguments.Count(value => value == "-psecret password !@#"));
+        AssertEqual("/tmp/archive with space.7z", compressionArguments[^2]);
+        AssertEqual("/tmp/source with space", compressionArguments[^1]);
+
+        options.ExistingFileMode = ExistingFileMode.Skip;
+        var skipArguments = SevenZipCommandBuilder.BuildExtractionArguments(
+            "/tmp/archive with space.7z",
+            "/tmp/output with space",
+            options);
+        AssertContains(skipArguments, "-aos");
+        AssertContains(skipArguments, "-o/tmp/output with space");
+        AssertEqual("/tmp/archive with space.7z", skipArguments[^1]);
+
+        options.ExistingFileMode = ExistingFileMode.Update;
+        AssertContains(SevenZipCommandBuilder.BuildExtractionArguments("a.7z", "out", options), "-aou");
+        options.ExistingFileMode = ExistingFileMode.Overwrite;
+        AssertContains(SevenZipCommandBuilder.BuildExtractionArguments("a.7z", "out", options), "-aoa");
+        AssertThrows<NotSupportedException>(() => SevenZipCommandBuilder.NormalizeArchiveFormat("zip"));
+        return Task.CompletedTask;
+    }
+
+    private static async Task TestSevenZipExitCodesAndRouting()
+    {
+        Assert(SevenZipExitCodes.IsSuccess(0), "7-Zip 返回码 0 必须表示成功");
+        Assert(SevenZipExitCodes.IsSuccess(1), "7-Zip 返回码 1 必须表示非致命警告成功");
+        foreach (var exitCode in new[] { 2, 7, 8, 255 })
+        {
+            Assert(!SevenZipExitCodes.IsSuccess(exitCode), $"7-Zip 返回码 {exitCode} 必须表示失败");
+        }
+
+        var rar = new RecordingArchiveEngine();
+        var sevenZip = new RecordingArchiveEngine();
+        var router = new ArchiveEngineRouter(rar, sevenZip);
+
+        await router.CompressAsync("source", "archive.rar", new ArchiveOptions { ArchiveFormat = "rar" });
+        await router.CompressAsync("source", "archive.zip", new ArchiveOptions { ArchiveFormat = "zip" });
+        await router.CompressAsync("source", "archive.7z", new ArchiveOptions { ArchiveFormat = ".7Z" });
+        await router.ExtractAsync("archive.7z.001", "output", new ArchiveOptions { ArchiveFormat = "rar" });
+        await router.ExtractAsync("archive.rar", "output", new ArchiveOptions { ArchiveFormat = "rar" });
+
+        AssertEqual(2, rar.CompressionCalls);
+        AssertEqual(1, rar.ExtractionCalls);
+        AssertEqual(1, sevenZip.CompressionCalls);
+        AssertEqual(1, sevenZip.ExtractionCalls);
+    }
+
+    private static async Task TestOfficialSevenZipSmoke()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            Console.WriteLine("SKIP 官方 7zz 真实压缩解压: 当前不是 macOS");
+            return;
+        }
+
+        var executable = Path.Combine(AppContext.BaseDirectory, "tools", "7zip", "macos", "7zz");
+        Assert(File.Exists(executable), $"测试输出中缺少项目内官方 7zz: {executable}");
+
+        var testRoot = Path.Combine(Path.GetTempPath(), $"batch-compress-7z-{Guid.NewGuid():N}");
+        var source = Path.Combine(testRoot, "source folder");
+        var archive = Path.Combine(testRoot, "archive with password.7z");
+        var output = Path.Combine(testRoot, "extracted");
+        Directory.CreateDirectory(source);
+        File.WriteAllText(Path.Combine(source, "content.txt"), "official 7zz smoke test");
+
+        try
+        {
+            var engine = new SevenZipArchiveEngine(executable);
+            Assert(engine.IsAvailable(), "项目内官方 7zz 必须通过身份校验");
+            var options = new ArchiveOptions
+            {
+                ArchiveFormat = "7z",
+                Password = "test password with space",
+                CompressionLevel = CompressionLevel.Normal,
+                SolidArchive = true,
+                ExistingFileMode = ExistingFileMode.Overwrite,
+                TestArchive = true
+            };
+
+            var compressed = await engine.CompressAsync(source, archive, options);
+            Assert(compressed.Success, $"官方 7zz 压缩失败: {compressed.ErrorMessage}");
+            Assert(File.Exists(archive), "官方 7zz 未生成归档文件");
+
+            var extracted = await engine.ExtractAsync(archive, output, options);
+            Assert(extracted.Success, $"官方 7zz 解压失败: {extracted.ErrorMessage}");
+            var extractedFile = Directory.GetFiles(output, "content.txt", SearchOption.AllDirectories).SingleOrDefault();
+            Assert(extractedFile != null, "解压结果中缺少 content.txt");
+            AssertEqual("official 7zz smoke test", File.ReadAllText(extractedFile!));
+        }
+        finally
+        {
+            Directory.Delete(testRoot, recursive: true);
+        }
+    }
+
     private static ArchiveOptions CreateOptions() => new()
     {
         ArchiveFormat = "rar",
@@ -237,5 +357,33 @@ internal static class Program
         }
 
         throw new InvalidOperationException($"应抛出 {typeof(TException).Name}");
+    }
+
+    private sealed class RecordingArchiveEngine : IArchiveEngine
+    {
+        public int CompressionCalls { get; private set; }
+        public int ExtractionCalls { get; private set; }
+
+        public bool IsAvailable() => true;
+
+        public Task<ArchiveResult> CompressAsync(
+            string input,
+            string output,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            CompressionCalls++;
+            return Task.FromResult(new ArchiveResult { Success = true });
+        }
+
+        public Task<ArchiveResult> ExtractAsync(
+            string archivePath,
+            string outputDir,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            ExtractionCalls++;
+            return Task.FromResult(new ArchiveResult { Success = true });
+        }
     }
 }

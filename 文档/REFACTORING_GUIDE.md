@@ -2,7 +2,7 @@
 
 ## 归档后端约束
 
-继续使用 RAR/WinRAR。新增开关必须在 `WinRarCommandBuilder` 中作为单独参数添加，并由 `WinRarProcessRunner` 的 `ArgumentList` 传递；禁止重新拼接完整命令字符串或回退为同步读取输出。
+RAR/ZIP 继续使用 RAR/WinRAR，7z 使用官方 7zz。新增开关必须加入对应的 `WinRarCommandBuilder` 或 `SevenZipCommandBuilder`，并作为单独参数交给 `ArchiveProcessRunner` 的 `ArgumentList`；禁止重新拼接完整命令字符串或回退为同步读取输出。新格式应新增独立引擎并接入 `ArchiveEngineRouter`，不要把不同工具的参数混在一个构建器中。
 
 不要对归档 stdout/stderr 脱敏。输出是原始诊断证据，用户明确要求保留密码文本。任何展示或导出日志的新增渠道都应说明这一点。
 

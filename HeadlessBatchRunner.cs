@@ -25,7 +25,8 @@ public class HeadlessBatchRunner
     {
         _options = options;
         _logger = logger;
-        _archiveEngine = new RarArchiveEngine();
+        // GPT-5, 2026-08-06：无界面模式与 GUI 共用同一格式路由，避免两种入口能力不一致。
+        _archiveEngine = new ArchiveEngineRouter();
         _batchOperationService = new BatchOperationService(_archiveEngine, new HeadlessSystemIntegration(_logger));
     }
 
@@ -43,8 +44,8 @@ public class HeadlessBatchRunner
 
         if (!_archiveEngine.IsAvailable())
         {
-            _logger.LogError("RAR executable not found. Please install WinRAR or RAR.");
-            Console.WriteLine("Error: RAR executable not found. Please install WinRAR or RAR.");
+            _logger.LogError("No supported archive engine was found.");
+            Console.WriteLine("Error: no supported archive engine was found (WinRAR/RAR or 7-Zip).");
             return 1;
         }
 

@@ -533,6 +533,10 @@ public class BatchOperationService
             // Build archive options
             var archiveOptions = new ArchiveOptions
             {
+                // GPT-5, 2026-08-06：解压路由优先看实际文件名，同时保留批处理扩展名作为无后缀输入的后备信息。
+                ArchiveFormat = Path.GetExtension(archivePath).TrimStart('.') is { Length: > 0 } actualFormat
+                    ? actualFormat
+                    : options.Extension,
                 Password = password,
                 ExistingFileMode = options.ExistingFileMode
             };

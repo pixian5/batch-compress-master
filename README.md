@@ -1,13 +1,13 @@
 # 批量压缩解压工具
 
-跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 命令行执行压缩与解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
+跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.1.4`。
+当前版本：`0.1.9`。
 
 ## 功能
 
 - 批量压缩和解压，支持目录、手动列表及 TXT 文件列表。
-- 压缩格式仅支持 `rar` 与 `zip`；WinRAR 不能创建 7z，界面会拒绝该格式。
+- 支持创建与解压 `rar`、`zip`、`7z`；RAR/ZIP 使用 WinRAR/RAR，7z 使用官方 `7zz`。
 - 支持随机密码、自定义密码、旧版兼容密码查询、分卷、恢复记录、固实压缩、压缩级别、校验、注释、临时目录和既有文件处理策略。
 - 支持删除或移动源文件、跳过已处理项目、附件目录、大小限制、完成后关机及取消关机。
 - 压缩进程使用 `ProcessStartInfo.ArgumentList` 传递独立参数，并发异步读取 stdout/stderr；命令日志保留原始输出，**不会脱敏或替换密码**。
@@ -16,11 +16,11 @@
 
 ## 依赖与平台
 
-需要 .NET 10 SDK（源码运行）和可用的 RAR/WinRAR 命令行程序。
+源码运行需要 .NET 10 SDK。RAR/ZIP 需要 RAR/WinRAR，7z 需要官方 7-Zip 命令行程序。
 
 - Windows：安装 WinRAR。程序依次查找随程序发布的 `tools/WinRAR`、注册表、标准安装目录等位置。
-- macOS：可安装 RAR，或将可执行文件放入应用的 `tools/rarmacOS/rar`。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`。
-- Linux：安装 RAR，并可放入应用的 `tools/rarLinux/rar`。
+- macOS：项目内含官方 7-Zip 25.01 universal `7zz`；RAR 可安装到系统或放入 `tools/rarmacOS/rar`。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`。
+- Linux：项目内分别包含官方 7-Zip 25.01 x64、ARM64 `7zz`；RAR 可安装到系统或放入 `tools/rarLinux/rar`。
 
 仅 `rar` 可用于创建 RAR 归档；`unrar` 不能完成压缩。
 
@@ -40,7 +40,7 @@ scripts/package-macos.sh
 open -n /Applications/BatchCompress.Avalonia.app
 ```
 
-测试项目覆盖格式限制、密码参数、取消、失败退出码、恢复记录、旧密码和系统元数据过滤。
+测试项目覆盖格式路由、密码参数、取消、失败退出码、恢复记录、旧密码、系统元数据过滤，以及官方 `7zz` 的真实带密码压缩与解压。
 
 ## 文档
 

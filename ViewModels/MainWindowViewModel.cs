@@ -314,7 +314,8 @@ public partial class MainWindowViewModel : ViewModelBase
     
     public MainWindowViewModel()
     {
-        _archiveEngine = new RarArchiveEngine();
+        // GPT-5, 2026-08-06：按归档格式选择 WinRAR/RAR 或官方 7zz，界面不直接依赖具体命令行工具。
+        _archiveEngine = new ArchiveEngineRouter();
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
         
@@ -999,10 +1000,10 @@ public partial class MainWindowViewModel : ViewModelBase
     
     partial void OnExtensionChanged(string value)
     {
-        // Warn if trying to compress to 7z
-        if (value.Equals("7z", StringComparison.OrdinalIgnoreCase))
+        // GPT-5, 2026-08-06：7z 已由官方 7zz 完整支持；这里只提示该格式不具备 RAR 专属恢复记录和快速打开能力。
+        if (value.Trim().TrimStart('.').Equals("7z", StringComparison.OrdinalIgnoreCase))
         {
-            CommandLog += "Warning: WinRAR cannot compress to 7z format, only extract. Consider using rar or zip.\n";
+            CommandLog += "7z 使用官方 7-Zip；恢复记录、快速打开和 RAR 注释选项不会应用。\n";
         }
     }
     

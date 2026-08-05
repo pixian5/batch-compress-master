@@ -7,6 +7,7 @@ publish_dir="$repo_root/.artifacts/macos-publish"
 app_path="/Applications/BatchCompress.Avalonia.app"
 icon_source="$repo_root/Assets/压缩.ico"
 icon_png="$repo_root/Assets/压缩.png"
+seven_zip_source="$repo_root/tools/7zip/macos"
 iconset_tmp="$(mktemp -d /tmp/batch-compress-iconset.XXXXXX)"
 iconset_dir="${iconset_tmp}.iconset"
 mv "$iconset_tmp" "$iconset_dir"
@@ -14,6 +15,11 @@ trap 'rm -rf "$iconset_dir"' EXIT
 
 if [[ ! -f "$icon_source" ]]; then
   print -u2 "missing icon source: $icon_source"
+  exit 1
+fi
+
+if [[ ! -x "$seven_zip_source/7zz" || ! -f "$seven_zip_source/License.txt" ]]; then
+  print -u2 "missing official macOS 7-Zip files: $seven_zip_source"
   exit 1
 fi
 
@@ -46,6 +52,12 @@ chmod +x "$app_path/Contents/MacOS/BatchCompress.Avalonia"
 chmod +x "$app_path/Contents/MacOS/BatchCompress.StatusBarHelper"
 cp "$repo_root/macos/Info.plist" "$app_path/Contents/Info.plist"
 cp "$repo_root/macos/压缩.icns" "$app_path/Contents/Resources/压缩.icns"
+# GPT-5, 2026-08-06：Finder 启动时 PATH 不可靠，因此将官方 7zz 及授权文件放入应用包固定相对路径。
+mkdir -p "$app_path/Contents/MacOS/tools/7zip/macos"
+cp "$seven_zip_source/7zz" "$app_path/Contents/MacOS/tools/7zip/macos/7zz"
+cp "$seven_zip_source/License.txt" "$seven_zip_source/readme.txt" "$seven_zip_source/History.txt" \
+  "$app_path/Contents/MacOS/tools/7zip/macos/"
+chmod +x "$app_path/Contents/MacOS/tools/7zip/macos/7zz"
 touch "$app_path"
 codesign --force --deep --sign - "$app_path" >/dev/null
 
