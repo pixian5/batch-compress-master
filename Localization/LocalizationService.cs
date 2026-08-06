@@ -103,6 +103,7 @@ public class LocalizationService : INotifyPropertyChanged
             // Source and Destination Section
             SourceAndDestination = "来源与目标",
             FromTxtMode = "从txt读取要解压的文件：",
+            CompressionTxtMode = "从txt读取待压缩路径：",
             CompressFolderMode = "压缩此文件夹内所有文件：",
             SavePathWatermark = "待压缩/解压文件保存路径",
             SelectDirectory = "选择目录",
@@ -153,6 +154,8 @@ public class LocalizationService : INotifyPropertyChanged
             ClearLogs = "清空日志",
             OpenOutput = "打开输出",
             OpenSource = "打开源",
+            ZoomIn = "放大",
+            ZoomOut = "缩小",
             
             // Status Display
             CurrentFile = "当前文件：",
@@ -217,6 +220,7 @@ public class LocalizationService : INotifyPropertyChanged
             // Source and Destination Section
             SourceAndDestination = "來源與目標",
             FromTxtMode = "從txt讀取要解壓的檔案：",
+            CompressionTxtMode = "從txt讀取待壓縮路徑：",
             CompressFolderMode = "壓縮此資料夾內所有檔案：",
             SavePathWatermark = "待壓縮/解壓檔案儲存路徑",
             SelectDirectory = "選擇目錄",
@@ -267,6 +271,8 @@ public class LocalizationService : INotifyPropertyChanged
             ClearLogs = "清空日誌",
             OpenOutput = "開啟輸出",
             OpenSource = "開啟源",
+            ZoomIn = "放大",
+            ZoomOut = "縮小",
             
             // Status Display
             CurrentFile = "當前檔案：",
@@ -331,6 +337,7 @@ public class LocalizationService : INotifyPropertyChanged
             // Source and Destination Section
             SourceAndDestination = "Source & Destination",
             FromTxtMode = "Read files to decompress from txt:",
+            CompressionTxtMode = "Read paths to compress from txt:",
             CompressFolderMode = "Compress all files in folder:",
             SavePathWatermark = "File save path for compress/decompress",
             SelectDirectory = "Browse",
@@ -381,6 +388,8 @@ public class LocalizationService : INotifyPropertyChanged
             ClearLogs = "Clear Logs",
             OpenOutput = "Open Output",
             OpenSource = "Open Source",
+            ZoomIn = "Maximize",
+            ZoomOut = "Restore",
             
             // Status Display
             CurrentFile = "Current File:",
@@ -445,6 +454,7 @@ public class LocalizationService : INotifyPropertyChanged
             // Source and Destination Section
             SourceAndDestination = "ソースと宛先",
             FromTxtMode = "txtから解凍するファイルを読み込む：",
+            CompressionTxtMode = "txtから圧縮するパスを読み込む：",
             CompressFolderMode = "フォルダ内のすべてのファイルを圧縮：",
             SavePathWatermark = "圧縮/解凍ファイルの保存パス",
             SelectDirectory = "参照",
@@ -495,6 +505,8 @@ public class LocalizationService : INotifyPropertyChanged
             ClearLogs = "ログクリア",
             OpenOutput = "出力を開く",
             OpenSource = "ソースを開く",
+            ZoomIn = "最大化",
+            ZoomOut = "元に戻す",
             
             // Status Display
             CurrentFile = "現在のファイル：",
@@ -559,6 +571,7 @@ public class LocalizationService : INotifyPropertyChanged
             // Source and Destination Section
             SourceAndDestination = "Quelle & Ziel",
             FromTxtMode = "Dateien zum Entpacken aus txt lesen:",
+            CompressionTxtMode = "Zu komprimierende Pfade aus txt lesen:",
             CompressFolderMode = "Alle Dateien im Ordner komprimieren:",
             SavePathWatermark = "Speicherpfad für Komprimierung/Dekomprimierung",
             SelectDirectory = "Durchsuchen",
@@ -609,6 +622,8 @@ public class LocalizationService : INotifyPropertyChanged
             ClearLogs = "Logs löschen",
             OpenOutput = "Ausgabe öffnen",
             OpenSource = "Quelle öffnen",
+            ZoomIn = "Maximieren",
+            ZoomOut = "Wiederherstellen",
             
             // Status Display
             CurrentFile = "Aktuelle Datei:",

@@ -35,6 +35,7 @@ public class LanguageStrings : INotifyPropertyChanged
     // Source and Destination Section
     public string SourceAndDestination { get; set; } = "来源与目标";
     public string FromTxtMode { get; set; } = "从txt读取要解压的文件：";
+    public string CompressionTxtMode { get; set; } = "从txt读取待压缩路径：";
     public string CompressFolderMode { get; set; } = "压缩此文件夹内所有文件：";
     public string SavePathWatermark { get; set; } = "待压缩/解压文件保存路径";
     public string SelectDirectory { get; set; } = "选择目录";
@@ -85,6 +86,8 @@ public class LanguageStrings : INotifyPropertyChanged
     public string ClearLogs { get; set; } = "清空日志";
     public string OpenOutput { get; set; } = "打开输出";
     public string OpenSource { get; set; } = "打开源";
+    public string ZoomIn { get; set; } = "放大";
+    public string ZoomOut { get; set; } = "缩小";
     
     // Status Display
     public string CurrentFile { get; set; } = "当前文件：";

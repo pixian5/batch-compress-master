@@ -93,76 +93,149 @@ public class BatchOperationService
     /// </summary>
     public List<FileEntry> LoadFilesFromTextFile(string txtFilePath, string sourceFolder, string extension)
     {
-        var entries = new List<FileEntry>();
-        
+        return LoadFilesFromTextFileWithDiagnostics(txtFilePath, sourceFolder, extension).Entries;
+    }
+
+    // GPT-5, 2026-08-06：读取旧版“文件名/密码交替”密码本，并返回未匹配归档诊断。
+    public TextFileImportResult LoadFilesFromTextFileWithDiagnostics(string txtFilePath, string sourceFolder, string extension)
+    {
+        var result = new TextFileImportResult();
         if (!File.Exists(txtFilePath))
         {
-            return entries;
+            return result;
         }
-        
+
         try
         {
-            var lines = File.ReadAllLines(txtFilePath);
-            
-            for (int i = 0; i < lines.Length; i++)
+            var lines = File.ReadAllLines(txtFilePath)
+                .Select(line => line.Trim())
+                .Where(line => line.Length > 0)
+                .ToArray();
+
+            for (var i = 0; i < lines.Length; i += 2)
             {
-                var line = lines[i].Trim();
-                if (string.IsNullOrEmpty(line))
-                {
-                    continue;
-                }
-                
-                // Odd lines are filenames, even lines are passwords
-                string filename = line;
-                string? password = null;
-                
-                // Get password from next line
-                if (i + 1 < lines.Length)
-                {
-                    password = lines[i + 1].Trim();
-                    i++; // Skip the password line in next iteration
-                }
-                
-                // Construct full path
-                string fullPath;
-                if (Path.IsPathRooted(filename))
-                {
-                    fullPath = filename;
-                }
-                else
-                {
-                    // Add extension if not present
-                    if (!filename.Contains('.'))
-                    {
-                        filename += "." + extension;
-                    }
-                    fullPath = Path.Combine(sourceFolder, filename);
-                }
-                
-                // Check for multi-volume archives
+                var filename = lines[i];
+                var password = i + 1 < lines.Length ? lines[i + 1] : null;
+                result.RequestedCount++;
+                var fullPath = ResolveTextEntryPath(filename, sourceFolder, extension);
                 if (IsMultiVolumeArchive(fullPath, extension, out var firstVolumePath))
                 {
                     fullPath = firstVolumePath;
                 }
-                
-                if (!SystemMetadataFileFilter.ShouldSkip(fullPath) && File.Exists(fullPath))
+
+                if (SystemMetadataFileFilter.ShouldSkip(fullPath) || !File.Exists(fullPath))
                 {
-                    entries.Add(new FileEntry
-                    {
-                        FilePath = fullPath,
-                        Password = password,
-                        FileSize = new FileInfo(fullPath).Length
-                    });
+                    result.MissingEntries.Add(fullPath);
+                    continue;
+                }
+
+                if (result.Entries.Any(entry => entry.FilePath.Equals(fullPath, StringComparison.OrdinalIgnoreCase)))
+                {
+                    continue;
+                }
+
+                var fileSize = new FileInfo(fullPath).Length;
+                result.Entries.Add(new FileEntry { FilePath = fullPath, Password = password, FileSize = fileSize });
+                result.MatchedBytes += fileSize;
+            }
+
+            AddArchiveDiagnostics(result, sourceFolder, extension);
+        }
+        catch (Exception ex)
+        {
+            Log(LogLevel.Error, $"读取文本文件失败: {ex.Message}");
+        }
+
+        return result;
+    }
+
+    // GPT-5, 2026-08-06：压缩清单使用“每行一个文件或目录”，不再把下一行误当成密码。
+    public TextFileImportResult LoadCompressionPathsFromTextFile(string txtFilePath)
+    {
+        var result = new TextFileImportResult();
+        if (!File.Exists(txtFilePath))
+        {
+            return result;
+        }
+
+        try
+        {
+            foreach (var rawLine in File.ReadAllLines(txtFilePath))
+            {
+                var line = rawLine.Trim();
+                if (line.Length == 0 || SystemMetadataFileFilter.ShouldSkip(line))
+                {
+                    continue;
+                }
+
+                result.RequestedCount++;
+                var path = Path.IsPathRooted(line)
+                    ? line
+                    : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(txtFilePath) ?? Directory.GetCurrentDirectory(), line));
+                if (!File.Exists(path) && !Directory.Exists(path))
+                {
+                    result.MissingEntries.Add(path);
+                    continue;
+                }
+
+                if (!result.Paths.Contains(path, StringComparer.OrdinalIgnoreCase))
+                {
+                    result.Paths.Add(path);
+                    result.MatchedBytes += File.Exists(path) ? new FileInfo(path).Length : 0;
                 }
             }
         }
         catch (Exception ex)
         {
-            Log(LogLevel.Error, $"Error loading files from text file: {ex.Message}");
-            Console.WriteLine($"Error loading files from text file: {ex.Message}");
+            Log(LogLevel.Error, $"读取压缩路径清单失败: {ex.Message}");
         }
-        
-        return entries;
+
+        return result;
+    }
+
+    private static string ResolveTextEntryPath(string filename, string sourceFolder, string extension)
+    {
+        if (Path.IsPathRooted(filename))
+        {
+            return filename;
+        }
+
+        var normalizedName = filename.Contains('.') ? filename : filename + "." + extension;
+        return Path.Combine(sourceFolder, normalizedName);
+    }
+
+    private void AddArchiveDiagnostics(TextFileImportResult result, string sourceFolder, string extension)
+    {
+        if (!Directory.Exists(sourceFolder))
+        {
+            return;
+        }
+
+        var matched = result.Entries.Select(entry => Path.GetFullPath(entry.FilePath))
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var archive in Directory.EnumerateFiles(sourceFolder, "*", SearchOption.TopDirectoryOnly))
+        {
+            if (SystemMetadataFileFilter.ShouldSkip(archive) ||
+                !Path.GetExtension(archive).TrimStart('.').Equals(extension.TrimStart('.'), StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (matched.Contains(Path.GetFullPath(archive)))
+            {
+                continue;
+            }
+
+            if (Path.GetFileName(archive).Contains(".part", StringComparison.OrdinalIgnoreCase) ||
+                Regex.IsMatch(Path.GetFileName(archive), @"\.7z\.\d+$", RegexOptions.IgnoreCase))
+            {
+                result.VolumeCandidates.Add(archive);
+            }
+            else
+            {
+                result.UnmatchedArchives.Add(archive);
+            }
+        }
     }
     
     /// <summary>

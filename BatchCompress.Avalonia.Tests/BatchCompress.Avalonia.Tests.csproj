@@ -23,10 +23,14 @@
     <Compile Include="..\Core\Services\OutputPathResolver.cs" Link="Core\Services\OutputPathResolver.cs" />
     <Compile Include="..\Core\Services\PasswordUtility.cs" Link="Core\Services\PasswordUtility.cs" />
     <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
+    <Compile Include="..\Core\Services\BatchOperationService.cs" Link="Core\Services\BatchOperationService.cs" />
+    <Compile Include="..\Core\Models\OperationModels.cs" Link="Core\Models\OperationModels.cs" />
+    <Compile Include="..\Core\Interfaces\ISystemIntegration.cs" Link="Core\Interfaces\ISystemIntegration.cs" />
   </ItemGroup>
 
   <ItemGroup>
     <PackageReference Include="System.CommandLine" Version="2.0.0-beta4.22272.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
   </ItemGroup>
 
   <!-- GPT-5, 2026-08-06：macOS 回归测试使用项目内官方 7zz，不依赖机器全局安装。 -->

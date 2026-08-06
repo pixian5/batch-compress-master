@@ -25,6 +25,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly ISystemIntegration _systemIntegration;
     private readonly BatchOperationService _batchOperationService;
     private CancellationTokenSource? _cancellationTokenSource;
+    private DateTime _lastProgressNotification = DateTime.MinValue;
+    private int _lastNotifiedCompletedCount;
+    private double _lastNotifiedProcessedSizeGB;
     
     // Localization support
     public LocalizationService Localization => LocalizationService.Instance;
@@ -83,12 +86,14 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
-    private int _sourceMode; // 0 = from text file, 1 = from folder
+    private int _sourceMode; // 0 = 解压密码本，1 = 压缩路径清单，2 = 来源目录
     
-    public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;    
+    public string BrowseSourceButtonText => SourceMode < 2 ? L.SelectTxt : L.SelectDirectory;
     
-    public string SourcePathWatermark => SourceMode == 0 ? L.TxtPathWatermark : L.SavePathWatermark;    
-    public string SourcePathLabel => SourceMode == 0 ? L.FromTxtMode : L.CompressFolderMode;
+    public string SourcePathWatermark => SourceMode < 2 ? L.TxtPathWatermark : L.SavePathWatermark;
+    public string SourcePathLabel => SourceMode == 0
+        ? L.FromTxtMode
+        : SourceMode == 1 ? L.CompressionTxtMode : L.CompressFolderMode;
     
     /// <summary>
     /// Dynamic source mode options that update when language changes
@@ -126,6 +131,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // Clear and repopulate source mode options
         SourceModeOptions.Clear();
         SourceModeOptions.Add(L.FromTxtMode);
+        SourceModeOptions.Add(L.CompressionTxtMode);
         SourceModeOptions.Add(L.CompressFolderMode);
         
         // Clear and repopulate compression level options
@@ -157,7 +163,7 @@ public partial class MainWindowViewModel : ViewModelBase
         VolumeUnit = currentVolumeUnit >= 0 && currentVolumeUnit < VolumeUnitOptions.Count ? currentVolumeUnit : 0;
     }
     
-    public bool IsFromTxtMode => SourceMode == 0;
+    public bool IsFromTxtMode => SourceMode < 2;
     
     // Tab header with item count
     public string SourceFileListTabHeader => $"{L.FileListTab} ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
@@ -326,7 +332,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (Design.IsDesignMode) 
         {
             // Set backing fields directly to avoid triggering tasks in design mode
-            _sourceMode = 1;
+            _sourceMode = 2;
             _enclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                            "【解压密码】微信号：i17269637581\n" +
                            "【解压密码】QQ号：2027123419\n" +
@@ -338,7 +344,7 @@ public partial class MainWindowViewModel : ViewModelBase
         DetectSystemLanguage();
 
         // Initialize with default values for runtime
-        SourceMode = 1;
+        SourceMode = 2;
         EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                        "【解压密码】微信号：i17269637581\n" +
                        "【解压密码】QQ号：2027123419\n" +
@@ -484,7 +490,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task RefreshFileListAsync()
     {
-        if (SourceMode == 0)
+        if (SourceMode < 2)
         {
             // Load from text file
             await LoadFromTextFileAsync();
@@ -501,25 +507,72 @@ public partial class MainWindowViewModel : ViewModelBase
     
     private async Task LoadFromTextFileAsync()
     {
-        await Task.Run(() =>
+        var result = await Task.Run(() =>
         {
-            if (string.IsNullOrEmpty(TextFilePath) || !File.Exists(TextFilePath))
+            var textPath = SourcePath;
+            if (string.IsNullOrEmpty(textPath) || !File.Exists(textPath))
             {
-                return;
+                return new TextFileImportResult();
             }
-            
-            var entries = _batchOperationService.LoadFilesFromTextFile(
-                TextFilePath, SourcePath, Extension);
-            
-            var lines = new List<string>();
-            foreach (var entry in entries)
+
+            if (SourceMode == 1)
             {
-                lines.Add(entry.FilePath);
-                lines.Add(entry.Password ?? string.Empty);
+                return _batchOperationService.LoadCompressionPathsFromTextFile(textPath);
             }
-            
-            SourceFileList = string.Join(Environment.NewLine, lines);
+
+            return _batchOperationService.LoadFilesFromTextFileWithDiagnostics(
+                textPath, SaveFilePath, Extension);
         });
+
+        if (SourceMode == 1)
+        {
+            SourceFileList = string.Join(Environment.NewLine, result.Paths);
+            AppendTextImportDiagnostics(result, false);
+            return;
+        }
+
+        var lines = new List<string>();
+        foreach (var entry in result.Entries)
+        {
+            lines.Add(entry.FilePath);
+            lines.Add(entry.Password ?? string.Empty);
+        }
+
+        SourceFileList = string.Join(Environment.NewLine, lines);
+        AppendTextImportDiagnostics(result, true);
+    }
+
+    // GPT-5, 2026-08-06：导入诊断写入命令日志，保留旧版的匹配统计和分卷提示，但不阻塞批处理。
+    private void AppendTextImportDiagnostics(TextFileImportResult result, bool passwordBook)
+    {
+        var type = passwordBook ? "密码本" : "压缩路径清单";
+        var count = passwordBook ? result.Entries.Count : result.Paths.Count;
+        var sizeGB = result.MatchedBytes / (1024.0 * 1024.0 * 1024.0);
+        var estimatedSeconds = result.MatchedBytes / (1024.0 * 1024.0) / 40.0;
+        CommandLog += $"[{type}] 请求={result.RequestedCount}，已匹配={count}，大小={sizeGB:F3} GB，预计约 {estimatedSeconds:F1} 秒\n";
+
+        if (result.MissingEntries.Count > 0)
+        {
+            CommandLog += $"[{type}] 未找到 {result.MissingEntries.Count} 项:\n" +
+                          string.Join(Environment.NewLine, result.MissingEntries) + Environment.NewLine;
+        }
+
+        if (!passwordBook)
+        {
+            return;
+        }
+
+        if (result.UnmatchedArchives.Count > 0)
+        {
+            CommandLog += $"[密码本] 以下归档未在密码本找到，共 {result.UnmatchedArchives.Count} 个:\n" +
+                          string.Join(Environment.NewLine, result.UnmatchedArchives) + Environment.NewLine;
+        }
+
+        if (result.VolumeCandidates.Count > 0)
+        {
+            CommandLog += $"[密码本] 以下归档疑似分卷，共 {result.VolumeCandidates.Count} 个:\n" +
+                          string.Join(Environment.NewLine, result.VolumeCandidates) + Environment.NewLine;
+        }
     }
     
     private async Task LoadFromFolderAsync()
@@ -551,6 +604,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task CompressAsync()
     {
         if (IsOperating) return;
+
+        if (SourceMode == 0)
+        {
+            CommandLog += "当前来源模式是解压密码本，请切换到压缩路径清单或来源目录后再压缩。\n";
+            return;
+        }
         
         try
         {
@@ -569,7 +628,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // If no files in list, try to load them first
             if (sourcePaths.Count == 0)
             {
-                CommandLog += "No files in list, trying to load automatically...\n";
+                CommandLog += "列表中没有文件，正在自动加载...\n";
                 await RefreshFileListAsync();
                 
                 // Try again
@@ -580,7 +639,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     
                 if (sourcePaths.Count == 0)
                 {
-                    CommandLog += "Still no files to compress\n";
+                    CommandLog += "仍然没有要压缩的文件\n";
                     return;
                 }
             }
@@ -618,7 +677,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     RemainingTime = TimeSpan.Zero;
                     EstimatedCompletionTime = DateTime.MinValue;
                 }
-                
+
+                MaybeShowProgressNotification("压缩", info);
+
                 // GPT-5, 2026-08-06：底层归档输出只进入命令日志，避免 stdout/stderr 被重复计入成功或失败记录。
                 var isCommandOutput = info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]");
                 if (isCommandOutput)
@@ -766,7 +827,9 @@ public partial class MainWindowViewModel : ViewModelBase
                     RemainingTime = TimeSpan.Zero;
                     EstimatedCompletionTime = DateTime.MinValue;
                 }
-                
+
+                MaybeShowProgressNotification("解压", info);
+
                 // GPT-5, 2026-08-06：解压进程的原始输出与压缩使用同一分类规则。
                 var isCommandOutput = info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]");
                 if (isCommandOutput)
@@ -919,6 +982,38 @@ public partial class MainWindowViewModel : ViewModelBase
         ProcessingSpeedMBPerSecond = 0;
         EstimatedCompletionTime = DateTime.MinValue;
         _operationStartTime = DateTime.MinValue;
+        _lastProgressNotification = DateTime.MinValue;
+        _lastNotifiedCompletedCount = 0;
+        _lastNotifiedProcessedSizeGB = 0;
+    }
+
+    // GPT-5, 2026-08-06：后台通知只在首个完成项、每 10 项、每增加 1GB 或每 5 分钟发送一次。
+    // 这样隐藏窗口运行时仍能看到阶段性进度，同时避免大量归档产生通知风暴。
+    private void MaybeShowProgressNotification(string operation, OperationProgressInfo info)
+    {
+        var completedCount = info.SuccessCount + info.FailCount + info.IgnoreCount;
+        if (completedCount <= 0)
+        {
+            return;
+        }
+
+        var now = DateTime.Now;
+        var first = _lastProgressNotification == DateTime.MinValue;
+        var countMilestone = completedCount >= _lastNotifiedCompletedCount + 10;
+        var sizeMilestone = info.ProcessedSizeGB >= _lastNotifiedProcessedSizeGB + 1;
+        var timeMilestone = !first && now - _lastProgressNotification >= TimeSpan.FromMinutes(5);
+        if (!first && !countMilestone && !sizeMilestone && !timeMilestone)
+        {
+            return;
+        }
+
+        _lastProgressNotification = now;
+        _lastNotifiedCompletedCount = completedCount;
+        _lastNotifiedProcessedSizeGB = info.ProcessedSizeGB;
+        var remaining = RemainingTime > TimeSpan.Zero ? $"，剩余约 {RemainingTime:hh\\:mm\\:ss}" : string.Empty;
+        _systemIntegration.ShowNotification(
+            $"{operation}进行中",
+            $"已处理 {completedCount} 项，成功 {info.SuccessCount}，失败 {info.FailCount}，当前：{info.CurrentFile}{remaining}");
     }
     
     private BatchOperationOptions BuildBatchOperationOptions()
@@ -970,8 +1065,8 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (!string.IsNullOrEmpty(value))
         {
-            // Only update for TXT mode
-            if (SourceMode == 0)
+            // 文本来源的两个模式都应在路径改变后重新解析清单。
+            if (SourceMode < 2)
             {
                 Task.Run(async () =>
                 {
@@ -983,7 +1078,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         else
         {
-            if (SourceMode == 0)
+            if (SourceMode < 2)
             {
                 TotalSizeGB = 0;
             }

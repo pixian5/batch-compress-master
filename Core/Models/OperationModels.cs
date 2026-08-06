@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 
 namespace BatchCompress.Avalonia.Core.Models;
 
@@ -70,6 +71,20 @@ public class BatchOperationOptions
 /// </summary>
 public enum SourceMode
 {
-    FromTextFile = 0,  // Read from text file with passwords
-    FromFolder = 1     // Read from folder
+    FromTextFile = 0,          // 从文本文件读取归档和密码
+    CompressionTextFile = 1,   // 从文本文件读取待压缩路径
+    FromFolder = 2             // 从目录读取
+}
+
+// GPT-5, 2026-08-06：文本导入结果同时保留有效条目和诊断信息，避免旧版静默丢弃无效行。
+// 密码本和压缩路径清单共用该结果，界面可以据此输出匹配率、未匹配归档和疑似分卷。
+public sealed class TextFileImportResult
+{
+    public List<FileEntry> Entries { get; } = new();
+    public List<string> Paths { get; } = new();
+    public List<string> MissingEntries { get; } = new();
+    public List<string> UnmatchedArchives { get; } = new();
+    public List<string> VolumeCandidates { get; } = new();
+    public int RequestedCount { get; set; }
+    public long MatchedBytes { get; set; }
 }

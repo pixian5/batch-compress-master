@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using BatchCompress.Avalonia.Core.Interfaces;
+using BatchCompress.Avalonia.Core.Models;
 using BatchCompress.Avalonia.Core.Services;
 
 // GPT-5, 2026-08-05：用于命令构建、进程取消和路径回退的轻量可执行回归测试。
@@ -21,7 +22,8 @@ internal static class Program
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
             ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke),
             ("完整命令行解析", TestCommandLineParsing),
-            ("命令行错误校验", TestCommandLineValidation)
+            ("命令行错误校验", TestCommandLineValidation),
+            ("TXT 清单与密码本诊断", TestTextFileImportModes)
         };
 
         // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
@@ -40,6 +42,65 @@ internal static class Program
         }
 
         return 0;
+    }
+
+    // GPT-5, 2026-08-06：验证压缩 TXT 每行一个路径，确保密码文本不会进入压缩任务。
+    private static Task TestTextFileImportModes()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-text-tests-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var source = Path.Combine(root, "source.txt");
+            var archive = Path.Combine(root, "matched.rar");
+            var unmatched = Path.Combine(root, "not-in-book.rar");
+            File.WriteAllText(source, "source");
+            File.WriteAllText(archive, "archive");
+            File.WriteAllText(unmatched, "archive");
+
+            var compressionList = Path.Combine(root, "compress.txt");
+            File.WriteAllLines(compressionList, new[] { source, "this is not a password" });
+            var service = new BatchOperationService(new TestArchiveEngine(), new TestSystemIntegration());
+            var compressionResult = service.LoadCompressionPathsFromTextFile(compressionList);
+            AssertEqual(2, compressionResult.RequestedCount);
+            AssertEqual(1, compressionResult.Paths.Count);
+            Assert(compressionResult.MissingEntries.Any(path => path.EndsWith("this is not a password", StringComparison.Ordinal)),
+                "压缩清单中的无效路径必须进入诊断，不得成为密码行");
+
+            var passwordBook = Path.Combine(root, "passwords.txt");
+            File.WriteAllLines(passwordBook, new[] { "matched", "secret" });
+            var passwordResult = service.LoadFilesFromTextFileWithDiagnostics(passwordBook, root, "rar");
+            AssertEqual(1, passwordResult.Entries.Count);
+            AssertEqual("secret", passwordResult.Entries[0].Password);
+            Assert(passwordResult.UnmatchedArchives.Contains(unmatched), "密码本诊断必须列出未匹配归档");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private sealed class TestArchiveEngine : IArchiveEngine
+    {
+        public Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ArchiveResult { Success = true });
+
+        public Task<ArchiveResult> ExtractAsync(string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ArchiveResult { Success = true });
+
+        public bool IsAvailable() => true;
+    }
+
+    private sealed class TestSystemIntegration : ISystemIntegration
+    {
+        public Task OpenFolderAsync(string path) => Task.CompletedTask;
+        public Task<string?> ReadClipboardTextAsync() => Task.FromResult<string?>(null);
+        public Task WriteClipboardTextAsync(string text) => Task.CompletedTask;
+        public void ShowNotification(string title, string message) { }
+        public Task ShutdownAsync() => Task.CompletedTask;
+        public Task CancelShutdownAsync() => Task.CompletedTask;
     }
 
     private static Task TestFormatArguments()

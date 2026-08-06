@@ -35,7 +35,7 @@
                     <TextBlock Text="{Binding L.SourceAndDestination}" FontWeight="Bold" FontSize="14"/>
 
                     <!-- Source and Destination Section -->
-                    <Grid ColumnDefinitions="200,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
+                    <Grid ColumnDefinitions="280,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
                         <!-- Row 0: Source Mode and Save Path -->
                         <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" ItemsSource="{Binding SourceModeOptions}" HorizontalAlignment="Stretch" ToolTip.Tip="选择从文本文件读取，或扫描源目录"/>
                         <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="选择或输入待处理文件所在目录"/>
@@ -183,6 +183,7 @@
                         <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开输出目录"/>
                         <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开源目录"/>
                         <Button Content="帮助" Command="{Binding ShowHelpCommand}" Width="70" Height="32" ToolTip.Tip="查看快捷键和功能说明"/>
+                        <Button x:Name="ZoomButton" Content="{Binding L.ZoomIn}" Click="ZoomButton_Click" Width="70" Height="32" ToolTip.Tip="在普通窗口和最大化窗口之间切换"/>
                         <Button Content="隐藏到托盘" Command="{Binding HideWindowCommand}" Width="100" Height="32" ToolTip.Tip="隐藏窗口，程序继续在后台运行"/>
                     </StackPanel>
 

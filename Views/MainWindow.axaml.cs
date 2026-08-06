@@ -81,6 +81,7 @@ public partial class MainWindow : Window
         }
 
         _lastWindowState = newState;
+        UpdateZoomButtonText();
         SaveWindowSize();
     }
 
@@ -300,6 +301,7 @@ public partial class MainWindow : Window
     
     private void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
+        UpdateZoomButtonText();
         // Find the CommandLogScrollViewer
         _commandLogScrollViewer = this.FindControl<ScrollViewer>("CommandLogScrollViewer");
         
@@ -307,6 +309,23 @@ public partial class MainWindow : Window
         if (DataContext is MainWindowViewModel viewModel)
         {
             viewModel.PropertyChanged += ViewModel_PropertyChanged;
+        }
+    }
+
+    // GPT-5, 2026-08-06：保留旧 WinForms 的放大/缩小入口，使用 Avalonia 原生窗口状态实现。
+    private void ZoomButton_Click(object? sender, RoutedEventArgs e)
+    {
+        WindowState = WindowState == WindowState.Maximized
+            ? WindowState.Normal
+            : WindowState.Maximized;
+        UpdateZoomButtonText();
+    }
+
+    private void UpdateZoomButtonText()
+    {
+        if (ZoomButton != null)
+        {
+            ZoomButton.Content = WindowState == WindowState.Maximized ? L.ZoomOut : L.ZoomIn;
         }
     }
     
@@ -428,7 +447,7 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel viewModel)
             return;
         
-        // GPT-5, 2026-08-05：TXT 模式选择旧版列表/密码文件；文件夹模式选择扫描根目录。
+        // GPT-5, 2026-08-06：两个 TXT 模式都选择清单文件；只有旧版密码本模式需要归档所在目录。
         if (viewModel.SourceMode == 0)
         {
             // GPT-5, 2026-08-05：旧版 TXT 流程相对 SaveFilePath 解析文件名，
@@ -482,6 +501,24 @@ public partial class MainWindow : Window
                 string fullPath = Path.Combine(savePath, passwordFileName);
                 
                 viewModel.SourcePath = fullPath;
+            }
+        }
+        else if (viewModel.SourceMode == 1)
+        {
+            var fileOptions = new FilePickerOpenOptions
+            {
+                Title = "选择压缩路径清单",
+                AllowMultiple = false,
+                FileTypeFilter = new[]
+                {
+                    new FilePickerFileType(L.TextFile) { Patterns = new[] { "*.txt" } },
+                    new FilePickerFileType(L.AllFiles) { Patterns = new[] { "*.*" } }
+                }
+            };
+            var files = await StorageProvider.OpenFilePickerAsync(fileOptions);
+            if (files.Count > 0)
+            {
+                viewModel.SourcePath = files[0].Path.LocalPath;
             }
         }
         else
