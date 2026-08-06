@@ -29,18 +29,18 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _lastNotifiedCompletedCount;
     private double _lastNotifiedProcessedSizeGB;
     
-    // Localization support
+    // 本地化支持。
     public LocalizationService Localization => LocalizationService.Instance;
     public LanguageStrings L => Localization.Strings;
     
     /// <summary>
-    /// List of available languages for the dropdown.
+    /// 下拉框可用的语言列表。
     /// </summary>
     public List<KeyValuePair<string, string>> AvailableLanguages { get; } = 
         LocalizationService.AvailableLanguages.ToList();
     
     /// <summary>
-    /// Currently selected language code.
+    /// 当前选中的语言代码。
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(L))]
@@ -56,19 +56,16 @@ public partial class MainWindowViewModel : ViewModelBase
     
     partial void OnSelectedLanguageChanged(string value)
     {
-        // Change the localization service's current language
-        // This will update all the LanguageStrings properties internally
+        // 修改本地化服务的当前语言；服务会替换全部界面字符串。
         Localization.CurrentLanguage = value;
         
-        // Critical: Force ALL property change notifications to refresh bindings
-        // This ensures all UI elements immediately update
+        // 强制通知全部依赖本地化字符串的绑定，确保界面立即刷新。
         OnPropertyChanged(nameof(L));
         
-        // Refresh all dropdown options with new language strings
-        // This uses ObservableCollection to properly trigger UI updates
+        // 使用 ObservableCollection 重新填充下拉选项，触发控件刷新。
         RefreshAllDropdownOptions();
         
-        // Also trigger explicit updates for all computed properties that depend on L
+        // 显式通知所有依赖 L 的计算属性。
         OnPropertyChanged(nameof(BrowseSourceButtonText));
         OnPropertyChanged(nameof(SourcePathWatermark));
         OnPropertyChanged(nameof(SourcePathLabel));
@@ -78,8 +75,7 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(CommandLogTabHeader));
         OnPropertyChanged(nameof(ProcessingSpeedDisplay));
         
-        // Force the localization service itself to notify of changes
-        // This ensures all subscribers to LocalizationService.PropertyChanged are updated
+        // 通知本地化服务的订阅者，使外部绑定也能收到语言切换事件。
         Localization.NotifyPropertyChanged(nameof(LocalizationService.Strings));
     }
     
@@ -96,45 +92,44 @@ public partial class MainWindowViewModel : ViewModelBase
         : SourceMode == 1 ? L.CompressionTxtMode : L.CompressFolderMode;
     
     /// <summary>
-    /// Dynamic source mode options that update when language changes
+    /// 随语言切换动态更新的来源模式选项。
     /// </summary>
     public ObservableCollection<string> SourceModeOptions { get; } = new();
     
     /// <summary>
-    /// Dynamic compression level options that update when language changes
+    /// 随语言切换动态更新的压缩级别选项。
     /// </summary>
     public ObservableCollection<string> CompressionLevelOptions { get; } = new();
     
     /// <summary>
-    /// Dynamic existing file mode options that update when language changes
+    /// 随语言切换动态更新的已有文件处理选项。
     /// </summary>
     public ObservableCollection<string> ExistingFileModeOptions { get; } = new();
     
     /// <summary>
-    /// Volume unit options (GB, MB, KB) that update when language changes.
-    /// Note: Units are universal, but we need ObservableCollection for proper refresh behavior.
+    /// 随语言切换刷新绑定的分卷单位选项。
+    /// 单位文本虽然不随语言变化，但仍使用 ObservableCollection 保证控件正确刷新。
     /// </summary>
     public ObservableCollection<string> VolumeUnitOptions { get; } = new();
     
     /// <summary>
-    /// Repopulates all dropdown option collections with current language strings.
-    /// This ensures ComboBox controls properly refresh their displayed text.
+    /// 使用当前语言重新填充全部下拉选项，确保 ComboBox 显示文本同步。
     /// </summary>
     private void RefreshAllDropdownOptions()
     {
-        // Preserve current selections
+        // 保存当前选择，重新填充后恢复有效索引。
         var currentSourceMode = SourceMode;
         var currentCompressionLevel = CompressionLevel;
         var currentExistingFileMode = ExistingFileMode;
         var currentVolumeUnit = VolumeUnit;
         
-        // Clear and repopulate source mode options
+        // 清空并重新填充来源模式选项。
         SourceModeOptions.Clear();
         SourceModeOptions.Add(L.FromTxtMode);
         SourceModeOptions.Add(L.CompressionTxtMode);
         SourceModeOptions.Add(L.CompressFolderMode);
         
-        // Clear and repopulate compression level options
+        // 清空并重新填充压缩级别选项。
         CompressionLevelOptions.Clear();
         CompressionLevelOptions.Add(L.NoCompression);
         CompressionLevelOptions.Add(L.Light);
@@ -143,20 +138,19 @@ public partial class MainWindowViewModel : ViewModelBase
         CompressionLevelOptions.Add(L.Better);
         CompressionLevelOptions.Add(L.Best);
         
-        // Clear and repopulate existing file mode options
+        // 清空并重新填充已有文件处理选项。
         ExistingFileModeOptions.Clear();
         ExistingFileModeOptions.Add(L.SkipExisting);
         ExistingFileModeOptions.Add(L.UpdateExisting);
         ExistingFileModeOptions.Add(L.OverwriteExisting);
         
-        // Clear and repopulate volume unit options (units are universal but need refresh)
+        // 清空并重新填充分卷单位选项。
         VolumeUnitOptions.Clear();
         VolumeUnitOptions.Add("GB");
         VolumeUnitOptions.Add("MB");
         VolumeUnitOptions.Add("KB");
         
-        // Restore selections - setting to valid index after collection is repopulated
-        // ensures the ComboBox displays the correct text
+        // 集合重建后恢复有效索引，使 ComboBox 显示正确文本。
         SourceMode = currentSourceMode >= 0 && currentSourceMode < SourceModeOptions.Count ? currentSourceMode : 0;
         CompressionLevel = currentCompressionLevel >= 0 && currentCompressionLevel < CompressionLevelOptions.Count ? currentCompressionLevel : 0;
         ExistingFileMode = currentExistingFileMode >= 0 && currentExistingFileMode < ExistingFileModeOptions.Count ? currentExistingFileMode : 0;
@@ -165,7 +159,7 @@ public partial class MainWindowViewModel : ViewModelBase
     
     public bool IsFromTxtMode => SourceMode < 2;
     
-    // Tab header with item count
+    // 标签页标题附带当前条目数量。
     public string SourceFileListTabHeader => $"{L.FileListTab} ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string SuccessLogTabHeader => $"{L.SuccessLogTab} ({(string.IsNullOrEmpty(SuccessLog) ? 0 : SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string FailLogTabHeader => $"{L.FailLogTab} ({(string.IsNullOrEmpty(FailLog) ? 0 : FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
@@ -281,7 +275,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private double _processingSpeedMBPerSecond = 0;
     
     /// <summary>
-    /// Gets the processing speed display string with localized unit.
+    /// 返回带本地化单位的处理速度显示文本。
     /// </summary>
     public string ProcessingSpeedDisplay => $"{ProcessingSpeedMBPerSecond:0}{L.ProcessingSpeedUnit}";
     
@@ -328,10 +322,10 @@ public partial class MainWindowViewModel : ViewModelBase
         // GPT-5, 2026-08-05：在绑定渲染前填充可观察选项集合，并在语言变化时刷新。
         RefreshAllDropdownOptions();
         
-        // Skip runtime-only initialization when in design mode
+        // 设计器模式不执行运行时初始化。
         if (Design.IsDesignMode) 
         {
-            // Set backing fields directly to avoid triggering tasks in design mode
+            // 直接设置字段，避免设计器加载时触发异步任务。
             _sourceMode = 2;
             _enclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                            "【解压密码】微信号：i17269637581\n" +
@@ -340,10 +334,10 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        // Detect and set system language
+        // 检测并设置系统语言。
         DetectSystemLanguage();
 
-        // Initialize with default values for runtime
+        // 设置运行时默认值。
         SourceMode = 2;
         EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                        "【解压密码】微信号：i17269637581\n" +
@@ -363,13 +357,13 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             catch 
             {
-                // Ignore clipboard errors at startup
+                // 启动时读取剪贴板失败不应阻止应用打开。
             }
         });
     }
     
     /// <summary>
-    /// Detects the system language and sets the UI language accordingly.
+    /// 检测系统语言并设置对应的界面语言。
     /// </summary>
     private void DetectSystemLanguage()
     {
@@ -379,39 +373,39 @@ public partial class MainWindowViewModel : ViewModelBase
             var cultureName = systemCulture.Name;
             var twoLetterISOLanguageName = systemCulture.TwoLetterISOLanguageName;
             
-            // Map system culture to available languages
+            // 将系统区域性映射到应用支持的语言。
             string languageCode;
             if (twoLetterISOLanguageName == "zh")
             {
-                // Chinese - distinguish between Simplified and Traditional by checking specific culture codes
+                // 中文根据区域代码区分简体和繁体。
                 if (cultureName == "zh-TW" || cultureName == "zh-HK" || cultureName == "zh-MO" || cultureName == "zh-Hant")
                 {
-                    languageCode = "zh-TW"; // Traditional Chinese
+                    languageCode = "zh-TW"; // 繁体中文。
                 }
                 else
                 {
-                    languageCode = "zh-CN"; // Simplified Chinese (default for zh-CN, zh-SG, zh-Hans, etc.)
+                    languageCode = "zh-CN"; // 简体中文。
                 }
             }
             else if (twoLetterISOLanguageName == "ja")
             {
-                languageCode = "ja"; // Japanese
+                languageCode = "ja"; // 日语。
             }
             else if (twoLetterISOLanguageName == "de")
             {
-                languageCode = "de"; // German
+                languageCode = "de"; // 德语。
             }
             else if (twoLetterISOLanguageName == "en")
             {
-                languageCode = "en"; // English
+                languageCode = "en"; // 英语。
             }
             else
             {
-                // Default to Simplified Chinese if no match
+                // 未匹配时默认使用简体中文。
                 languageCode = "zh-CN";
             }
             
-            // Set the language if it's available
+            // 只有在资源存在时才切换语言。
             if (LocalizationService.AvailableLanguages.ContainsKey(languageCode))
             {
                 SelectedLanguage = languageCode;
@@ -419,12 +413,12 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         catch (System.Globalization.CultureNotFoundException ex)
         {
-            // If culture detection fails, keep the default language (zh-CN)
+            // 区域性检测失败时保留简体中文默认值。
             System.Diagnostics.Debug.WriteLine($"Language detection failed: {ex.Message}");
         }
     }
     
-    // Callbacks for file browsing (set by the View)
+    // 由视图设置的文件选择回调。
     public Func<Task>? BrowseSourceRequested { get; set; }
     public Func<Task>? BrowseOutputRequested { get; set; }
     public Func<Task>? BrowseTextFileRequested { get; set; }
@@ -492,16 +486,16 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (SourceMode < 2)
         {
-            // Load from text file
+            // 从 TXT 清单加载。
             await LoadFromTextFileAsync();
         }
         else
         {
-            // Load from folder
+            // 从目录扫描加载。
             await LoadFromFolderAsync();
         }
         
-        // Update output size
+        // 刷新输出目录的已有大小统计。
         UpdateOutputSize();
     }
     
@@ -625,13 +619,13 @@ public partial class MainWindowViewModel : ViewModelBase
                 .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
                 .ToList();
             
-            // If no files in list, try to load them first
+            // 列表为空时先尝试自动加载。
             if (sourcePaths.Count == 0)
             {
                 CommandLog += "列表中没有文件，正在自动加载...\n";
                 await RefreshFileListAsync();
                 
-                // Try again
+                // 自动加载后再次检查列表。
                 sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
                     .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
@@ -656,16 +650,16 @@ public partial class MainWindowViewModel : ViewModelBase
                 NonExistCount = info.NonExistCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
                 
-                // Calculate processing statistics
+                // 更新处理统计。
                 ElapsedTime = DateTime.Now - _operationStartTime;
                 
-                // Calculate processing speed (MB per second)
+                // 根据已处理大小和耗时计算 MB/秒。
                 if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
                 {
                     ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
                 }
                 
-                // Calculate remaining time and estimated completion
+                // 根据当前速度估算剩余时间和完成时刻。
                 if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
                 {
                     double remainingSizeMB = (TotalSizeGB - ProcessedSizeGB) * 1024;
@@ -735,16 +729,16 @@ public partial class MainWindowViewModel : ViewModelBase
             
             _cancellationTokenSource = new CancellationTokenSource();
             
-            // Parse source file list (with passwords if from text mode)
+            // 解析来源列表；解压密码本模式包含交替密码行。
             List<FileEntry> entries;
             
-            // If source file list is empty, try to load automatically
+            // 列表为空时先尝试自动加载。
             if (string.IsNullOrEmpty(SourceFileList.Trim()))
             {
                 CommandLog += "No files in list, trying to load automatically...\n";
                 await RefreshFileListAsync();
                 
-                // If still empty after refresh, show error
+                // 自动加载后仍为空时记录错误并返回。
                 if (string.IsNullOrEmpty(SourceFileList.Trim()))
                 {
                     CommandLog += "Still no files to decompress\n";
@@ -754,7 +748,7 @@ public partial class MainWindowViewModel : ViewModelBase
             
             if (SourceMode == 0)
             {
-                // From text file - alternating file/password lines
+                // 密码本模式按文件行、密码行交替解析。
                 entries = new List<FileEntry>();
                 var lines = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
                 
@@ -776,7 +770,7 @@ public partial class MainWindowViewModel : ViewModelBase
             }
             else
             {
-                // From folder - just file paths
+                // 其他模式只有文件路径。
                 var files = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
                     .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s) && File.Exists(s));
@@ -806,16 +800,16 @@ public partial class MainWindowViewModel : ViewModelBase
                 NonExistCount = info.NonExistCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
                 
-                // Calculate processing statistics
+                // 更新处理统计。
                 ElapsedTime = DateTime.Now - _operationStartTime;
                 
-                // Calculate processing speed (MB per second)
+                // 根据已处理大小和耗时计算 MB/秒。
                 if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
                 {
                     ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
                 }
                 
-                // Calculate remaining time and estimated completion
+                // 根据速度估算剩余时间和完成时刻。
                 if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
                 {
                     double remainingSizeMB = (TotalSizeGB - ProcessedSizeGB) * 1024;
@@ -937,7 +931,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             var filename = PasswordQueryFileName + "." + Extension;
             
-            // Generate multiple password variants
+            // 生成多种历史兼容密码候选。
             var results = new List<string>();
             results.Add($"文件名: {filename}");
             results.Add($"压缩密码: {PasswordUtility.GenerateCompressionPassword(filename)}");
@@ -953,7 +947,7 @@ public partial class MainWindowViewModel : ViewModelBase
             
             CommandLog += string.Join("\n", results) + "\n";
             
-            // Copy to clipboard
+            // 将最终候选密码复制到剪贴板。
             await _systemIntegration.WriteClipboardTextAsync(finalPassword);
         });
     }
@@ -976,7 +970,7 @@ public partial class MainWindowViewModel : ViewModelBase
         NonExistCount = 0;
         ProcessedSizeGB = 0;
         
-        // Reset processing statistics
+        // 重置处理统计。
         ElapsedTime = TimeSpan.Zero;
         RemainingTime = TimeSpan.Zero;
         ProcessingSpeedMBPerSecond = 0;
@@ -1057,7 +1051,7 @@ public partial class MainWindowViewModel : ViewModelBase
     
     partial void OnSourceModeChanged(int value)
     {
-        // Refresh file list when source mode changes
+        // 来源模式改变后重新加载文件列表。
         Task.Run(async () => await RefreshFileListAsync());
     }
     
@@ -1070,7 +1064,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 Task.Run(async () =>
                 {
-                    await Task.Delay(500); // Debounce
+                    await Task.Delay(500); // 防抖，避免连续编辑路径时重复扫描。
                     await RefreshFileListAsync();
                     await UpdateTotalSizeAsync();
                 });
@@ -1106,7 +1100,7 @@ public partial class MainWindowViewModel : ViewModelBase
     
     partial void OnCompressionLevelChanged(int value)
     {
-        // If "Store" (no compression) is selected, disable solid archive
+        // 选择存储模式时关闭固实压缩，因为该组合没有意义。
         if (value == 0 && SolidArchive)
         {
             SolidArchive = false;
@@ -1136,7 +1130,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             Task.Run(async () =>
             {
-                await Task.Delay(500); // Debounce
+                await Task.Delay(500); // 防抖，避免连续编辑扩展名时重复计算。
                 await RefreshFileListAsync();
                 await UpdateTotalSizeAsync();
             });
@@ -1153,14 +1147,14 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             try
             {
-                // For both modes, use SaveFilePath as the source path
+                // 两种目录相关模式都以 SaveFilePath 作为统计来源。
                 string targetPath = SaveFilePath;
                 
                 if (!string.IsNullOrEmpty(targetPath) && Directory.Exists(targetPath))
                 {
-                    // Calculate total size of all files in the directory
+                    // 计算目录中所有候选文件的总大小。
                     var size = CalculateDirectorySize(targetPath);
-                    TotalSizeGB = size / (1024.0 * 1024.0 * 1024.0); // Convert bytes to GB
+                    TotalSizeGB = size / (1024.0 * 1024.0 * 1024.0); // 将字节换算为 GB。
                 }
                 else
                 {
@@ -1184,12 +1178,12 @@ public partial class MainWindowViewModel : ViewModelBase
         
         try
         {
-            // Get all files in the directory
+            // 枚举目录中的候选文件。
             string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories)
                 .Where(file => !SystemMetadataFileFilter.ShouldSkip(file))
                 .ToArray();
             
-            // Calculate total size
+            // 汇总候选文件大小并换算为 GB。
             foreach (string file in files)
             {
                 try

@@ -9,7 +9,7 @@ using BatchCompress.Avalonia.Core.Interfaces;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
-/// <summary>Cross-platform system integration implementation.</summary>
+/// <summary>跨平台系统集成功能实现。</summary>
 // GPT-5, 2026-08-05：将应用动作映射到 macOS、Windows、Linux 原生命令，同时使用 ArgumentList 传递路径和通知文本，避免 Shell 解释。
 public class SystemIntegrationService : ISystemIntegration
 {

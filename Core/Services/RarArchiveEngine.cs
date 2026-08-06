@@ -154,7 +154,7 @@ public class RarArchiveEngine : IArchiveEngine
             }
             catch
             {
-                // ignore
+                // 当前候选路径不可用时继续检查下一个候选路径。
             }
 
             if (!string.IsNullOrWhiteSpace(defaultValue))
@@ -299,7 +299,7 @@ public class RarArchiveEngine : IArchiveEngine
                 {
                     if (IsUnderBaseDirectory(path) && TryFixUnixExecutablePermission(path))
                     {
-                        // retry
+                        // 修复执行权限后重试一次。
                     }
                     else
                     {
@@ -456,7 +456,7 @@ public class RarArchiveEngine : IArchiveEngine
     }
     
     /// <summary>
-    /// Ensure RAR executable is available
+    /// 确保 RAR 可执行文件可用。
     /// </summary>
     private bool EnsureRarExecutableAvailable()
     {

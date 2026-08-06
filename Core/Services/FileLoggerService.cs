@@ -6,7 +6,7 @@ using Microsoft.Extensions.Logging;
 namespace BatchCompress.Avalonia.Core.Services;
 
 /// <summary>
-/// File-based logger service for logging all operations to a file
+/// 将无界面批处理操作写入文件的日志服务。
 /// </summary>
 // GPT-5, 2026-08-05：用于无界面执行的线程安全文件日志器。一个锁同时保护写入器生命周期和多线程进度消息，确保每条日志完整。
 public class FileLoggerService : ILogger, IDisposable
@@ -149,7 +149,7 @@ public class FileLoggerService : ILogger, IDisposable
 }
 
 /// <summary>
-/// Provider for FileLoggerService
+/// FileLoggerService 的日志提供程序。
 /// </summary>
 // GPT-5, 2026-08-05：复用一个日志实例，使所有分类写入同一个配置的批处理日志文件。
 public class FileLoggerProvider : ILoggerProvider

@@ -91,6 +91,58 @@ _ReSharper*/
 
 # macOS
 .DS_Store
+.DS_Store?
+._*
+.AppleDouble
+.LSOverride
+Icon
+.Spotlight-V100/
+.Trashes/
+.fseventsd
+.DocumentRevisions-V100/
+.TemporaryItems/
+.apdisk
+
+# Windows、Linux 和桌面环境元数据
+desktop.ini
+Desktop.ini
+Thumbs.db
+ehthumbs.db
+.directory
+lost+found/
+.Trash-*/
+.nfs*
+
+# 编辑器、临时文件和测试覆盖率
+.idea/
+.ai/
+*.swp
+*.swo
+*~
+*.bak
+*.orig
+.coverage/
+coverage/
+TestResults/
+test-results/
+*.code-workspace
+.vscode/*.log
+
+# 本地配置、密钥和证书；示例配置应使用 .env.example 文件名
+.env
+.env.*
+!.env.example
+*.pem
+*.p12
+*.pfx
+*.secret
+*.secrets.json
+secrets/
+
+# 发布和临时打包目录
+publish/
+dist/
+packages/
 
 # Old WinForm project
 old/

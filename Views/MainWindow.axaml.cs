@@ -44,7 +44,7 @@ public partial class MainWindow : Window
         _lastWindowState = WindowState;
         AddHandler(DragDrop.DropEvent, Drop);
 
-        // Setup auto-scroll for CommandLog
+        // 设置命令日志自动滚动。
         this.Resized += MainWindow_Resized;
         this.PositionChanged += MainWindow_PositionChanged;
         this.Closing += MainWindow_Closing;
@@ -302,10 +302,10 @@ public partial class MainWindow : Window
     private void MainWindow_Loaded(object? sender, RoutedEventArgs e)
     {
         UpdateZoomButtonText();
-        // Find the CommandLogScrollViewer
+        // 查找命令日志滚动容器。
         _commandLogScrollViewer = this.FindControl<ScrollViewer>("CommandLogScrollViewer");
         
-        // Subscribe to CommandLog property changes
+        // 订阅 CommandLog 属性变化。
         if (DataContext is MainWindowViewModel viewModel)
         {
             viewModel.PropertyChanged += ViewModel_PropertyChanged;
@@ -333,10 +333,10 @@ public partial class MainWindow : Window
     {
         if (e.PropertyName == nameof(MainWindowViewModel.CommandLog))
         {
-            // Auto-scroll to bottom when CommandLog changes
+            // 命令日志变化后自动滚动到底部。
             if (_commandLogScrollViewer != null)
             {
-                // Use Dispatcher to ensure UI is updated before scrolling
+                // 通过调度器等待界面更新后再滚动。
                 global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
                 {
                     _commandLogScrollViewer.ScrollToEnd();
@@ -346,7 +346,7 @@ public partial class MainWindow : Window
     }
     
     /// <summary>
-    /// Gets the current localized strings.
+    /// 获取当前本地化字符串集合。
     /// </summary>
     private LanguageStrings L => LocalizationService.Instance.Strings;
 
@@ -678,7 +678,7 @@ public partial class MainWindow : Window
             WindowStartupLocation = WindowStartupLocation.CenterOwner
         };
         
-        // Set up button click handlers after dialog is created
+        // 对话框创建后再绑定按钮点击事件。
         var buttonPanel = (StackPanel)((StackPanel)dialog.Content).Children[1];
         var okButton = (Button)buttonPanel.Children[0];
         var cancelButton = (Button)buttonPanel.Children[1];

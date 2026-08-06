@@ -6,15 +6,15 @@ using System.Text;
 namespace BatchCompress.Avalonia.Core.Services;
 
 /// <summary>
-/// MD5-based password generation utilities
-/// Ported from the original WinForms application
+/// 基于 MD5 的密码生成工具。
+/// 算法从原 WinForms 应用迁移而来。
 /// </summary>
 // GPT-5, 2026-08-05：集中处理确定性的旧版兼容密码派生。这些方法不是用户数据的密码学保护，
 // 仅用于复现历史归档密码。
 public static class PasswordUtility
 {
     /// <summary>
-    /// MD5 hash with UTF8 encoding, returns 8 characters starting from position 7
+    /// 使用 UTF-8 编码计算 MD5，并从第 7 位开始截取 8 个字符。
     /// </summary>
     public static string MD5UTF878(string text)
     {
@@ -29,12 +29,12 @@ public static class PasswordUtility
             sb.Append(b.ToString("x2"));
         }
         
-        // Return 8 characters starting from position 7
+        // 保留旧版固定偏移，不能改为从摘要开头截取。
         return sb.ToString().Substring(7, 8);
     }
     
     /// <summary>
-    /// MD5 hash with UTF8 encoding, returns 4 characters starting from position 7
+    /// 使用 UTF-8 编码计算 MD5，并从第 7 位开始截取 4 个字符。
     /// </summary>
     public static string MD5UTF874(string text)
     {
@@ -48,19 +48,19 @@ public static class PasswordUtility
             sb.Append(b.ToString("x2"));
         }
         
-        // Return 4 characters starting from position 7
+        // 保留旧版固定偏移，确保历史密码仍可查询。
         return sb.ToString().Substring(7, 4);
     }
     
     /// <summary>
-    /// MD5 hash with GB2312 encoding, returns 4 characters starting from position 7
-    /// Used for compatibility with legacy passwords
+    /// 使用 GB2312 编码计算 MD5，并从第 7 位开始截取 4 个字符。
+    /// 该算法仅用于兼容历史密码。
     /// </summary>
     public static string MD5GB2312(string text)
     {
         using var md5 = MD5.Create();
         
-        // Register code pages provider for GB2312
+        // 现代 .NET 默认未注册 GB2312，只在需要旧版算法时注册编码提供程序。
         // GPT-5, 2026-08-05：现代 .NET 默认未注册 GB2312，仅在旧版密码查询时注册该编码。
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
         byte[] buffer = Encoding.GetEncoding("gb2312").GetBytes(text);
@@ -72,13 +72,12 @@ public static class PasswordUtility
             sb.Append(b.ToString("x2"));
         }
         
-        // Return 4 characters starting from position 7
+        // 截取位置必须与 WinForms 版本一致。
         return sb.ToString().Substring(7, 4);
     }
     
     /// <summary>
-    /// Generate random password for compression
-    /// Based on filename (with extension)
+    /// 根据带扩展名的文件名生成压缩密码。
     /// </summary>
     public static string GenerateCompressionPassword(string filenameWithExtension)
     {
@@ -88,8 +87,7 @@ public static class PasswordUtility
     }
     
     /// <summary>
-    /// Generate random password for decompression
-    /// Based on archive filename
+    /// 根据归档文件名生成解压密码。
     /// </summary>
     public static string GenerateDecompressionPassword(string archiveFilename)
     {

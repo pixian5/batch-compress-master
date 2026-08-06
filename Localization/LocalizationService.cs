@@ -6,7 +6,7 @@ using System.Runtime.CompilerServices;
 namespace BatchCompress.Avalonia.Localization;
 
 /// <summary>
-/// Manages the current language and provides localized strings.
+/// 管理当前语言并提供本地化字符串。
 /// </summary>
 // GPT-5, 2026-08-05：单例语言协调器。它发布完整的 LanguageStrings 实例，并向主窗口选择器提供支持的语言标签。
 public class LocalizationService : INotifyPropertyChanged
@@ -30,7 +30,7 @@ public class LocalizationService : INotifyPropertyChanged
     }
     
     /// <summary>
-    /// Public method to notify property changes (for external use)
+    /// 对外通知属性改变。
     /// </summary>
     public void NotifyPropertyChanged(string? propertyName = null)
     {
@@ -38,7 +38,7 @@ public class LocalizationService : INotifyPropertyChanged
     }
     
     /// <summary>
-    /// Available languages with display names.
+    /// 带显示名称的可用语言。
     /// </summary>
     public static Dictionary<string, string> AvailableLanguages { get; } = new()
     {
@@ -50,7 +50,7 @@ public class LocalizationService : INotifyPropertyChanged
     };
     
     /// <summary>
-    /// Gets or sets the current language code.
+    /// 获取或设置当前语言代码。
     /// </summary>
     public string CurrentLanguage
     {
@@ -78,7 +78,7 @@ public class LocalizationService : INotifyPropertyChanged
     }
     
     /// <summary>
-    /// Gets the current localized strings.
+    /// 获取当前本地化字符串集合。
     /// </summary>
     public LanguageStrings Strings
     {
@@ -94,13 +94,13 @@ public class LocalizationService : INotifyPropertyChanged
     {
         return new LanguageStrings
         {
-            // Window title
+            // 窗口标题。
             WindowTitle = "批量压缩解压工具 - Avalonia Cross-Platform",
             
-            // Language selector
+            // 语言选择器。
             LanguageLabel = "语言：",
             
-            // Source and Destination Section
+            // 来源与目标区域。
             SourceAndDestination = "来源与目标",
             FromTxtMode = "从txt读取要解压的文件：",
             CompressionTxtMode = "从txt读取待压缩路径：",
@@ -112,7 +112,7 @@ public class LocalizationService : INotifyPropertyChanged
             SameAsAbove = "同上",
             DestinationWatermark = "目的地",
             
-            // Compression Options Section
+            // 压缩选项区域。
             CompressionOptions = "压缩选项",
             FileNameLabel = "文件名（不含扩展名）：",
             QueryPassword = "查询密码",
@@ -140,13 +140,13 @@ public class LocalizationService : INotifyPropertyChanged
             MaxSizeLabel = "最大处理大小(GB)：",
             AddAttachments = "添加附件",
             
-            // Post-Processing Options
+            // 后处理选项。
             AfterProcessing = "压缩或解压后",
             DeleteSource = "删除源",
             MoveSource = "移动源",
             ShutdownAfterComplete = "完成后关机",
             
-            // Operation Buttons
+            // 操作按钮。
             Compress = "压缩",
             Decompress = "解压",
             Cancel = "中止",
@@ -157,7 +157,7 @@ public class LocalizationService : INotifyPropertyChanged
             ZoomIn = "放大",
             ZoomOut = "缩小",
             
-            // Status Display
+            // 状态显示。
             CurrentFile = "当前文件：",
             Success = "成功：",
             Failure = "失败：",
@@ -170,13 +170,13 @@ public class LocalizationService : INotifyPropertyChanged
             ProcessingSpeedUnit = "MB/秒",
             EstimatedCompletion = "预计完成：",
             
-            // Tab Headers
+            // 标签页标题。
             FileListTab = "待处理文件列表",
             SuccessLogTab = "成功记录",
             FailLogTab = "失败记录",
             CommandLogTab = "命令日志",
             
-            // Dialog buttons
+            // 对话框按钮。
             Ok = "确定",
             CancelDialog = "取消",
             Hint = "提示",
@@ -189,7 +189,7 @@ public class LocalizationService : INotifyPropertyChanged
             SelectSaveFolder = "选择待压缩/解压文件保存目录",
             SelectTextFile = "选择文本文件",
             
-            // Log messages
+            // 日志文本。
             DroppedFolder = "拖入文件夹: ",
             DroppedTxtFile = "拖入TXT文件: ",
             Ready = "就绪",
@@ -211,13 +211,13 @@ public class LocalizationService : INotifyPropertyChanged
     {
         return new LanguageStrings
         {
-            // Window title
+            // 窗口标题。
             WindowTitle = "批量壓縮解壓工具 - Avalonia Cross-Platform",
             
-            // Language selector
+            // 语言选择器。
             LanguageLabel = "語言：",
             
-            // Source and Destination Section
+            // 来源与目标区域。
             SourceAndDestination = "來源與目標",
             FromTxtMode = "從txt讀取要解壓的檔案：",
             CompressionTxtMode = "從txt讀取待壓縮路徑：",
@@ -229,7 +229,7 @@ public class LocalizationService : INotifyPropertyChanged
             SameAsAbove = "同上",
             DestinationWatermark = "目的地",
             
-            // Compression Options Section
+            // 压缩选项区域。
             CompressionOptions = "壓縮選項",
             FileNameLabel = "檔名（不含副檔名）：",
             QueryPassword = "查詢密碼",
@@ -257,13 +257,13 @@ public class LocalizationService : INotifyPropertyChanged
             MaxSizeLabel = "最大處理大小(GB)：",
             AddAttachments = "新增附件",
             
-            // Post-Processing Options
+            // 后处理选项。
             AfterProcessing = "壓縮或解壓後",
             DeleteSource = "刪除源",
             MoveSource = "移動源",
             ShutdownAfterComplete = "完成後關機",
             
-            // Operation Buttons
+            // 操作按钮。
             Compress = "壓縮",
             Decompress = "解壓",
             Cancel = "中止",
@@ -274,7 +274,7 @@ public class LocalizationService : INotifyPropertyChanged
             ZoomIn = "放大",
             ZoomOut = "縮小",
             
-            // Status Display
+            // 状态显示。
             CurrentFile = "當前檔案：",
             Success = "成功：",
             Failure = "失敗：",
@@ -287,13 +287,13 @@ public class LocalizationService : INotifyPropertyChanged
             ProcessingSpeedUnit = "MB/秒",
             EstimatedCompletion = "預計完成：",
             
-            // Tab Headers
+            // 标签页标题。
             FileListTab = "待處理檔案列表",
             SuccessLogTab = "成功記錄",
             FailLogTab = "失敗記錄",
             CommandLogTab = "命令日誌",
             
-            // Dialog buttons
+            // 对话框按钮。
             Ok = "確定",
             CancelDialog = "取消",
             Hint = "提示",
@@ -306,7 +306,7 @@ public class LocalizationService : INotifyPropertyChanged
             SelectSaveFolder = "選擇待壓縮/解壓檔案儲存目錄",
             SelectTextFile = "選擇文字檔案",
             
-            // Log messages
+            // 日志文本。
             DroppedFolder = "拖入資料夾: ",
             DroppedTxtFile = "拖入TXT檔案: ",
             Ready = "就緒",
@@ -328,13 +328,13 @@ public class LocalizationService : INotifyPropertyChanged
     {
         return new LanguageStrings
         {
-            // Window title
+            // 窗口标题。
             WindowTitle = "Batch Compress Tool - Avalonia Cross-Platform",
             
-            // Language selector
+            // 语言选择器。
             LanguageLabel = "Language:",
             
-            // Source and Destination Section
+            // 来源与目标区域。
             SourceAndDestination = "Source & Destination",
             FromTxtMode = "Read files to decompress from txt:",
             CompressionTxtMode = "Read paths to compress from txt:",
@@ -346,7 +346,7 @@ public class LocalizationService : INotifyPropertyChanged
             SameAsAbove = "Same",
             DestinationWatermark = "Destination",
             
-            // Compression Options Section
+            // 压缩选项区域。
             CompressionOptions = "Compression Options",
             FileNameLabel = "File name (without extension):",
             QueryPassword = "Query Password",
@@ -374,13 +374,13 @@ public class LocalizationService : INotifyPropertyChanged
             MaxSizeLabel = "Max Size (GB):",
             AddAttachments = "Add Attachments",
             
-            // Post-Processing Options
+            // 后处理选项。
             AfterProcessing = "After Processing",
             DeleteSource = "Delete Source",
             MoveSource = "Move Source",
             ShutdownAfterComplete = "Shutdown After Complete",
             
-            // Operation Buttons
+            // 操作按钮。
             Compress = "Compress",
             Decompress = "Decompress",
             Cancel = "Cancel",
@@ -391,7 +391,7 @@ public class LocalizationService : INotifyPropertyChanged
             ZoomIn = "Maximize",
             ZoomOut = "Restore",
             
-            // Status Display
+            // 状态显示。
             CurrentFile = "Current File:",
             Success = "Success:",
             Failure = "Failed:",
@@ -404,13 +404,13 @@ public class LocalizationService : INotifyPropertyChanged
             ProcessingSpeedUnit = "MB/s",
             EstimatedCompletion = "Est. Completion:",
             
-            // Tab Headers
+            // 标签页标题。
             FileListTab = "File List",
             SuccessLogTab = "Success Log",
             FailLogTab = "Error Log",
             CommandLogTab = "Command Log",
             
-            // Dialog buttons
+            // 对话框按钮。
             Ok = "OK",
             CancelDialog = "Cancel",
             Hint = "Notice",
@@ -423,7 +423,7 @@ public class LocalizationService : INotifyPropertyChanged
             SelectSaveFolder = "Select save directory for compress/decompress",
             SelectTextFile = "Select Text File",
             
-            // Log messages
+            // 日志文本。
             DroppedFolder = "Dropped folder: ",
             DroppedTxtFile = "Dropped TXT file: ",
             Ready = "Ready",
@@ -445,13 +445,13 @@ public class LocalizationService : INotifyPropertyChanged
     {
         return new LanguageStrings
         {
-            // Window title
+            // 窗口标题。
             WindowTitle = "バッチ圧縮ツール - Avalonia Cross-Platform",
             
-            // Language selector
+            // 语言选择器。
             LanguageLabel = "言語：",
             
-            // Source and Destination Section
+            // 来源与目标区域。
             SourceAndDestination = "ソースと宛先",
             FromTxtMode = "txtから解凍するファイルを読み込む：",
             CompressionTxtMode = "txtから圧縮するパスを読み込む：",
@@ -463,7 +463,7 @@ public class LocalizationService : INotifyPropertyChanged
             SameAsAbove = "同上",
             DestinationWatermark = "宛先",
             
-            // Compression Options Section
+            // 压缩选项区域。
             CompressionOptions = "圧縮オプション",
             FileNameLabel = "ファイル名（拡張子なし）：",
             QueryPassword = "パスワード検索",
@@ -491,13 +491,13 @@ public class LocalizationService : INotifyPropertyChanged
             MaxSizeLabel = "最大サイズ(GB)：",
             AddAttachments = "添付ファイル追加",
             
-            // Post-Processing Options
+            // 后处理选项。
             AfterProcessing = "処理後",
             DeleteSource = "ソース削除",
             MoveSource = "ソース移動",
             ShutdownAfterComplete = "完了後シャットダウン",
             
-            // Operation Buttons
+            // 操作按钮。
             Compress = "圧縮",
             Decompress = "解凍",
             Cancel = "キャンセル",
@@ -508,7 +508,7 @@ public class LocalizationService : INotifyPropertyChanged
             ZoomIn = "最大化",
             ZoomOut = "元に戻す",
             
-            // Status Display
+            // 状态显示。
             CurrentFile = "現在のファイル：",
             Success = "成功：",
             Failure = "失敗：",
@@ -521,13 +521,13 @@ public class LocalizationService : INotifyPropertyChanged
             ProcessingSpeedUnit = "MB/秒",
             EstimatedCompletion = "完了予定：",
             
-            // Tab Headers
+            // 标签页标题。
             FileListTab = "ファイルリスト",
             SuccessLogTab = "成功ログ",
             FailLogTab = "エラーログ",
             CommandLogTab = "コマンドログ",
             
-            // Dialog buttons
+            // 对话框按钮。
             Ok = "OK",
             CancelDialog = "キャンセル",
             Hint = "通知",
@@ -540,7 +540,7 @@ public class LocalizationService : INotifyPropertyChanged
             SelectSaveFolder = "圧縮/解凍ファイルの保存ディレクトリを選択",
             SelectTextFile = "テキストファイルを選択",
             
-            // Log messages
+            // 日志文本。
             DroppedFolder = "ドロップされたフォルダ: ",
             DroppedTxtFile = "ドロップされたTXTファイル: ",
             Ready = "準備完了",
@@ -562,13 +562,13 @@ public class LocalizationService : INotifyPropertyChanged
     {
         return new LanguageStrings
         {
-            // Window title
+            // 窗口标题。
             WindowTitle = "Batch-Komprimierungstool - Avalonia Cross-Platform",
             
-            // Language selector
+            // 语言选择器。
             LanguageLabel = "Sprache:",
             
-            // Source and Destination Section
+            // 来源与目标区域。
             SourceAndDestination = "Quelle & Ziel",
             FromTxtMode = "Dateien zum Entpacken aus txt lesen:",
             CompressionTxtMode = "Zu komprimierende Pfade aus txt lesen:",
@@ -580,7 +580,7 @@ public class LocalizationService : INotifyPropertyChanged
             SameAsAbove = "Gleich",
             DestinationWatermark = "Ziel",
             
-            // Compression Options Section
+            // 压缩选项区域。
             CompressionOptions = "Komprimierungsoptionen",
             FileNameLabel = "Dateiname (ohne Erweiterung):",
             QueryPassword = "Passwort abfragen",
@@ -608,13 +608,13 @@ public class LocalizationService : INotifyPropertyChanged
             MaxSizeLabel = "Max Größe (GB):",
             AddAttachments = "Anhänge hinzufügen",
             
-            // Post-Processing Options
+            // 后处理选项。
             AfterProcessing = "Nach der Verarbeitung",
             DeleteSource = "Quelle löschen",
             MoveSource = "Quelle verschieben",
             ShutdownAfterComplete = "Nach Abschluss herunterfahren",
             
-            // Operation Buttons
+            // 操作按钮。
             Compress = "Komprimieren",
             Decompress = "Entpacken",
             Cancel = "Abbrechen",
@@ -625,7 +625,7 @@ public class LocalizationService : INotifyPropertyChanged
             ZoomIn = "Maximieren",
             ZoomOut = "Wiederherstellen",
             
-            // Status Display
+            // 状态显示。
             CurrentFile = "Aktuelle Datei:",
             Success = "Erfolg:",
             Failure = "Fehler:",
@@ -638,13 +638,13 @@ public class LocalizationService : INotifyPropertyChanged
             ProcessingSpeedUnit = "MB/s",
             EstimatedCompletion = "Geschätzte Fertigstellung:",
             
-            // Tab Headers
+            // 标签页标题。
             FileListTab = "Dateiliste",
             SuccessLogTab = "Erfolgsprotokoll",
             FailLogTab = "Fehlerprotokoll",
             CommandLogTab = "Befehlsprotokoll",
             
-            // Dialog buttons
+            // 对话框按钮。
             Ok = "OK",
             CancelDialog = "Abbrechen",
             Hint = "Hinweis",
@@ -657,7 +657,7 @@ public class LocalizationService : INotifyPropertyChanged
             SelectSaveFolder = "Speicherverzeichnis für Komprimierung/Dekomprimierung auswählen",
             SelectTextFile = "Textdatei auswählen",
             
-            // Log messages
+            // 日志文本。
             DroppedFolder = "Abgelegter Ordner: ",
             DroppedTxtFile = "Abgelegte TXT-Datei: ",
             Ready = "Bereit",

@@ -64,7 +64,7 @@ sealed class Program
     }
 
     /// <summary>
-    /// Run in headless mode for command-line operations
+    /// 以无界面模式执行命令行批处理。
     /// </summary>
     private static async Task<int> RunHeadlessAsync(CommandLineOptions options)
     {

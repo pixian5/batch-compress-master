@@ -4,6 +4,7 @@
 
 | 项目 | 当前值 |
 | --- | --- |
+| 应用版本 | 0.2.3 |
 | 目标框架 | .NET 10 (`net10.0`) |
 | UI | Avalonia 11.3.18 |
 | MVVM | CommunityToolkit.Mvvm 8.2.1 |

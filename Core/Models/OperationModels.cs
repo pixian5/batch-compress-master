@@ -4,7 +4,7 @@ using System.Collections.Generic;
 namespace BatchCompress.Avalonia.Core.Models;
 
 /// <summary>
-/// Progress information for compression/decompression operations
+/// 压缩或解压操作的进度信息。
 /// </summary>
 // GPT-5, 2026-08-05：长时间批处理向 GUI 或命令行观察者报告的可变进度快照。
 public class OperationProgressInfo
@@ -22,7 +22,7 @@ public class OperationProgressInfo
 }
 
 /// <summary>
-/// File entry for decompression with password
+/// 带单文件密码的解压条目。
 /// </summary>
 // GPT-5, 2026-08-05：表示来源项目及其从 TXT 列表读取的可选单文件密码。
 public class FileEntry
@@ -33,7 +33,7 @@ public class FileEntry
 }
 
 /// <summary>
-/// Operation options for batch processing
+/// 批处理操作选项。
 /// </summary>
 // GPT-5, 2026-08-05：聚合 GUI/命令行选择，之后由 BatchOperationService 转换为引擎选项。
 public class BatchOperationOptions
@@ -49,7 +49,7 @@ public class BatchOperationOptions
     public double MaxSizeGB { get; set; }
     public bool ShutdownAfterComplete { get; set; }
     
-    // Compression options
+    // 压缩选项。
     public Core.Interfaces.CompressionLevel CompressionLevel { get; set; }
     public bool SolidArchive { get; set; }
     public string? VolumeSize { get; set; }
@@ -61,13 +61,13 @@ public class BatchOperationOptions
     public Core.Interfaces.ExistingFileMode ExistingFileMode { get; set; }
     public int RecoveryRecordPercent { get; set; }
     
-    // Enclosure/contact info directories
+    // 附件目录和联系信息目录。
     public string[]? EnclosureDirectories { get; set; }
     public bool AddEnclosures { get; set; }
 }
 
 /// <summary>
-/// Source mode for file list
+/// 文件列表来源模式。
 /// </summary>
 public enum SourceMode
 {

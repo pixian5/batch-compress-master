@@ -8,6 +8,7 @@
 - [当前架构](ARCHITECTURE.md)：模块边界和运行机制。
 - [Avalonia 版本说明](AVALONIA_VERSION.md)：技术版本和打包方式。
 - [当前实现摘要](IMPLEMENTATION_SUMMARY.md)：已实现能力。
+- [详细设计文档](详细设计文档.md)：当前 0.2.3 实现、来源契约、注释规范和历史 WinForms 迁移参考。
 - [快速参考](QUICK_REFERENCE.md)：使用与排障。
 - [命令行参考](COMMAND_LINE.md)：动词、参数、输入语义、退出码和脚本示例。
 - [界面说明](UI_DOCUMENTATION.md)：界面行为。

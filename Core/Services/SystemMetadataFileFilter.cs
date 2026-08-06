@@ -10,21 +10,21 @@ public static class SystemMetadataFileFilter
 {
     private static readonly HashSet<string> ReservedNames = new(StringComparer.OrdinalIgnoreCase)
     {
-        // Windows Explorer and recycle-bin metadata.
+        // Windows 资源管理器和回收站元数据。
         "desktop.ini", "thumbs.db", "ehthumbs.db", "ehthumbs_vista.db", "$recycle.bin",
         "recycler", "system volume information",
 
-        // macOS Finder, Spotlight, Time Machine and AppleDouble metadata.
+        // macOS Finder、Spotlight、Time Machine 和 AppleDouble 元数据。
         ".ds_store", ".appledouble", ".lsoverride", "icon\r", ".spotlight-v100", ".trashes",
         ".fseventsd", ".documentrevisions-v100", ".temporaryitems", ".volumeicon.icns",
         ".com.apple.timemachine.donotpresent",
 
-        // Linux and desktop-environment metadata.
+        // Linux 以及常见桌面环境元数据。
         ".directory", ".trash", ".gvfs", "lost+found"
     };
 
     /// <summary>
-    /// Returns true when a path is an operating-system metadata file/directory or lies below one.
+    /// 判断路径是否为操作系统元数据，或位于元数据目录下。
     /// </summary>
     public static bool ShouldSkip(string? path)
     {

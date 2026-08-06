@@ -12,7 +12,7 @@ using Microsoft.Extensions.Logging;
 namespace BatchCompress.Avalonia.Core.Services;
 
 /// <summary>
-/// Service for batch compression and decompression operations
+/// 批量压缩和解压的业务服务。
 /// </summary>
 // GPT-5, 2026-08-05：协调枚举、逐项归档执行、进度报告和后处理。
 // 该服务不依赖界面，并通过 IProgress 报告所有用户可见事件。
@@ -35,7 +35,7 @@ public class BatchOperationService
     }
     
     /// <summary>
-    /// Load file list from folder
+    /// 从目录加载文件列表。
     /// </summary>
     public List<string> LoadFilesFromFolder(string folderPath, string extension, bool skipProcessed)
     {
@@ -50,7 +50,7 @@ public class BatchOperationService
         
         try
         {
-            // Get all files and directories in the root of the folder
+            // 只扫描来源目录的直接子项，保持与旧 WinForms 的批处理范围一致。
             var allItems = Directory.GetFileSystemEntries(folderPath);
             
             foreach (var itemPath in allItems)
@@ -65,7 +65,7 @@ public class BatchOperationService
                     continue;
                 }
                 
-                // Skip already processed files if option is enabled
+                // 启用选项时跳过名称中带有已处理标记的项目。
                 if (skipProcessed)
                 {
                     if (name.Contains("【已压缩】") || name.Contains("【已解压】"))
@@ -89,7 +89,7 @@ public class BatchOperationService
     }
     
     /// <summary>
-    /// Load file entries from text file (with passwords)
+    /// 从密码本文本文件加载带密码的归档条目。
     /// </summary>
     public List<FileEntry> LoadFilesFromTextFile(string txtFilePath, string sourceFolder, string extension)
     {
@@ -239,7 +239,7 @@ public class BatchOperationService
     }
     
     /// <summary>
-    /// Check if file is a multi-volume archive and return first volume
+    /// 判断是否为分卷归档，并返回第一卷路径。
     /// </summary>
     private bool IsMultiVolumeArchive(string path, string extension, out string firstVolumePath)
     {
@@ -248,7 +248,7 @@ public class BatchOperationService
         var filename = Path.GetFileName(path);
         var directory = Path.GetDirectoryName(path) ?? string.Empty;
         
-        // Check for .partXXX.extension pattern
+        // 检查 .partXXX.扩展名形式的 RAR 分卷。
         // GPT-5, 2026-08-06：7-Zip 分卷使用 archive.7z.001 形式，只有编号 1 的卷可以作为任务入口。
         var sevenZipMatch = Regex.Match(filename, @"^(?<base>.+\.7z)\.(?<number>\d+)$", RegexOptions.IgnoreCase);
         if (sevenZipMatch.Success)
@@ -266,7 +266,7 @@ public class BatchOperationService
         var partMatch = Regex.Match(filename, @"\.part(\d+)\." + Regex.Escape(extension) + "$", RegexOptions.IgnoreCase);
         if (partMatch.Success)
         {
-            // Try to find part001 or part01 or part0001
+            // 兼容三种常见的首卷编号宽度。
             var baseName = filename.Substring(0, partMatch.Index);
             string[] patterns = { ".part001.", ".part01.", ".part0001." };
             
@@ -285,7 +285,7 @@ public class BatchOperationService
     }
     
     /// <summary>
-    /// Calculate total size of archives in a directory
+    /// 计算目录中指定格式归档的总大小。
     /// </summary>
     public double CalculateTotalSizeGB(string directory, string extension)
     {
@@ -307,7 +307,7 @@ public class BatchOperationService
     }
     
     /// <summary>
-    /// Batch compress files
+    /// 批量压缩文件或目录。
     /// </summary>
     public async Task BatchCompressAsync(
         List<string> sourcePaths,
@@ -337,7 +337,7 @@ public class BatchOperationService
                 continue;
             }
             
-            // Check if file/directory exists
+            // 手工编辑列表后仍需再次检查文件或目录是否存在。
             if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
             {
                 Log(LogLevel.Warning, $"Source not found: {sourcePath}");
@@ -352,7 +352,7 @@ public class BatchOperationService
             progressInfo.CurrentFile = name;
             Log(LogLevel.Debug, $"Processing: {name}");
             
-            // Skip if already processed
+            // 按选项跳过已经完成压缩的项目。
             if (options.SkipAlreadyProcessed && name.Contains("【已压缩】"))
             {
                 Log(LogLevel.Debug, $"Skipping already processed: {name}");
@@ -360,12 +360,12 @@ public class BatchOperationService
                 continue;
             }
             
-            // Build output filename
+            // 使用来源项目名称构造输出归档名称。
             var outputFileName = name + "." + options.Extension;
             var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, sourcePath);
             var outputPath = Path.Combine(outputDirectory, outputFileName);
             
-            // Check if output exists
+            // 根据用户选择处理已有输出文件。
             if (File.Exists(outputPath))
             {
                 if (options.ExistingFileMode == ExistingFileMode.Skip)
@@ -381,7 +381,7 @@ public class BatchOperationService
                 }
             }
             
-            // Generate password
+            // 按当前选项生成单个归档的密码。
             string? password = null;
             if (options.UseRandomPassword)
             {
@@ -432,7 +432,7 @@ public class BatchOperationService
             progressInfo.IsError = false;
             progress.Report(progressInfo);
             
-            // Compress
+            // 调用归档引擎执行压缩。
             var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
             ReportArchiveOutput("压缩命令", result, progressInfo, progress);
             
@@ -441,7 +441,7 @@ public class BatchOperationService
                 Log(LogLevel.Information, $"Compression successful: {name} -> {outputFileName}");
                 progressInfo.SuccessCount++;
                 
-                // Calculate size
+                // 以输出归档大小累计处理量。
                 if (File.Exists(outputPath))
                 {
                     var sizeGB = new FileInfo(outputPath).Length / (1024.0 * 1024.0 * 1024.0);
@@ -450,7 +450,7 @@ public class BatchOperationService
                     Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB, Total processed: {processedSizeGB:F3} GB");
                 }
                 
-                // Post-processing
+                // 成功后执行删除或移动等后处理。
                 if (options.DeleteSourceAfter)
                 {
                     try
@@ -508,7 +508,7 @@ public class BatchOperationService
                     }
                 }
                 
-                // Success message still goes to SuccessLog, but not to CommandLog
+                // 成功消息仍写入成功日志，但不重复写入命令日志。
                 progressInfo.Message = $"成功: {name}";
                 progressInfo.IsError = false;
             }
@@ -523,7 +523,7 @@ public class BatchOperationService
             progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
             progress.Report(progressInfo);
             
-            // Check size limit
+            // 达到总大小上限后停止后续任务。
             if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
             {
                 Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
@@ -535,7 +535,7 @@ public class BatchOperationService
         
         Log(LogLevel.Information, $"Batch compression complete. Success: {progressInfo.SuccessCount}, Failed: {progressInfo.FailCount}");
         
-        // Shutdown if requested
+        // 用户要求时在全部任务结束后请求系统关机。
         if (options.ShutdownAfterComplete)
         {
             await _systemIntegration.ShutdownAsync();
@@ -543,7 +543,7 @@ public class BatchOperationService
     }
     
     /// <summary>
-    /// Batch decompress files
+    /// 批量解压归档文件。
     /// </summary>
     public async Task BatchDecompressAsync(
         List<FileEntry> archives,
@@ -588,7 +588,7 @@ public class BatchOperationService
             progressInfo.CurrentFile = archiveName;
             Log(LogLevel.Debug, $"Processing: {archiveName}");
             
-            // Skip if already processed
+            // 按选项跳过已经完成解压的归档。
             if (options.SkipAlreadyProcessed && archiveName.Contains("【已解压】"))
             {
                 Log(LogLevel.Debug, $"Skipping already processed: {archiveName}");
@@ -596,18 +596,18 @@ public class BatchOperationService
                 continue;
             }
             
-            // Check if it's a multi-volume archive but not the first volume
+            // 分卷只允许第一卷启动解压，后处理仍覆盖全部卷。
             if (IsMultiVolumeArchive(archivePath, options.Extension, out var firstVolume))
             {
                 if (!archivePath.Equals(firstVolume, StringComparison.OrdinalIgnoreCase))
                 {
                     Log(LogLevel.Debug, $"Skipping non-first volume: {archiveName}");
-                    // Skip non-first volumes
+                    // 非首卷不重复启动解压。
                     continue;
                 }
             }
             
-            // Determine password
+            // 优先使用 TXT 条目密码，再使用全局密码策略。
             string? password = entry.Password;
             if (string.IsNullOrEmpty(password) && options.UseRandomPassword)
             {
@@ -618,7 +618,7 @@ public class BatchOperationService
                 password = options.CustomPassword;
             }
             
-            // Build archive options
+            // 将批处理选项转换为归档引擎选项。
             var archiveOptions = new ArchiveOptions
             {
                 // GPT-5, 2026-08-06：解压路由优先看实际文件名，同时保留批处理扩展名作为无后缀输入的后备信息。
@@ -636,7 +636,7 @@ public class BatchOperationService
 
             var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, archivePath);
             
-            // Extract
+            // 调用归档引擎执行解压。
             var result = await _archiveEngine.ExtractAsync(archivePath, outputDirectory, archiveOptions, cancellationToken);
             ReportArchiveOutput("解压命令", result, progressInfo, progress);
             
@@ -645,15 +645,15 @@ public class BatchOperationService
                 Log(LogLevel.Information, $"Extraction successful: {archiveName}");
                 progressInfo.SuccessCount++;
                 
-                // Calculate size
+                // 以当前归档大小累计处理量。
                 var sizeGB = entry.FileSize / (1024.0 * 1024.0 * 1024.0);
                 processedSizeGB += sizeGB;
                 progressInfo.ProcessedSizeGB = processedSizeGB;
                 
-                // Post-processing
+                // 成功后按选项删除或移动源归档。
                 if (options.DeleteSourceAfter || options.MoveSourceAfter)
                 {
-                    // Get all volume files
+                    // 取得同一分卷组的全部文件，确保后处理完整。
                     var volumeFiles = GetAllVolumeFiles(archivePath, options.Extension);
                     
                     foreach (var volumeFile in volumeFiles)
@@ -693,7 +693,7 @@ public class BatchOperationService
                     }
                 }
                 
-                // Success message still goes to SuccessLog, but not to CommandLog
+                // 成功消息仍写入成功日志，但不重复写入命令日志。
                 progressInfo.Message = $"成功: {archiveName}";
                 progressInfo.IsError = false;
             }
@@ -708,7 +708,7 @@ public class BatchOperationService
             progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
             progress.Report(progressInfo);
             
-            // Check size limit
+            // 达到总大小上限后停止后续解压任务。
             if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
             {
                 Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
@@ -720,7 +720,7 @@ public class BatchOperationService
         
         Log(LogLevel.Information, $"Batch decompression complete. Success: {progressInfo.SuccessCount}, Failed: {progressInfo.FailCount}");
         
-        // Shutdown if requested
+        // 用户要求时在全部解压任务结束后请求系统关机。
         if (options.ShutdownAfterComplete)
         {
             Log(LogLevel.Information, "Shutdown requested after completion");
@@ -773,7 +773,7 @@ public class BatchOperationService
     };
     
     /// <summary>
-    /// Get all volume files for a multi-volume archive
+    /// 获取分卷归档的全部卷文件。
     /// </summary>
     private List<string> GetAllVolumeFiles(string archivePath, string extension)
     {
@@ -782,7 +782,7 @@ public class BatchOperationService
         var filename = Path.GetFileName(archivePath);
         var directory = Path.GetDirectoryName(archivePath) ?? string.Empty;
         
-        // Check for .partXXX.extension pattern
+        // 检查 RAR 分卷和 7z 数字分卷两种命名形式。
         // GPT-5, 2026-08-06：成功后的删除或移动必须覆盖同一 7z 数字分卷组，不能只处理 .001。
         var sevenZipMatch = Regex.Match(filename, @"^(?<base>.+\.7z)\.(?<number>\d+)$", RegexOptions.IgnoreCase);
         if (sevenZipMatch.Success && Directory.Exists(directory))
@@ -802,7 +802,7 @@ public class BatchOperationService
             var baseName = filename.Substring(0, partMatch.Index);
             var digitCount = partMatch.Groups[1].Value.Length;
             
-            // Find all parts
+            // 按首卷编号宽度依次查找后续分卷。
             for (int i = 1; i <= 999; i++)
             {
                 var partNumber = i.ToString().PadLeft(digitCount, '0');

@@ -81,7 +81,7 @@ public sealed class ArchiveProcessRunner
         }
         catch (InvalidOperationException)
         {
-            // GPT-5, 2026-08-06：进程可能在取消检查和 Kill 之间自行退出，此时无需再次处理。
+            // GPT-5, 2026-08-06：进程可能在取消检查和终止之间自行退出，此时无需再次处理。
         }
     }
 

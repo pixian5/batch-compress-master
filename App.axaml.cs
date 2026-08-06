@@ -32,9 +32,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Avoid duplicate validations from both Avalonia and the CommunityToolkit. 
-            // More info: https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            // GPT-5, 2026-08-05：CommunityToolkit 已提供验证功能，因此移除 Avalonia 重复的数据注解插件。
+            // Avalonia 与 CommunityToolkit 都可能执行验证；这里只保留 CommunityToolkit，避免重复验证。
+            // 参考：https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
             DisableAvaloniaDataAnnotationValidation();
             if (OperatingSystem.IsMacOS())
             {
@@ -144,11 +143,11 @@ public partial class App : Application
 
     private void DisableAvaloniaDataAnnotationValidation()
     {
-        // Get an array of plugins to remove
+        // 取得需要移除的数据验证插件快照。
         var dataValidationPluginsToRemove =
             BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
 
-        // remove each entry found
+        // 逐个移除找到的重复插件。
         foreach (var plugin in dataValidationPluginsToRemove)
         {
             BindingPlugins.DataValidators.Remove(plugin);

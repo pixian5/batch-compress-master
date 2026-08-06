@@ -4,31 +4,31 @@ using System.Threading.Tasks;
 namespace BatchCompress.Avalonia.Core.Interfaces;
 
 /// <summary>
-/// Interface for compression/decompression engine
+/// 压缩和解压引擎接口。
 /// </summary>
 // GPT-5, 2026-08-05：归档引擎接收已解析路径和取消令牌；实现不能依赖特定界面或 Shell，
 // 必须通过 ArchiveResult 暴露工具相关失败。
 public interface IArchiveEngine
 {
     /// <summary>
-    /// Compress files or directories
+    /// 压缩文件或目录。
     /// </summary>
     Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default);
     
     /// <summary>
-    /// Extract archive
+    /// 解压归档。
     /// </summary>
     Task<ArchiveResult> ExtractAsync(string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default);
     
     /// <summary>
-    /// Check if the archive engine is available on the system
+    /// 检查当前系统是否存在可用归档引擎。
     /// </summary>
     bool IsAvailable();
     
 }
 
 /// <summary>
-/// Options for compression/decompression operations
+/// 压缩和解压操作选项。
 /// </summary>
 public class ArchiveOptions
 {
@@ -47,7 +47,7 @@ public class ArchiveOptions
 }
 
 /// <summary>
-/// Result of archive operation
+/// 归档操作结果。
 /// </summary>
 public class ArchiveResult
 {
@@ -59,7 +59,7 @@ public class ArchiveResult
 }
 
 /// <summary>
-/// Compression level
+/// 压缩级别。
 /// </summary>
 public enum CompressionLevel
 {
@@ -72,7 +72,7 @@ public enum CompressionLevel
 }
 
 /// <summary>
-/// Mode for handling existing files
+/// 已有文件处理模式。
 /// </summary>
 public enum ExistingFileMode
 {

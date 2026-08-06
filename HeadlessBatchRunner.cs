@@ -11,7 +11,7 @@ using BatchCompress.Avalonia.Core.Services;
 namespace BatchCompress.Avalonia;
 
 /// <summary>
-/// Headless runner for batch operations via command-line
+/// 通过命令行执行批处理的无界面运行器。
 /// </summary>
 // GPT-5, 2026-08-05：将命令行输入适配到 GUI 共用的 BatchOperationService，同时输出稳定的控制台信息和退出码，便于脚本与 CI 使用。
 public class HeadlessBatchRunner
@@ -31,7 +31,7 @@ public class HeadlessBatchRunner
     }
 
     /// <summary>
-    /// Run the batch operation based on command-line options
+    /// 根据命令行选项执行批处理。
     /// </summary>
     public async Task<int> RunAsync()
     {
@@ -116,7 +116,7 @@ public class HeadlessBatchRunner
             }
             else if (!_options.Quiet)
             {
-                // Simple progress indicator
+                // 非详细模式只显示一行可刷新的简要进度。
                 Console.Write($"\rProcessed: {info.SuccessCount} success, {info.FailCount} failed, {info.IgnoreCount} skipped    ");
             }
         });
@@ -442,7 +442,7 @@ public class HeadlessBatchRunner
 }
 
 /// <summary>
-/// Headless system integration that logs instead of showing UI
+/// 无界面模式的系统集成实现：记录日志，不显示桌面界面。
 /// </summary>
 internal class HeadlessSystemIntegration : ISystemIntegration
 {

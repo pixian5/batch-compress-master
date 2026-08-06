@@ -4,8 +4,8 @@ using System.Runtime.CompilerServices;
 namespace BatchCompress.Avalonia.Localization;
 
 /// <summary>
-/// Contains all localized strings for the application.
-/// This class implements INotifyPropertyChanged to allow UI to update when language changes.
+/// 应用程序的全部本地化字符串。
+/// 该类实现 INotifyPropertyChanged，使语言切换后界面可以立即刷新。
 /// </summary>
 // GPT-5, 2026-08-05：供绑定使用的可变字符串集合。LocalizationService 整体替换字符串对象，
 // 使视图无需硬编码语言资源即可刷新。
@@ -19,20 +19,20 @@ public class LanguageStrings : INotifyPropertyChanged
     }
     
     /// <summary>
-    /// Raises PropertyChanged for all properties to refresh all UI bindings.
+    /// 通知所有属性已改变，以刷新全部界面绑定。
     /// </summary>
     public void RaiseAllPropertiesChanged()
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(null));
     }
     
-    // Window title
+    // 窗口标题。
     public string WindowTitle { get; set; } = "批量压缩解压工具 - Avalonia Cross-Platform";
     
-    // Language selector
+    // 语言选择器。
     public string LanguageLabel { get; set; } = "语言：";
     
-    // Source and Destination Section
+    // 来源与目标区域。
     public string SourceAndDestination { get; set; } = "来源与目标";
     public string FromTxtMode { get; set; } = "从txt读取要解压的文件：";
     public string CompressionTxtMode { get; set; } = "从txt读取待压缩路径：";
@@ -44,7 +44,7 @@ public class LanguageStrings : INotifyPropertyChanged
     public string SameAsAbove { get; set; } = "同上";
     public string DestinationWatermark { get; set; } = "目的地";
     
-    // Compression Options Section
+    // 压缩选项区域。
     public string CompressionOptions { get; set; } = "压缩选项";
     public string FileNameLabel { get; set; } = "文件名（不含扩展名）：";
     public string QueryPassword { get; set; } = "查询密码";
@@ -72,13 +72,13 @@ public class LanguageStrings : INotifyPropertyChanged
     public string MaxSizeLabel { get; set; } = "最大处理大小(GB)：";
     public string AddAttachments { get; set; } = "添加附件";
     
-    // Post-Processing Options
+    // 后处理选项。
     public string AfterProcessing { get; set; } = "压缩或解压后";
     public string DeleteSource { get; set; } = "删除源";
     public string MoveSource { get; set; } = "移动源";
     public string ShutdownAfterComplete { get; set; } = "完成后关机";
     
-    // Operation Buttons
+    // 操作按钮。
     public string Compress { get; set; } = "压缩";
     public string Decompress { get; set; } = "解压";
     public string Cancel { get; set; } = "中止";
@@ -89,7 +89,7 @@ public class LanguageStrings : INotifyPropertyChanged
     public string ZoomIn { get; set; } = "放大";
     public string ZoomOut { get; set; } = "缩小";
     
-    // Status Display
+    // 状态显示。
     public string CurrentFile { get; set; } = "当前文件：";
     public string Success { get; set; } = "成功：";
     public string Failure { get; set; } = "失败：";
@@ -102,13 +102,13 @@ public class LanguageStrings : INotifyPropertyChanged
     public string ProcessingSpeedUnit { get; set; } = "MB/秒";
     public string EstimatedCompletion { get; set; } = "预计完成：";
     
-    // Tab Headers
+    // 标签页标题。
     public string FileListTab { get; set; } = "待处理文件列表";
     public string SuccessLogTab { get; set; } = "成功记录";
     public string FailLogTab { get; set; } = "失败记录";
     public string CommandLogTab { get; set; } = "命令日志";
     
-    // Dialog buttons
+    // 对话框按钮。
     public string Ok { get; set; } = "确定";
     public string CancelDialog { get; set; } = "取消";
     public string Hint { get; set; } = "提示";
@@ -121,7 +121,7 @@ public class LanguageStrings : INotifyPropertyChanged
     public string SelectSaveFolder { get; set; } = "选择待压缩/解压文件保存目录";
     public string SelectTextFile { get; set; } = "选择文本文件";
     
-    // Log messages
+    // 日志文本。
     public string DroppedFolder { get; set; } = "拖入文件夹: ";
     public string DroppedTxtFile { get; set; } = "拖入TXT文件: ";
     public string Ready { get; set; } = "就绪";
