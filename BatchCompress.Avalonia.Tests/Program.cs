@@ -20,6 +20,8 @@ internal static class Program
             ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
             ("7z 压缩与解压参数", TestSevenZipArguments),
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
+            ("附件根目录与空目录", TestAttachmentRootInputs),
+            ("跳过已有归档统计", TestExistingSkipProgress),
             ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke),
             ("完整命令行解析", TestCommandLineParsing),
             ("命令行错误校验", TestCommandLineValidation),
@@ -109,21 +111,13 @@ internal static class Program
         options.ArchiveFormat = "zip";
         options.SolidArchive = true;
 
-        var zipArguments = WinRarCommandBuilder.BuildCompressionArguments(
-            "/tmp/source with space",
-            "/tmp/archive with space.zip",
-            options);
-
-        AssertContains(zipArguments, "-afzip");
-        AssertNotContains(zipArguments, "-s");
-        AssertEqual("/tmp/archive with space.zip", zipArguments[^2]);
-        AssertEqual("/tmp/source with space", zipArguments[^1]);
-
         options.ArchiveFormat = "rar";
         var rarArguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/source", "/tmp/archive.rar", options);
         AssertContains(rarArguments, "-s");
-        AssertNotContains(rarArguments, "-afzip");
-        AssertThrows<NotSupportedException>(() => WinRarCommandBuilder.NormalizeArchiveFormat("7z"));
+        AssertNotContains(rarArguments, "-k");
+        options.LockArchive = true;
+        AssertContains(WinRarCommandBuilder.BuildCompressionArguments("/tmp/source", "/tmp/archive.rar", options), "-k");
+        AssertThrows<NotSupportedException>(() => WinRarCommandBuilder.NormalizeArchiveFormat("zip"));
         return Task.CompletedTask;
     }
 
@@ -280,7 +274,12 @@ internal static class Program
         AssertContains(SevenZipCommandBuilder.BuildExtractionArguments("a.7z", "out", options), "-aou");
         options.ExistingFileMode = ExistingFileMode.Overwrite;
         AssertContains(SevenZipCommandBuilder.BuildExtractionArguments("a.7z", "out", options), "-aoa");
-        AssertThrows<NotSupportedException>(() => SevenZipCommandBuilder.NormalizeArchiveFormat("zip"));
+        options.ArchiveFormat = "zip";
+        options.SolidArchive = true;
+        var zipArguments = SevenZipCommandBuilder.BuildCompressionArguments("/tmp/source", "/tmp/archive.zip", options);
+        AssertContains(zipArguments, "-tzip");
+        AssertNotContains(zipArguments, "-ms=on");
+        AssertContains(zipArguments, "-mem=AES256");
         return Task.CompletedTask;
     }
 
@@ -303,10 +302,61 @@ internal static class Program
         await router.ExtractAsync("archive.7z.001", "output", new ArchiveOptions { ArchiveFormat = "rar" });
         await router.ExtractAsync("archive.rar", "output", new ArchiveOptions { ArchiveFormat = "rar" });
 
-        AssertEqual(2, rar.CompressionCalls);
+        AssertEqual(1, rar.CompressionCalls);
         AssertEqual(1, rar.ExtractionCalls);
-        AssertEqual(1, sevenZip.CompressionCalls);
+        AssertEqual(2, sevenZip.CompressionCalls);
         AssertEqual(1, sevenZip.ExtractionCalls);
+    }
+
+    private static async Task TestAttachmentRootInputs()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-attachment-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source");
+        var existing = Path.Combine(root, "外部附件");
+        var missing = Path.Combine(root, "待创建附件");
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(existing);
+        File.WriteAllText(Path.Combine(existing, "attachment.txt"), "attachment");
+        var engine = new RecordingArchiveEngine();
+        try
+        {
+            var service = new BatchOperationService(engine, new TestSystemIntegration());
+            await service.BatchCompressAsync([source], new BatchOperationOptions
+            {
+                OutputPath = Path.Combine(root, "out"), Extension = "7z", AddEnclosures = true,
+                EnclosureDirectories = [existing, missing], ExistingFileMode = ExistingFileMode.Overwrite
+            }, new Progress<OperationProgressInfo>(), CancellationToken.None);
+            Assert(engine.LastOptions?.AdditionalInputs?.Any(path => Path.GetFileName(path) == "外部附件") == true,
+                "存在的附件必须作为根级输入传递");
+            Assert(engine.LastOptions?.AdditionalInputs?.Any(path => Path.GetFileName(path) == "待创建附件") == true,
+                "不存在的附件必须在暂存目录创建根级空目录");
+            Assert(!Directory.Exists(Path.Combine(source, "外部附件")), "不得把附件目录写入源目录");
+            Assert(!Directory.Exists(Path.Combine(source, "待创建附件")), "不得把缺失附件目录写入源目录");
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static async Task TestExistingSkipProgress()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-skip-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source");
+        var output = Path.Combine(root, "out");
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(output);
+        File.WriteAllText(Path.Combine(source, "a.txt"), "a");
+        File.WriteAllText(Path.Combine(output, "source.7z"), "already");
+        var engine = new RecordingArchiveEngine();
+        var snapshots = new List<OperationProgressInfo>();
+        try
+        {
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchCompressAsync(
+                [source], new BatchOperationOptions { OutputPath = output, Extension = "7z", ExistingFileMode = ExistingFileMode.Skip },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, snapshots.Last().IgnoreCount);
+            AssertEqual(0, snapshots.Last().FailCount);
+            AssertEqual(0, engine.CompressionCalls);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }
 
     private static async Task TestOfficialSevenZipSmoke()
@@ -322,34 +372,44 @@ internal static class Program
 
         var testRoot = Path.Combine(Path.GetTempPath(), $"batch-compress-7z-{Guid.NewGuid():N}");
         var source = Path.Combine(testRoot, "source folder");
-        var archive = Path.Combine(testRoot, "archive with password.7z");
-        var output = Path.Combine(testRoot, "extracted");
+        var attachment = Path.Combine(testRoot, "外部附件");
+        var emptyAttachment = Path.Combine(testRoot, "空附件");
         Directory.CreateDirectory(source);
+        Directory.CreateDirectory(attachment);
+        Directory.CreateDirectory(emptyAttachment);
         File.WriteAllText(Path.Combine(source, "content.txt"), "official 7zz smoke test");
+        File.WriteAllText(Path.Combine(attachment, "attachment.txt"), "attachment content");
 
         try
         {
             var engine = new SevenZipArchiveEngine(executable);
             Assert(engine.IsAvailable(), "项目内官方 7zz 必须通过身份校验");
-            var options = new ArchiveOptions
+            foreach (var format in new[] { "7z", "zip" })
             {
-                ArchiveFormat = "7z",
-                Password = "test password with space",
-                CompressionLevel = CompressionLevel.Normal,
-                SolidArchive = true,
-                ExistingFileMode = ExistingFileMode.Overwrite,
-                TestArchive = true
-            };
+                var archive = Path.Combine(testRoot, $"archive with password.{format}");
+                var output = Path.Combine(testRoot, $"extracted-{format}");
+                var options = new ArchiveOptions
+                {
+                    ArchiveFormat = format,
+                    Password = "test password with space",
+                    CompressionLevel = CompressionLevel.Normal,
+                    SolidArchive = true,
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    TestArchive = true,
+                    AdditionalInputs = [attachment, emptyAttachment]
+                };
 
-            var compressed = await engine.CompressAsync(source, archive, options);
-            Assert(compressed.Success, $"官方 7zz 压缩失败: {compressed.ErrorMessage}");
-            Assert(File.Exists(archive), "官方 7zz 未生成归档文件");
-
-            var extracted = await engine.ExtractAsync(archive, output, options);
-            Assert(extracted.Success, $"官方 7zz 解压失败: {extracted.ErrorMessage}");
-            var extractedFile = Directory.GetFiles(output, "content.txt", SearchOption.AllDirectories).SingleOrDefault();
-            Assert(extractedFile != null, "解压结果中缺少 content.txt");
-            AssertEqual("official 7zz smoke test", File.ReadAllText(extractedFile!));
+                var compressed = await engine.CompressAsync(source, archive, options);
+                Assert(compressed.Success, $"官方 7zz {format} 压缩失败: {compressed.ErrorMessage}");
+                Assert(File.Exists(archive), $"官方 7zz 未生成 {format} 归档文件");
+                var extracted = await engine.ExtractAsync(archive, output, options);
+                Assert(extracted.Success, $"官方 7zz {format} 解压失败: {extracted.ErrorMessage}");
+                var extractedFile = Directory.GetFiles(output, "content.txt", SearchOption.AllDirectories).SingleOrDefault();
+                Assert(extractedFile != null, $"{format} 解压结果中缺少 content.txt");
+                AssertEqual("official 7zz smoke test", File.ReadAllText(extractedFile!));
+                AssertEqual("attachment content", File.ReadAllText(Path.Combine(output, "外部附件", "attachment.txt")));
+                Assert(Directory.Exists(Path.Combine(output, "空附件")), $"{format} 归档根目录必须包含空附件目录");
+            }
         }
         finally
         {
@@ -425,6 +485,9 @@ internal static class Program
         AssertCommandLineFails(["--source", "/tmp"], "请指定 compress");
         AssertCommandLineFails(["compress", "--input", "/tmp/a", "--output"], "缺少参数值");
         AssertCommandLineFails(["compress", "--input", "/tmp/a", "--output", "/tmp/out", "--unknown"], "未知参数");
+        AssertCommandLineFails(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--existing", "update", "--lock"],
+            "不能与 --lock 同时使用");
         return Task.CompletedTask;
     }
 
@@ -434,6 +497,11 @@ internal static class Program
         ExistingFileMode = ExistingFileMode.Overwrite,
         CompressionLevel = CompressionLevel.Normal
     };
+
+    private sealed class SnapshotProgress(List<OperationProgressInfo> snapshots) : IProgress<OperationProgressInfo>
+    {
+        public void Report(OperationProgressInfo value) => snapshots.Add(value);
+    }
 
     private static (string Executable, IReadOnlyList<string> Arguments) GetSleepCommand()
     {
@@ -506,6 +574,7 @@ internal static class Program
     {
         public int CompressionCalls { get; private set; }
         public int ExtractionCalls { get; private set; }
+        public ArchiveOptions? LastOptions { get; private set; }
 
         public bool IsAvailable() => true;
 
@@ -516,6 +585,7 @@ internal static class Program
             CancellationToken cancellationToken = default)
         {
             CompressionCalls++;
+            LastOptions = options;
             return Task.FromResult(new ArchiveResult { Success = true });
         }
 

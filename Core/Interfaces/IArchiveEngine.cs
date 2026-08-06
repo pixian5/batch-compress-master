@@ -44,6 +44,8 @@ public class ArchiveOptions
     public ExistingFileMode ExistingFileMode { get; set; } = ExistingFileMode.Skip;
     public int RecoveryRecordPercent { get; set; }
     public string[]? ExcludeExtensions { get; set; }
+    public bool LockArchive { get; set; }
+    public string[]? AdditionalInputs { get; set; }
 }
 
 /// <summary>

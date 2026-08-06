@@ -9,17 +9,13 @@ namespace BatchCompress.Avalonia.Core.Services;
 // 确保路径中的空格和特殊字符不会改变命令结构。
 public static class WinRarCommandBuilder
 {
-    public static IReadOnlyList<string> SupportedFormats { get; } = ["rar", "zip"];
+    public static IReadOnlyList<string> SupportedFormats { get; } = ["rar"];
 
     public static string NormalizeArchiveFormat(string? archiveFormat)
     {
-        var normalized = archiveFormat?.Trim().ToLowerInvariant();
-        return normalized switch
-        {
-            "rar" => "rar",
-            "zip" => "zip",
-            _ => throw new NotSupportedException($"WinRAR 不支持压缩格式: {archiveFormat}")
-        };
+        return string.Equals(archiveFormat?.Trim(), "rar", StringComparison.OrdinalIgnoreCase)
+            ? "rar"
+            : throw new NotSupportedException($"WinRAR 仅支持 RAR 格式: {archiveFormat}");
     }
 
     public static IReadOnlyList<string> BuildCompressionArguments(
@@ -31,7 +27,7 @@ public static class WinRarCommandBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(output);
         ArgumentNullException.ThrowIfNull(options);
 
-        // GPT-5, 2026-08-05：提前规范格式，因为格式会决定 -s 与 -afzip 等互斥开关。
+        // GPT-5, 2026-08-06：WinRAR 后端只处理 RAR，ZIP 已交给官方 7zz。
         var format = NormalizeArchiveFormat(options.ArchiveFormat);
         var arguments = new List<string> { "a", "-ep1", "-IBCK", "-SCf" };
 
@@ -39,14 +35,13 @@ public static class WinRarCommandBuilder
         AddPassword(arguments, options.Password);
         arguments.Add($"-m{(int)options.CompressionLevel}");
 
-        if (format == "zip")
-        {
-            arguments.Add("-afzip");
-        }
-        else if (options.SolidArchive)
+        if (options.SolidArchive)
         {
             arguments.Add("-s");
             arguments.Add("-md32");
+        }
+        if (options.LockArchive)
+        {
             arguments.Add("-k");
         }
 
@@ -89,6 +84,10 @@ public static class WinRarCommandBuilder
         arguments.Add("-oi:50000000");
         arguments.Add(output);
         arguments.Add(input);
+        if (options.AdditionalInputs is { Length: > 0 })
+        {
+            arguments.AddRange(options.AdditionalInputs);
+        }
         return arguments;
     }
 

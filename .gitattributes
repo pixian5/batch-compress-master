@@ -1,2 +1,5 @@
 # GPT-5, 2026-08-06：保留官方 7-Zip 随包文档的原始换行和空格，不对第三方分发文件做自动规范化。
 tools/7zip/**/*.txt -text whitespace=-trailing-space
+
+# GPT-5, 2026-08-06：RAR 官方分发文件及授权 key 必须保持原始字节，禁止 Git 转换 CRLF。
+tools/rarmacOS/** -text whitespace=-trailing-space

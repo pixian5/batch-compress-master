@@ -19,15 +19,18 @@ public static class SevenZipCommandBuilder
         ArgumentNullException.ThrowIfNull(options);
         NormalizeArchiveFormat(options.ArchiveFormat);
 
-        var arguments = new List<string>
+        var format = NormalizeArchiveFormat(options.ArchiveFormat);
+        var arguments = new List<string> { "a", $"-t{format}", $"-mx={MapCompressionLevel(options.CompressionLevel)}" };
+        if (format == "7z")
         {
-            "a",
-            "-t7z",
-            $"-mx={MapCompressionLevel(options.CompressionLevel)}",
-            options.SolidArchive ? "-ms=on" : "-ms=off"
-        };
+            arguments.Add(options.SolidArchive ? "-ms=on" : "-ms=off");
+        }
 
-        AddPassword(arguments, options.Password, encryptFileNames: true);
+        AddPassword(arguments, options.Password, encryptFileNames: format == "7z");
+        if (format == "zip" && !string.IsNullOrEmpty(options.Password))
+        {
+            arguments.Add("-mem=AES256");
+        }
 
         if (!string.IsNullOrWhiteSpace(options.VolumeSize))
         {
@@ -54,6 +57,10 @@ public static class SevenZipCommandBuilder
 
         arguments.Add(output);
         arguments.Add(input);
+        if (options.AdditionalInputs is { Length: > 0 })
+        {
+            arguments.AddRange(options.AdditionalInputs);
+        }
         return arguments;
     }
 
@@ -92,7 +99,7 @@ public static class SevenZipCommandBuilder
     public static string NormalizeArchiveFormat(string? archiveFormat)
     {
         var normalized = archiveFormat?.Trim().TrimStart('.').ToLowerInvariant();
-        return normalized == "7z"
+        return normalized is "7z" or "zip"
             ? normalized
             : throw new NotSupportedException($"7-Zip 后端不支持创建格式: {archiveFormat}");
     }

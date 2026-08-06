@@ -8,7 +8,7 @@ using BatchCompress.Avalonia.Core.Interfaces;
 namespace BatchCompress.Avalonia.Core.Services;
 
 // GPT-5, 2026-08-06：路由层只决定归档后端，不改变任一后端的参数或输出。
-// 创建 7z 使用官方 7zz；RAR/ZIP 继续使用 WinRAR/RAR，解压则根据实际文件名识别 7z 与分卷首卷。
+// GPT-5, 2026-08-06：RAR 使用官方 RAR；ZIP 与 7z 统一使用官方 7zz。
 public sealed class ArchiveEngineRouter : IArchiveEngine
 {
     private readonly IArchiveEngine _rarEngine;
@@ -53,13 +53,14 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
 
     private static bool IsSevenZipFormat(string? format)
     {
-        return string.Equals(format?.Trim().TrimStart('.'), "7z", StringComparison.OrdinalIgnoreCase);
+        return format?.Trim().TrimStart('.').ToLowerInvariant() is "7z" or "zip";
     }
 
     private static bool IsSevenZipArchive(string archivePath)
     {
         var fileName = Path.GetFileName(archivePath);
         return fileName.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) ||
+               fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
                Regex.IsMatch(fileName, @"\.7z\.\d+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
     }
 }

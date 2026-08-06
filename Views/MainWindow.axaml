@@ -133,6 +133,7 @@
 
                                 <!-- Row 6: Add Enclosures -->
                                 <CheckBox Grid.Row="6" Grid.Column="0" Content="{Binding L.AddAttachments}" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
+                                <CheckBox Grid.Row="6" Grid.Column="2" Content="锁定归档" IsChecked="{Binding LockArchive}" Margin="20,0,10,3" ToolTip.Tip="仅 RAR 使用；锁定后不能更新已有归档"/>
                             </Grid>
 
                             <!-- Enclosure List -->

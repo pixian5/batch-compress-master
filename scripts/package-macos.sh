@@ -8,6 +8,7 @@ app_path="/Applications/BatchCompress.Avalonia.app"
 icon_source="$repo_root/Assets/压缩.ico"
 icon_png="$repo_root/Assets/压缩.png"
 seven_zip_source="$repo_root/tools/7zip/macos"
+rar_source="$repo_root/tools/rarmacOS"
 iconset_tmp="$(mktemp -d /tmp/batch-compress-iconset.XXXXXX)"
 iconset_dir="${iconset_tmp}.iconset"
 mv "$iconset_tmp" "$iconset_dir"
@@ -22,9 +23,23 @@ if [[ ! -x "$seven_zip_source/7zz" || ! -f "$seven_zip_source/License.txt" ]]; t
   print -u2 "missing official macOS 7-Zip files: $seven_zip_source"
   exit 1
 fi
+if [[ ! -x "$rar_source/rar" || ! -x "$rar_source/unrar" || ! -f "$rar_source/rarreg.key" ]]; then
+  print -u2 "missing official macOS RAR files: $rar_source"
+  exit 1
+fi
+
+# GPT-5, 2026-08-06：发布前拒绝误放入 Linux ELF 或错误架构的工具，避免应用安装后才暴露执行失败。
+if ! file "$seven_zip_source/7zz" | grep -q "Mach-O universal binary"; then
+  print -u2 "invalid macOS 7zz binary: $seven_zip_source/7zz"
+  exit 1
+fi
+if ! file "$rar_source/rar" | grep -q "Mach-O 64-bit executable arm64"; then
+  print -u2 "invalid macOS RAR binary: $rar_source/rar"
+  exit 1
+fi
 
 # GPT-5, 2026-08-05：Avalonia 和 Finder 需要不同图标容器。保留 ICO 作为来源，
-# derive a normal RGBA PNG for Avalonia, and build the native ICNS for Finder.
+# 为 Avalonia 生成标准 RGBA PNG，并为 Finder 生成原生 ICNS。
 sips -s format png "$icon_source" --out "$icon_png" >/dev/null
 for size in 16 32 128 256 512; do
   sips -z "$size" "$size" "$icon_png" --out "$iconset_dir/icon_${size}x${size}.png" >/dev/null
@@ -58,6 +73,9 @@ cp "$seven_zip_source/7zz" "$app_path/Contents/MacOS/tools/7zip/macos/7zz"
 cp "$seven_zip_source/License.txt" "$seven_zip_source/readme.txt" "$seven_zip_source/History.txt" \
   "$app_path/Contents/MacOS/tools/7zip/macos/"
 chmod +x "$app_path/Contents/MacOS/tools/7zip/macos/7zz"
+mkdir -p "$app_path/Contents/MacOS/tools/rarmacOS"
+cp -R "$rar_source"/* "$app_path/Contents/MacOS/tools/rarmacOS/"
+chmod +x "$app_path/Contents/MacOS/tools/rarmacOS/rar" "$app_path/Contents/MacOS/tools/rarmacOS/unrar"
 touch "$app_path"
 codesign --force --deep --sign - "$app_path" >/dev/null
 

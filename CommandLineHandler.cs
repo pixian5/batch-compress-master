@@ -31,6 +31,7 @@ public sealed class CommandLineOptions
     public string? CommentFile { get; set; }
     public string? TempDir { get; set; }
     public int RecoveryRecord { get; set; } = 3;
+    public bool LockArchive { get; set; }
     public string ExistingFileMode { get; set; } = "overwrite";
     public bool SkipProcessed { get; set; } = true;
     public bool DeleteSource { get; set; }
@@ -125,6 +126,7 @@ public static class CommandLineHandler
 
         处理策略:
           --existing <skip|update|overwrite>
+          --lock                         锁定 RAR 归档（不能与 --existing update 同时使用）
                                         已有文件策略
           --skip-processed / --no-skip-processed
                                         启用或关闭跳过已处理项目
@@ -262,6 +264,7 @@ public static class CommandLineHandler
         Add(definitions, "--temp-dir", ValueKind.Single, "--temp-dir");
         Add(definitions, "--recovery", ValueKind.Single, "--recovery");
         Add(definitions, "--existing", ValueKind.Single, "--existing");
+        Add(definitions, "--lock", ValueKind.Flag, "--lock");
         Add(definitions, "--skip-processed", ValueKind.Flag, "--skip-processed");
         Add(definitions, "--no-skip-processed", ValueKind.Flag, "--no-skip-processed");
         Add(definitions, "--delete-source", ValueKind.Flag, "--delete-source");
@@ -460,6 +463,9 @@ public static class CommandLineHandler
             case "--test":
                 state.Options.TestArchive = value;
                 break;
+            case "--lock":
+                state.Options.LockArchive = value;
+                break;
             case "--skip-processed":
                 state.Options.SkipProcessed = value;
                 break;
@@ -535,6 +541,9 @@ public static class CommandLineHandler
                 break;
             case "--existing":
                 state.Options.ExistingFileMode = value;
+                break;
+            case "--lock":
+                state.Options.LockArchive = true;
                 break;
             case "--max-size":
                 state.Options.MaxSizeGB = ParseDouble(value, "--max-size", state.Errors, 666);
@@ -662,6 +671,10 @@ public static class CommandLineHandler
         if (options.ExistingFileMode is not ("skip" or "update" or "overwrite"))
         {
             errors.Add("--existing 仅支持 skip、update、overwrite。");
+        }
+        if (options.ExistingFileMode == "update" && options.LockArchive)
+        {
+            errors.Add("--existing update 不能与 --lock 同时使用。");
         }
 
         if (options.VolumeUnit is not ("b" or "k" or "m" or "g" or "t"))

@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.2.4</Version>
+    <Version>0.2.5</Version>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\压缩.ico</ApplicationIcon>
@@ -39,6 +39,7 @@
   <!-- GPT-5, 2026-08-06：普通构建按宿主平台携带官方 7zz；发布脚本还会再次校验并复制许可证。 -->
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('OSX'))">
     <Content Include="tools/7zip/macos/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <Content Include="tools/rarmacOS/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup Condition="$([MSBuild]::IsOSPlatform('Linux')) And ('$(RuntimeIdentifier)' == '' Or '$(RuntimeIdentifier)' == 'linux-x64')">
     <Content Include="tools/7zip/linux-x64/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

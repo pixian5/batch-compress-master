@@ -1,6 +1,6 @@
 # 命令行参考
 
-GPT-5，2026-08-06：命令行与 GUI 共用批处理服务和归档引擎，支持 RAR、ZIP、7z。参数解析错误不会启动图形界面。解析器由项目内部维护，不依赖 System.CommandLine 预览期 API。
+GPT-5，2026-08-06：命令行与 GUI 共用批处理服务和归档引擎，支持 RAR、ZIP、7z。RAR 使用 RAR，ZIP/7z 使用官方 7zz；参数解析错误不会启动图形界面。解析器由项目内部维护，不依赖 System.CommandLine 预览期 API。
 
 ## 调用形式
 
@@ -52,9 +52,10 @@ macOS 应用包中的可执行文件：
 | `--test` | 创建后校验归档。 |
 | `--quick-open` | RAR 快速打开信息。 |
 | `--recovery 0..100` | RAR 恢复记录百分比。 |
-| `--comment PATH` | RAR/ZIP 注释文本文件。 |
+| `--comment PATH` | RAR 注释文本文件。 |
 | `--temp-dir PATH` | 归档程序临时目录。 |
 | `--existing skip|update|overwrite` | 已有文件处理策略。 |
+| `--lock` | 锁定 RAR 归档；不能与 `--existing update` 同时使用。 |
 | `--max-size-gb N` | 最大处理总量；0 表示不限。 |
 | `--delete-source` / `--move-source` | 成功后删除或移动，二者互斥。 |
 | `--shutdown` | 全部任务完成后请求系统关机。 |

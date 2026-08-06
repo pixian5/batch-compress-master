@@ -139,7 +139,9 @@ public class HeadlessBatchRunner
             WriteLine(summary);
             WriteLine($"Log file: {_logger.LogFilePath}");
 
-            return progressInfo.SuccessCount == 0 || progressInfo.FailCount > 0 ? 1 : 0;
+            return progressInfo.FailCount > 0
+                ? 1
+                : progressInfo.SuccessCount > 0 || progressInfo.IgnoreCount > 0 ? 0 : 1;
         }
         catch (OperationCanceledException)
         {
@@ -428,6 +430,7 @@ public class HeadlessBatchRunner
             TempDirectory = !string.IsNullOrEmpty(_options.TempDir) ? _options.TempDir : _options.OutputPath,
             ExistingFileMode = existingMode,
             RecoveryRecordPercent = _options.RecoveryRecord,
+            LockArchive = _options.LockArchive,
             AddEnclosures = _options.AddEnclosures,
             EnclosureDirectories = _options.AddEnclosures
                 ? _options.EnclosurePaths

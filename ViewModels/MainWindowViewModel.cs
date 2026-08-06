@@ -206,6 +206,9 @@ public partial class MainWindowViewModel : ViewModelBase
     
     [ObservableProperty]
     private int _existingFileMode = 2; // 0=Skip, 1=Update, 2=Overwrite
+
+    [ObservableProperty]
+    private bool _lockArchive;
     
     [ObservableProperty]
     private bool _quickOpen = false;
@@ -598,6 +601,14 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task CompressAsync()
     {
         if (IsOperating) return;
+
+        if (ExistingFileMode == 1 && LockArchive)
+        {
+            const string message = "更新现有文件不能与锁定归档同时使用。请取消其中一个选项。";
+            CommandLog += $"[选项冲突] {message}\n";
+            _systemIntegration.ShowNotification("选项冲突", message);
+            return;
+        }
 
         if (SourceMode == 0)
         {
@@ -1043,6 +1054,7 @@ public partial class MainWindowViewModel : ViewModelBase
             TempDirectory = !string.IsNullOrEmpty(TempDirectory) ? TempDirectory : OutputPath,
             ExistingFileMode = (Core.Interfaces.ExistingFileMode)clampedExistingFileMode,
             RecoveryRecordPercent = Math.Clamp(RecoveryRecordPercent, 0, 100),
+            LockArchive = LockArchive,
             AddEnclosures = AddEnclosures,
             EnclosureDirectories = AddEnclosures ? 
                 EnclosureList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries) : null

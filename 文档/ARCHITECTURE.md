@@ -29,7 +29,7 @@ Views/MainWindow.axaml + App.axaml
 
 ## 归档执行
 
-`ArchiveEngineRouter` 在压缩时按 `ArchiveFormat` 路由：RAR/ZIP 进入 `RarArchiveEngine`，7z 进入 `SevenZipArchiveEngine`；解压时优先根据实际文件名识别 `.7z` 和 `.7z.001` 分卷。两个命令构建器都将每个开关与路径生成为独立参数，通用 `ArchiveProcessRunner` 仅通过 `ProcessStartInfo.ArgumentList` 启动进程，并同时异步读取标准输出和错误输出。取消会终止整个进程树。
+`ArchiveEngineRouter` 在压缩时按 `ArchiveFormat` 路由：RAR 进入 `RarArchiveEngine`，ZIP/7z 进入 `SevenZipArchiveEngine`；解压时优先根据实际文件名识别 `.zip`、`.7z` 和 `.7z.001` 分卷。附件存在时作为额外根级输入，不存在时仅在暂存目录创建空目录。两个命令构建器都将每个开关与路径生成为独立参数，通用 `ArchiveProcessRunner` 仅通过 `ProcessStartInfo.ArgumentList` 启动进程，并同时异步读取标准输出和错误输出。取消会终止整个进程树。
 
 WinRAR 和 7-Zip 的退出码 `0`、`1` 视为成功或非致命警告，其余返回码为失败。日志保留归档程序的原始 stdout/stderr，可能包含密码；这是用户明确选择的诊断行为，因此不得加入脱敏、替换或掩码逻辑。
 
@@ -45,7 +45,7 @@ Windows 与 Linux 使用 Avalonia 原生 `TrayIcon`。由于实测 macOS 上 Ava
 
 窗口大小和位置由视图层保存并在下次启动恢复。普通关闭会退出应用；“隐藏到托盘”和托盘“显示/隐藏”菜单只改变主窗口可见性。所有高级选项默认可用，没有许可证或解锁验证流程。
 
-## 维护约束（0.2.4）
+## 维护约束（0.2.5）
 
 - 归档进程参数必须使用 `ArgumentList`，不得拼接 Shell 命令字符串；stdout/stderr 必须并行异步读取。
 - 活动源码新增或修改的注释使用中文，并以 `GPT-5, YYYY-MM-DD：` 标注复杂逻辑的维护日期和原因。

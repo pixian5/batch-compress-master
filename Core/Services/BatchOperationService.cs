@@ -372,6 +372,9 @@ public class BatchOperationService
                 {
                     Log(LogLevel.Debug, $"Skipping existing output: {outputPath}");
                     progressInfo.IgnoreCount++;
+                    progressInfo.Message = $"[跳过] 已存在：{outputFileName}";
+                    progressInfo.IsError = false;
+                    progress.Report(progressInfo);
                     continue;
                 }
                 else if (options.ExistingFileMode == ExistingFileMode.Overwrite)
@@ -407,25 +410,15 @@ public class BatchOperationService
                     : options.TempDirectory,
                 ExistingFileMode = options.ExistingFileMode,
                 RecoveryRecordPercent = options.RecoveryRecordPercent,
+                LockArchive = options.LockArchive,
                 VolumeSize = !string.IsNullOrEmpty(options.VolumeSize) ? 
                     options.VolumeSize + options.VolumeSizeUnit : null
             };
-            
-            // GPT-5, 2026-08-05：压缩前确保请求的附件目录存在，使 WinRAR 能够包含它们。
-            if (options.AddEnclosures && Directory.Exists(sourcePath) && 
-                options.EnclosureDirectories != null)
-            {
-                foreach (var enclosurePath in options.EnclosureDirectories)
-                {
-                    var enclosureName = Path.GetFileName(enclosurePath);
-                    var targetPath = Path.Combine(sourcePath, enclosureName);
-                    if (!Directory.Exists(targetPath))
-                    {
-                        Log(LogLevel.Debug, $"Creating enclosure directory: {targetPath}");
-                        Directory.CreateDirectory(targetPath);
-                    }
-                }
-            }
+
+            // GPT-5, 2026-08-06：附件直接作为额外输入交给归档程序。存在的路径保留其 basename，
+            // 不存在的路径只在临时暂存目录创建空目录，避免修改用户源目录。
+            var stagingDirectory = CreateAttachmentInputs(options, out var attachmentInputs);
+            archiveOptions.AdditionalInputs = attachmentInputs;
             
             Log(LogLevel.Information, $"Compression started: {name} -> {outputFileName}");
             progressInfo.Message = $"[开始压缩] {name}";
@@ -433,7 +426,19 @@ public class BatchOperationService
             progress.Report(progressInfo);
             
             // 调用归档引擎执行压缩。
-            var result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
+            ArchiveResult result;
+            try
+            {
+                result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
+            }
+            finally
+            {
+                if (stagingDirectory != null)
+                {
+                    try { Directory.Delete(stagingDirectory, recursive: true); }
+                    catch (Exception ex) { Log(LogLevel.Warning, $"清理附件暂存目录失败：{ex.Message}"); }
+                }
+            }
             ReportArchiveOutput("压缩命令", result, progressInfo, progress);
             
             if (result.Success)
@@ -540,6 +545,46 @@ public class BatchOperationService
         {
             await _systemIntegration.ShutdownAsync();
         }
+    }
+
+    private static string? CreateAttachmentInputs(BatchOperationOptions options, out string[] inputs)
+    {
+        inputs = [];
+        if (!options.AddEnclosures || options.EnclosureDirectories is not { Length: > 0 })
+        {
+            return null;
+        }
+
+        string? stagingDirectory = null;
+        var result = new List<string>();
+        foreach (var rawPath in options.EnclosureDirectories)
+        {
+            var path = rawPath.Trim();
+            if (path.Length == 0 || SystemMetadataFileFilter.ShouldSkip(path))
+            {
+                continue;
+            }
+
+            if (File.Exists(path) || Directory.Exists(path))
+            {
+                result.Add(Path.GetFullPath(path));
+                continue;
+            }
+
+            stagingDirectory ??= Path.Combine(Path.GetTempPath(), $"batch-compress-attachments-{Guid.NewGuid():N}");
+            var safeName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.IsNullOrWhiteSpace(safeName) || safeName is "." or "..")
+            {
+                safeName = "附件";
+            }
+
+            var emptyDirectory = Path.Combine(stagingDirectory, safeName);
+            Directory.CreateDirectory(emptyDirectory);
+            result.Add(emptyDirectory);
+        }
+
+        inputs = result.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+        return stagingDirectory;
     }
     
     /// <summary>

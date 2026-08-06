@@ -60,6 +60,7 @@ public class BatchOperationOptions
     public string? TempDirectory { get; set; }
     public Core.Interfaces.ExistingFileMode ExistingFileMode { get; set; }
     public int RecoveryRecordPercent { get; set; }
+    public bool LockArchive { get; set; }
     
     // 附件目录和联系信息目录。
     public string[]? EnclosureDirectories { get; set; }

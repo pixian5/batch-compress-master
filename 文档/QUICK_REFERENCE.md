@@ -28,7 +28,7 @@
 
 ## 常见问题
 
-- 找不到 RAR：安装完整 RAR/WinRAR，而非仅 unrar；这只影响 RAR/ZIP，7z 仍可使用项目内官方 `7zz`。
+- 找不到 RAR：安装完整 RAR/WinRAR，而非仅 unrar；这只影响 RAR，ZIP/7z 仍可使用项目内官方 `7zz`。
 - 找不到 7-Zip：检查应用或输出目录中的 `tools/7zip/<平台>/7zz`；macOS 应用内路径为 `Contents/MacOS/tools/7zip/macos/7zz`。
 - 7z 的“更新”解压策略：7-Zip 没有与 WinRAR 完全相同的更新开关，当前映射为自动重命名新解压文件，避免覆盖已有文件。
 - 关机失败：系统拒绝了关机命令或权限不足，任务结果不会因此回滚。

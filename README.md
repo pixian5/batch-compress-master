@@ -7,7 +7,7 @@
 ## 功能
 
 - 批量压缩和解压，支持目录、手动列表及 TXT 文件列表。
-- 支持创建与解压 `rar`、`zip`、`7z`；RAR/ZIP 使用 WinRAR/RAR，7z 使用官方 `7zz`。
+- 支持创建与解压 `rar`、`zip`、`7z`；RAR 使用 WinRAR/RAR，ZIP/7z 使用官方 `7zz`。
 - 支持随机密码、自定义密码、旧版兼容密码查询、分卷、恢复记录、固实压缩、压缩级别、校验、注释、临时目录和既有文件处理策略。
 - 支持删除或移动源文件、跳过已处理项目、附件目录、大小限制、完成后关机及取消关机。
 - 压缩进程使用 `ProcessStartInfo.ArgumentList` 传递独立参数，并发异步读取 stdout/stderr；命令日志保留原始输出，**不会脱敏或替换密码**。
@@ -17,7 +17,7 @@
 
 ## 依赖与平台
 
-源码运行需要 .NET 10 SDK。RAR/ZIP 需要 RAR/WinRAR，7z 需要官方 7-Zip 命令行程序。
+源码运行需要 .NET 10 SDK。RAR 需要 RAR/WinRAR，ZIP/7z 需要官方 7-Zip 命令行程序；macOS 应用包内置两者。
 
 - Windows：安装 WinRAR。程序依次查找随程序发布的 `tools/WinRAR`、注册表、标准安装目录等位置。
 - macOS：项目内含官方 7-Zip 25.01 universal `7zz`；RAR 可安装到系统或放入 `tools/rarmacOS/rar`。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`。
