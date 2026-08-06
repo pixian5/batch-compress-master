@@ -392,6 +392,17 @@ internal static class Program
             ["--decompress", "-s", "/tmp", "-o", "/tmp/out", "-e", "rar"]);
         Assert(legacy.Success && legacy.Options.Decompress, "旧 --decompress 开关必须保持兼容");
 
+        // GPT-5, 2026-08-06：内部解析器必须保留旧库的多值参数和等号赋值语义。
+        var compact = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+            ["compress", "--input", "/tmp/a", "/tmp/b", "--output=/tmp/out", "--format=zip", "--dry-run"]);
+        Assert(compact.Success, string.Join(" | ", compact.Errors));
+        AssertEqual(2, compact.Options.InputPaths.Length);
+        AssertEqual("/tmp/out", compact.Options.OutputPath);
+        AssertEqual("zip", compact.Options.Extension);
+
+        Assert(BatchCompress.Avalonia.CommandLineHandler.IsHelpRequested(["-h"]), "-h 必须识别为帮助请求");
+        Assert(BatchCompress.Avalonia.CommandLineHandler.IsVersionRequested(["--version"]), "--version 必须识别为版本请求");
+
         var gui = BatchCompress.Avalonia.CommandLineHandler.ParseArguments([]);
         Assert(gui.Success && gui.Options.Gui, "无参数必须继续启动 GUI");
         return Task.CompletedTask;
@@ -412,6 +423,8 @@ internal static class Program
             ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--delete-source", "--move-source"],
             "不能同时使用");
         AssertCommandLineFails(["--source", "/tmp"], "请指定 compress");
+        AssertCommandLineFails(["compress", "--input", "/tmp/a", "--output"], "缺少参数值");
+        AssertCommandLineFails(["compress", "--input", "/tmp/a", "--output", "/tmp/out", "--unknown"], "未知参数");
         return Task.CompletedTask;
     }
 

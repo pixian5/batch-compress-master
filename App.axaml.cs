@@ -3,9 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
-using Avalonia.Data.Core;
-using Avalonia.Data.Core.Plugins;
-using System.Linq;
 using Avalonia.Markup.Xaml;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -32,9 +29,8 @@ public partial class App : Application
     {
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            // Avalonia 与 CommunityToolkit 都可能执行验证；这里只保留 CommunityToolkit，避免重复验证。
-            // 参考：https://docs.avaloniaui.net/docs/guides/development-guides/data-validation#manage-validationplugins
-            DisableAvaloniaDataAnnotationValidation();
+            // GPT-5, 2026-08-06：Avalonia 12 不再允许应用层直接修改内部 BindingPlugins；
+            // 保留默认验证链，CommunityToolkit 的可观察属性验证仍由 ViewModel 自身控制。
             if (OperatingSystem.IsMacOS())
             {
                 StartMacStatusBarHelper();
@@ -139,18 +135,5 @@ public partial class App : Application
     private void HideMainWindow()
     {
         _mainWindow?.Hide();
-    }
-
-    private void DisableAvaloniaDataAnnotationValidation()
-    {
-        // 取得需要移除的数据验证插件快照。
-        var dataValidationPluginsToRemove =
-            BindingPlugins.DataValidators.OfType<DataAnnotationsValidationPlugin>().ToArray();
-
-        // 逐个移除找到的重复插件。
-        foreach (var plugin in dataValidationPluginsToRemove)
-        {
-            BindingPlugins.DataValidators.Remove(plugin);
-        }
     }
 }

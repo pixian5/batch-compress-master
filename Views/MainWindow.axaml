@@ -38,16 +38,16 @@
                     <Grid ColumnDefinitions="280,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
                         <!-- Row 0: Source Mode and Save Path -->
                         <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" ItemsSource="{Binding SourceModeOptions}" HorizontalAlignment="Stretch" ToolTip.Tip="选择从文本文件读取，或扫描源目录"/>
-                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" Watermark="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="选择或输入待处理文件所在目录"/>
+                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" PlaceholderText="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="选择或输入待处理文件所在目录"/>
                         <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right" ToolTip.Tip="选择待处理文件目录"/>
 
                         <!-- Row 2: TXT File Path -->
-                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" Watermark="{Binding L.TxtPathWatermark}" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="包含文件路径和密码的文本文件"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" PlaceholderText="{Binding L.TxtPathWatermark}" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="包含文件路径和密码的文本文件"/>
                         <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="{Binding L.SelectTxt}" HorizontalAlignment="Right" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="选择文件列表或密码文本"/>
 
                         <!-- Row 4: Output Path -->
                         <Button Grid.Row="4" Grid.Column="0" Content="{Binding L.SameAsAbove}" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Left" ToolTip.Tip="将输出和临时目录设为源目录"/>
-                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" Watermark="{Binding L.DestinationWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="压缩包或解压文件的输出目录"/>
+                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" PlaceholderText="{Binding L.DestinationWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="压缩包或解压文件的输出目录"/>
                         <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right" ToolTip.Tip="选择输出目录"/>
                     </Grid>
                 </StackPanel>
@@ -80,7 +80,7 @@
                                     <StackPanel Orientation="Horizontal" Spacing="10">
                                         <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="按文件名生成压缩密码"/>
                                         <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left"
-                                                 Watermark="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="关闭随机密码后使用此密码"/>
+                                                 PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="关闭随机密码后使用此密码"/>
                                     </StackPanel>
 
                                     <!-- 查询结果区域 -->

@@ -5,6 +5,7 @@ using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Input.Platform;
 using BatchCompress.Avalonia.Core.Interfaces;
 
 namespace BatchCompress.Avalonia.Core.Services;
@@ -37,9 +38,8 @@ public class SystemIntegrationService : ISystemIntegration
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
                 desktop.MainWindow?.Clipboard is { } clipboard)
             {
-#pragma warning disable CS0618
-                return await clipboard.GetTextAsync();
-#pragma warning restore CS0618
+                // GPT-5, 2026-08-06：Avalonia 12 将读取文本迁移为 ClipboardExtensions.TryGetTextAsync。
+                return await clipboard.TryGetTextAsync();
             }
         }
         catch (Exception ex) { Debug.WriteLine($"读取剪贴板失败: {ex.Message}"); }
@@ -54,6 +54,7 @@ public class SystemIntegrationService : ISystemIntegration
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop &&
                 desktop.MainWindow?.Clipboard is { } clipboard)
             {
+                // GPT-5, 2026-08-06：写入文本继续使用 Avalonia 12 的 ClipboardExtensions.SetTextAsync。
                 await clipboard.SetTextAsync(text);
             }
         }

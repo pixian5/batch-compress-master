@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.CommandLine;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -8,7 +7,7 @@ using System.Linq;
 namespace BatchCompress.Avalonia;
 
 // GPT-5, 2026-08-06：命令行数据对象覆盖 GUI 可脚本化的批处理能力。
-// 密码可来自参数、文件或标准输入；下游不得把密码写入普通操作日志。
+// 密码可来自参数、文件或标准输入；进程原始输出明确不做脱敏，便于诊断压缩程序行为。
 public sealed class CommandLineOptions
 {
     public bool Compress { get; set; }
@@ -48,7 +47,7 @@ public sealed class CommandLineOptions
 }
 
 // GPT-5, 2026-08-06：解析结果显式携带错误，入口进程可用退出码 2 拒绝无效参数，
-// 不会像旧实现那样在解析失败后继续使用默认值并意外启动 GUI。
+// 不会在解析失败后继续使用默认值并意外启动 GUI。
 public sealed class CommandLineParseOutcome
 {
     public CommandLineOptions Options { get; init; } = new();
@@ -56,204 +55,242 @@ public sealed class CommandLineParseOutcome
     public bool Success => Errors.Count == 0;
 }
 
-// GPT-5, 2026-08-06：集中定义命令行契约、兼容动词和跨选项验证。
+// GPT-5, 2026-08-06：使用项目内轻量解析器维护命令行契约，避免绑定 System.CommandLine 预览期 API。
 // 旧的 --compress/--decompress 仍可使用，compress/extract 动词会在解析前规范为相同开关。
 public static class CommandLineHandler
 {
-    private sealed class Definition
+    private enum ValueKind
     {
-        public RootCommand Root { get; } = new(
-            "批量压缩解压工具。支持 compress、extract 和 GUI，归档格式为 rar、zip、7z。\n" +
-            "示例: BatchCompress.Avalonia compress -i ./data -o ./out -e 7z --password-file ./password.txt");
-
-        public Option<bool> Compress { get; } = new(["--compress", "-c"], "执行无界面批量压缩");
-        public Option<bool> Decompress { get; } = new(["--decompress", "-d"], "执行无界面批量解压");
-        public Option<bool> Gui { get; } = new(["--gui", "-g"], "显式启动图形界面");
-        public Option<string?> Source { get; } = new(["--source", "-s"], "批处理来源目录，压缩时处理其直接子项");
-        public Option<string[]> Inputs { get; } = new(
-            ["--input", "-i"],
-            () => [],
-            "明确输入的文件或目录，可重复指定");
-        public Option<string?> Output { get; } = new(["--output", "-o"], "输出目录");
-        public Option<string?> TextFile { get; } = new(["--text-file", "-t"], "解压文件名与逐项密码 TXT 清单");
-        public Option<string> Extension { get; } = new(
-            ["--extension", "--format", "-e"],
-            () => "rar",
-            "归档格式：rar、zip、7z");
-        public Option<bool> RandomPassword { get; } = new(
-            ["--random-password", "-r"],
-            () => true,
-            "按归档文件名生成兼容随机密码（默认开启）");
-        public Option<bool> NoRandomPassword { get; } = new(["--no-random-password"], "关闭按文件名生成密码");
-        public Option<string?> Password { get; } = new(["--password", "-p"], "直接提供自定义密码");
-        public Option<string?> PasswordFile { get; } = new(["--password-file"], "从文件第一行读取密码");
-        public Option<bool> PasswordStdin { get; } = new(["--password-stdin"], "从标准输入第一行读取密码");
-        public Option<int> Level { get; } = new(
-            ["--level", "-l"],
-            () => 3,
-            "压缩级别：0 存储、1 最快、2 快速、3 标准、4 较好、5 最佳");
-        public Option<bool> Solid { get; } = new(["--solid"], () => true, "启用固实压缩（默认开启）");
-        public Option<bool> NoSolid { get; } = new(["--no-solid"], "关闭固实压缩");
-        public Option<string?> VolumeSize { get; } = new(["--volume-size", "-v"], "分卷数值，例如 20");
-        public Option<string> VolumeUnit { get; } = new(["--volume-unit"], () => "g", "分卷单位：b、k、m、g、t");
-        public Option<bool> QuickOpen { get; } = new(["--quick-open"], "添加 RAR 快速打开信息");
-        public Option<bool> Test { get; } = new(["--test"], "创建后校验归档");
-        public Option<string?> Comment { get; } = new(["--comment"], "RAR/ZIP 注释文本文件");
-        public Option<string?> TempDir { get; } = new(["--temp-dir"], "归档程序临时目录");
-        public Option<int> Recovery { get; } = new(["--recovery"], () => 3, "RAR 恢复记录百分比：0 到 100");
-        public Option<string> Existing { get; } = new(
-            ["--existing"],
-            () => "overwrite",
-            "已有文件策略：skip、update、overwrite");
-        public Option<bool> SkipProcessed { get; } = new(
-            ["--skip-processed"],
-            () => true,
-            "跳过已处理项目（默认开启）");
-        public Option<bool> NoSkipProcessed { get; } = new(["--no-skip-processed"], "不跳过已处理项目");
-        public Option<bool> DeleteSource { get; } = new(["--delete-source"], "成功后删除源文件");
-        public Option<bool> MoveSource { get; } = new(["--move-source"], "成功后移动源文件");
-        public Option<double> MaxSize { get; } = new(["--max-size", "--max-size-gb"], () => 666, "最大处理总量（GB），0 表示不限");
-        public Option<bool> Shutdown { get; } = new(["--shutdown"], "全部完成后请求关机");
-        public Option<bool> AddEnclosures { get; } = new(["--add-enclosures"], () => true, "添加附件目录（默认开启）");
-        public Option<bool> NoAddEnclosures { get; } = new(["--no-add-enclosures"], "关闭附件目录功能");
-        public Option<string?> EnclosureList { get; } = new(["--enclosure-list"], "旧版兼容：换行分隔的附件目录");
-        public Option<string[]> Enclosures { get; } = new(
-            ["--enclosure"],
-            () => [],
-            "附件目录，可重复指定");
-        public Option<string?> LogFile { get; } = new(["--log-file"], "日志文件路径");
-        public Option<bool> Verbose { get; } = new(["--verbose"], "逐项输出详细进度");
-        public Option<bool> Quiet { get; } = new(["--quiet", "-q"], "仅向 stderr 输出错误");
-        public Option<bool> DryRun { get; } = new(["--dry-run"], "列出将处理的项目，不创建目录或归档");
-
-        public Definition()
-        {
-            Inputs.AllowMultipleArgumentsPerToken = true;
-            Enclosures.AllowMultipleArgumentsPerToken = true;
-
-            Root.AddOption(Compress);
-            Root.AddOption(Decompress);
-            Root.AddOption(Gui);
-            Root.AddOption(Source);
-            Root.AddOption(Inputs);
-            Root.AddOption(Output);
-            Root.AddOption(TextFile);
-            Root.AddOption(Extension);
-            Root.AddOption(RandomPassword);
-            Root.AddOption(NoRandomPassword);
-            Root.AddOption(Password);
-            Root.AddOption(PasswordFile);
-            Root.AddOption(PasswordStdin);
-            Root.AddOption(Level);
-            Root.AddOption(Solid);
-            Root.AddOption(NoSolid);
-            Root.AddOption(VolumeSize);
-            Root.AddOption(VolumeUnit);
-            Root.AddOption(QuickOpen);
-            Root.AddOption(Test);
-            Root.AddOption(Comment);
-            Root.AddOption(TempDir);
-            Root.AddOption(Recovery);
-            Root.AddOption(Existing);
-            Root.AddOption(SkipProcessed);
-            Root.AddOption(NoSkipProcessed);
-            Root.AddOption(DeleteSource);
-            Root.AddOption(MoveSource);
-            Root.AddOption(MaxSize);
-            Root.AddOption(Shutdown);
-            Root.AddOption(AddEnclosures);
-            Root.AddOption(NoAddEnclosures);
-            Root.AddOption(EnclosureList);
-            Root.AddOption(Enclosures);
-            Root.AddOption(LogFile);
-            Root.AddOption(Verbose);
-            Root.AddOption(Quiet);
-            Root.AddOption(DryRun);
-        }
+        Flag,
+        Single,
+        Multiple
     }
 
-    public static RootCommand BuildRootCommand() => new Definition().Root;
+    private sealed record OptionDefinition(string CanonicalName, ValueKind Kind);
+
+    private sealed class ParseState
+    {
+        public CommandLineOptions Options { get; } = new();
+        public List<string> Errors { get; } = [];
+        public bool ExplicitGui { get; set; }
+        public bool RandomPassword { get; set; } = true;
+        public bool NoRandomPassword { get; set; }
+        public bool NoSolid { get; set; }
+        public bool NoSkipProcessed { get; set; }
+        public bool NoAddEnclosures { get; set; }
+    }
+
+    private static readonly IReadOnlyDictionary<string, OptionDefinition> Definitions =
+        BuildDefinitions();
+
+    private const string HelpText =
+        """
+        批量压缩解压工具
+
+        用法:
+          BatchCompress.Avalonia [gui]
+          BatchCompress.Avalonia compress -i <路径...> -o <输出目录> [选项]
+          BatchCompress.Avalonia extract -i <归档...> -o <输出目录> [选项]
+
+        模式:
+          compress, --compress, -c       执行无界面批量压缩
+          extract, decompress, --decompress, -d
+                                        执行无界面批量解压
+          gui, --gui, -g                 显式启动图形界面
+
+        来源与输出:
+          --source, -s <目录>            批处理来源目录，压缩时处理其直接子项
+          --input, -i <路径...>          明确输入的文件或目录，可重复指定
+          --output, -o <目录>            输出目录
+          --text-file, -t <文件>         解压文件名与逐项密码 TXT 清单
+
+        压缩参数:
+          --extension, --format, -e      归档格式：rar、zip、7z
+          --level, -l <0..5>             压缩级别
+          --solid / --no-solid           启用或关闭固实压缩
+          --volume-size, -v <数字>       分卷数值
+          --volume-unit <b|k|m|g|t>      分卷单位
+          --recovery <0..100>            RAR 恢复记录百分比
+          --quick-open                   添加 RAR 快速打开信息
+          --test                         创建后校验归档
+          --comment <文件>               RAR/ZIP 注释文本文件
+          --temp-dir <目录>              归档程序临时目录
+
+        密码:
+          --random-password, -r          按归档文件名生成兼容随机密码，默认开启
+          --no-random-password           关闭随机密码派生
+          --password, -p <密码>          直接提供自定义密码
+          --password-file <文件>         从文件第一行读取密码
+          --password-stdin               从标准输入第一行读取密码
+
+        处理策略:
+          --existing <skip|update|overwrite>
+                                        已有文件策略
+          --skip-processed / --no-skip-processed
+                                        启用或关闭跳过已处理项目
+          --delete-source                成功后删除源文件
+          --move-source                  成功后移动源文件
+          --max-size, --max-size-gb <GB> 最大处理总量，0 表示不限
+          --shutdown                     全部完成后请求关机
+          --add-enclosures / --no-add-enclosures
+                                        启用或关闭附件目录
+          --enclosure-list <文件>        旧版兼容：换行分隔的附件目录
+          --enclosure <目录...>          附件目录，可重复指定
+
+        日志:
+          --log-file <文件>              日志文件路径
+          --verbose                      输出详细进度
+          --quiet, -q                    仅向 stderr 输出错误
+          --dry-run                      列出将处理的项目，不创建目录或归档
+          --help, -h, -?, /?             显示帮助
+          --version                      显示版本
+
+        示例:
+          BatchCompress.Avalonia compress -i ./data -o ./out -e 7z --password-file ./password.txt
+          BatchCompress.Avalonia extract -i ./archive.7z -o ./out --password-stdin
+        """;
 
     public static CommandLineParseOutcome ParseArguments(string[] args)
     {
         ArgumentNullException.ThrowIfNull(args);
         var effectiveArgs = NormalizeVerb(args);
-        var definition = new Definition();
-        var parseResult = definition.Root.Parse(effectiveArgs);
-        var errors = parseResult.Errors.Select(error => error.Message).ToList();
+        var state = new ParseState();
 
-        if (errors.Count > 0)
+        for (var index = 0; index < effectiveArgs.Length; index++)
         {
-            return new CommandLineParseOutcome { Errors = errors };
+            var token = effectiveArgs[index];
+            if (token == "--")
+            {
+                AddRemainingAsInputs(effectiveArgs, index + 1, state.Options.InputPaths, out var allInputs);
+                state.Options.InputPaths = allInputs;
+                break;
+            }
+
+            if (!TryReadOptionToken(token, out var name, out var inlineValue) ||
+                !Definitions.TryGetValue(name, out var definition))
+            {
+                state.Errors.Add($"未知参数: {token}");
+                continue;
+            }
+
+            if (definition.Kind == ValueKind.Flag)
+            {
+                ApplyFlag(definition.CanonicalName, ParseFlagValue(token, inlineValue, state.Errors), state);
+                continue;
+            }
+
+            if (definition.Kind == ValueKind.Single)
+            {
+                var value = ReadSingleValue(effectiveArgs, ref index, token, inlineValue, state.Errors);
+                if (value is not null)
+                {
+                    ApplySingleValue(definition.CanonicalName, value, state);
+                }
+                continue;
+            }
+
+            var values = ReadMultipleValues(effectiveArgs, ref index, token, inlineValue, state.Errors);
+            if (values.Count > 0)
+            {
+                ApplyMultipleValues(definition.CanonicalName, values, state);
+            }
         }
 
-        var options = new CommandLineOptions
-        {
-            Compress = parseResult.GetValueForOption(definition.Compress),
-            Decompress = parseResult.GetValueForOption(definition.Decompress),
-            SourcePath = parseResult.GetValueForOption(definition.Source),
-            InputPaths = parseResult.GetValueForOption(definition.Inputs) ?? [],
-            OutputPath = parseResult.GetValueForOption(definition.Output),
-            TextFile = parseResult.GetValueForOption(definition.TextFile),
-            Extension = NormalizeFormat(parseResult.GetValueForOption(definition.Extension)),
-            Password = parseResult.GetValueForOption(definition.Password),
-            PasswordFile = parseResult.GetValueForOption(definition.PasswordFile),
-            ReadPasswordFromStandardInput = parseResult.GetValueForOption(definition.PasswordStdin),
-            CompressionLevel = parseResult.GetValueForOption(definition.Level),
-            Solid = parseResult.GetValueForOption(definition.Solid) && !parseResult.GetValueForOption(definition.NoSolid),
-            VolumeSize = parseResult.GetValueForOption(definition.VolumeSize),
-            VolumeUnit = NormalizeVolumeUnit(parseResult.GetValueForOption(definition.VolumeUnit)),
-            QuickOpen = parseResult.GetValueForOption(definition.QuickOpen),
-            TestArchive = parseResult.GetValueForOption(definition.Test),
-            CommentFile = parseResult.GetValueForOption(definition.Comment),
-            TempDir = parseResult.GetValueForOption(definition.TempDir),
-            RecoveryRecord = parseResult.GetValueForOption(definition.Recovery),
-            ExistingFileMode = (parseResult.GetValueForOption(definition.Existing) ?? "overwrite").Trim().ToLowerInvariant(),
-            SkipProcessed = parseResult.GetValueForOption(definition.SkipProcessed) && !parseResult.GetValueForOption(definition.NoSkipProcessed),
-            DeleteSource = parseResult.GetValueForOption(definition.DeleteSource),
-            MoveSource = parseResult.GetValueForOption(definition.MoveSource),
-            MaxSizeGB = parseResult.GetValueForOption(definition.MaxSize),
-            ShutdownAfter = parseResult.GetValueForOption(definition.Shutdown),
-            AddEnclosures = parseResult.GetValueForOption(definition.AddEnclosures) && !parseResult.GetValueForOption(definition.NoAddEnclosures),
-            EnclosureList = parseResult.GetValueForOption(definition.EnclosureList),
-            EnclosurePaths = parseResult.GetValueForOption(definition.Enclosures) ?? [],
-            LogFile = parseResult.GetValueForOption(definition.LogFile),
-            Verbose = parseResult.GetValueForOption(definition.Verbose),
-            Quiet = parseResult.GetValueForOption(definition.Quiet),
-            DryRun = parseResult.GetValueForOption(definition.DryRun)
-        };
+        var options = state.Options;
+        options.Extension = NormalizeFormat(options.Extension);
+        options.VolumeUnit = NormalizeVolumeUnit(options.VolumeUnit);
+        options.ExistingFileMode = (options.ExistingFileMode ?? "overwrite").Trim().ToLowerInvariant();
+        options.Gui = effectiveArgs.Length == 0 || state.ExplicitGui;
+        options.Solid = options.Solid && !state.NoSolid;
+        options.SkipProcessed = options.SkipProcessed && !state.NoSkipProcessed;
+        options.AddEnclosures = options.AddEnclosures && !state.NoAddEnclosures;
 
-        var explicitGui = parseResult.GetValueForOption(definition.Gui);
-        options.Gui = effectiveArgs.Length == 0 || explicitGui;
-
-        // GPT-5, 2026-08-06：直接密码、密码文件和标准输入都优先于随机密码派生。
         var explicitPasswordSourceCount = new[]
         {
             !string.IsNullOrEmpty(options.Password),
             !string.IsNullOrWhiteSpace(options.PasswordFile),
             options.ReadPasswordFromStandardInput
         }.Count(value => value);
-        options.UseRandomPassword = parseResult.GetValueForOption(definition.RandomPassword) &&
-                                    !parseResult.GetValueForOption(definition.NoRandomPassword) &&
-                                    explicitPasswordSourceCount == 0;
+        options.UseRandomPassword = state.RandomPassword && !state.NoRandomPassword && explicitPasswordSourceCount == 0;
 
-        Validate(options, explicitGui, explicitPasswordSourceCount, effectiveArgs, errors);
-        return new CommandLineParseOutcome { Options = options, Errors = errors };
+        Validate(options, state.ExplicitGui, explicitPasswordSourceCount, effectiveArgs, state.Errors);
+        return new CommandLineParseOutcome { Options = options, Errors = state.Errors };
     }
 
     public static bool IsHelpRequested(string[] args)
     {
+        ArgumentNullException.ThrowIfNull(args);
         return args.Any(argument => argument is "--help" or "-h" or "-?" or "/?");
     }
 
     public static bool IsVersionRequested(string[] args)
     {
+        ArgumentNullException.ThrowIfNull(args);
         return args.Any(argument => argument.Equals("--version", StringComparison.OrdinalIgnoreCase));
     }
 
     public static void ShowHelp()
     {
-        BuildRootCommand().Invoke(["--help"]);
+        Console.Out.WriteLine(HelpText);
+    }
+
+    private static IReadOnlyDictionary<string, OptionDefinition> BuildDefinitions()
+    {
+        var definitions = new Dictionary<string, OptionDefinition>(StringComparer.OrdinalIgnoreCase);
+
+        Add(definitions, "--compress", ValueKind.Flag, "--compress", "-c");
+        Add(definitions, "--decompress", ValueKind.Flag, "--decompress", "-d");
+        Add(definitions, "--gui", ValueKind.Flag, "--gui", "-g");
+        Add(definitions, "--source", ValueKind.Single, "--source", "-s");
+        Add(definitions, "--input", ValueKind.Multiple, "--input", "-i");
+        Add(definitions, "--output", ValueKind.Single, "--output", "-o");
+        Add(definitions, "--text-file", ValueKind.Single, "--text-file", "-t");
+        Add(definitions, "--extension", ValueKind.Single, "--extension", "--format", "-e");
+        Add(definitions, "--random-password", ValueKind.Flag, "--random-password", "-r");
+        Add(definitions, "--no-random-password", ValueKind.Flag, "--no-random-password");
+        Add(definitions, "--password", ValueKind.Single, "--password", "-p");
+        Add(definitions, "--password-file", ValueKind.Single, "--password-file");
+        Add(definitions, "--password-stdin", ValueKind.Flag, "--password-stdin");
+        Add(definitions, "--level", ValueKind.Single, "--level", "-l");
+        Add(definitions, "--solid", ValueKind.Flag, "--solid");
+        Add(definitions, "--no-solid", ValueKind.Flag, "--no-solid");
+        Add(definitions, "--volume-size", ValueKind.Single, "--volume-size", "-v");
+        Add(definitions, "--volume-unit", ValueKind.Single, "--volume-unit");
+        Add(definitions, "--quick-open", ValueKind.Flag, "--quick-open");
+        Add(definitions, "--test", ValueKind.Flag, "--test");
+        Add(definitions, "--comment", ValueKind.Single, "--comment");
+        Add(definitions, "--temp-dir", ValueKind.Single, "--temp-dir");
+        Add(definitions, "--recovery", ValueKind.Single, "--recovery");
+        Add(definitions, "--existing", ValueKind.Single, "--existing");
+        Add(definitions, "--skip-processed", ValueKind.Flag, "--skip-processed");
+        Add(definitions, "--no-skip-processed", ValueKind.Flag, "--no-skip-processed");
+        Add(definitions, "--delete-source", ValueKind.Flag, "--delete-source");
+        Add(definitions, "--move-source", ValueKind.Flag, "--move-source");
+        Add(definitions, "--max-size", ValueKind.Single, "--max-size", "--max-size-gb");
+        Add(definitions, "--shutdown", ValueKind.Flag, "--shutdown");
+        Add(definitions, "--add-enclosures", ValueKind.Flag, "--add-enclosures");
+        Add(definitions, "--no-add-enclosures", ValueKind.Flag, "--no-add-enclosures");
+        Add(definitions, "--enclosure-list", ValueKind.Single, "--enclosure-list");
+        Add(definitions, "--enclosure", ValueKind.Multiple, "--enclosure");
+        Add(definitions, "--log-file", ValueKind.Single, "--log-file");
+        Add(definitions, "--verbose", ValueKind.Flag, "--verbose");
+        Add(definitions, "--quiet", ValueKind.Flag, "--quiet", "-q");
+        Add(definitions, "--dry-run", ValueKind.Flag, "--dry-run");
+
+        return definitions;
+    }
+
+    private static void Add(
+        Dictionary<string, OptionDefinition> definitions,
+        string canonicalName,
+        ValueKind kind,
+        params string[] aliases)
+    {
+        var definition = new OptionDefinition(canonicalName, kind);
+        foreach (var alias in aliases)
+        {
+            definitions[alias] = definition;
+        }
     }
 
     private static string[] NormalizeVerb(string[] args)
@@ -272,6 +309,283 @@ public static class CommandLineHandler
             _ => null
         };
         return replacement == null ? args : [replacement, .. args.Skip(1)];
+    }
+
+    private static bool TryReadOptionToken(string token, out string name, out string? inlineValue)
+    {
+        name = string.Empty;
+        inlineValue = null;
+        if (string.IsNullOrWhiteSpace(token) ||
+            token == "-" ||
+            !token.StartsWith("-", StringComparison.Ordinal) ||
+            LooksLikeNegativeNumber(token))
+        {
+            return false;
+        }
+
+        var equalsIndex = token.IndexOf('=');
+        if (equalsIndex < 0)
+        {
+            name = token;
+            return true;
+        }
+
+        name = token[..equalsIndex];
+        inlineValue = token[(equalsIndex + 1)..];
+        return !string.IsNullOrWhiteSpace(name);
+    }
+
+    private static bool LooksLikeNegativeNumber(string token)
+    {
+        return token.Length > 1 && char.IsDigit(token[1]);
+    }
+
+    private static bool ParseFlagValue(string token, string? inlineValue, List<string> errors)
+    {
+        if (inlineValue is null)
+        {
+            return true;
+        }
+
+        if (bool.TryParse(inlineValue, out var value))
+        {
+            return value;
+        }
+
+        if (inlineValue is "1" or "yes" or "on")
+        {
+            return true;
+        }
+
+        if (inlineValue is "0" or "no" or "off")
+        {
+            return false;
+        }
+
+        errors.Add($"{token} 只能使用 true 或 false。");
+        return true;
+    }
+
+    private static string? ReadSingleValue(
+        string[] args,
+        ref int index,
+        string token,
+        string? inlineValue,
+        List<string> errors)
+    {
+        if (inlineValue is not null)
+        {
+            return inlineValue;
+        }
+
+        if (index + 1 >= args.Length || args[index + 1] == "--")
+        {
+            errors.Add($"{token} 缺少参数值。");
+            return null;
+        }
+
+        index++;
+        return args[index];
+    }
+
+    private static List<string> ReadMultipleValues(
+        string[] args,
+        ref int index,
+        string token,
+        string? inlineValue,
+        List<string> errors)
+    {
+        var values = new List<string>();
+        if (inlineValue is not null)
+        {
+            if (!string.IsNullOrWhiteSpace(inlineValue))
+            {
+                values.Add(inlineValue);
+            }
+        }
+        else
+        {
+            while (index + 1 < args.Length && !IsOptionBoundary(args[index + 1]))
+            {
+                index++;
+                values.Add(args[index]);
+            }
+        }
+
+        if (values.Count == 0)
+        {
+            errors.Add($"{token} 缺少参数值。");
+        }
+
+        return values;
+    }
+
+    private static bool IsOptionBoundary(string token)
+    {
+        return token == "--" ||
+               (TryReadOptionToken(token, out _, out _) && !LooksLikeNegativeNumber(token));
+    }
+
+    private static void ApplyFlag(string canonicalName, bool value, ParseState state)
+    {
+        switch (canonicalName)
+        {
+            case "--compress":
+                state.Options.Compress = value;
+                break;
+            case "--decompress":
+                state.Options.Decompress = value;
+                break;
+            case "--gui":
+                state.ExplicitGui = value;
+                break;
+            case "--random-password":
+                state.RandomPassword = value;
+                break;
+            case "--no-random-password":
+                state.NoRandomPassword = value;
+                break;
+            case "--password-stdin":
+                state.Options.ReadPasswordFromStandardInput = value;
+                break;
+            case "--solid":
+                state.Options.Solid = value;
+                break;
+            case "--no-solid":
+                state.NoSolid = value;
+                break;
+            case "--quick-open":
+                state.Options.QuickOpen = value;
+                break;
+            case "--test":
+                state.Options.TestArchive = value;
+                break;
+            case "--skip-processed":
+                state.Options.SkipProcessed = value;
+                break;
+            case "--no-skip-processed":
+                state.NoSkipProcessed = value;
+                break;
+            case "--delete-source":
+                state.Options.DeleteSource = value;
+                break;
+            case "--move-source":
+                state.Options.MoveSource = value;
+                break;
+            case "--shutdown":
+                state.Options.ShutdownAfter = value;
+                break;
+            case "--add-enclosures":
+                state.Options.AddEnclosures = value;
+                break;
+            case "--no-add-enclosures":
+                state.NoAddEnclosures = value;
+                break;
+            case "--verbose":
+                state.Options.Verbose = value;
+                break;
+            case "--quiet":
+                state.Options.Quiet = value;
+                break;
+            case "--dry-run":
+                state.Options.DryRun = value;
+                break;
+        }
+    }
+
+    private static void ApplySingleValue(string canonicalName, string value, ParseState state)
+    {
+        switch (canonicalName)
+        {
+            case "--source":
+                state.Options.SourcePath = value;
+                break;
+            case "--output":
+                state.Options.OutputPath = value;
+                break;
+            case "--text-file":
+                state.Options.TextFile = value;
+                break;
+            case "--extension":
+                state.Options.Extension = value;
+                break;
+            case "--password":
+                state.Options.Password = value;
+                break;
+            case "--password-file":
+                state.Options.PasswordFile = value;
+                break;
+            case "--level":
+                state.Options.CompressionLevel = ParseInt(value, "--level", state.Errors, 3);
+                break;
+            case "--volume-size":
+                state.Options.VolumeSize = value;
+                break;
+            case "--volume-unit":
+                state.Options.VolumeUnit = value;
+                break;
+            case "--comment":
+                state.Options.CommentFile = value;
+                break;
+            case "--temp-dir":
+                state.Options.TempDir = value;
+                break;
+            case "--recovery":
+                state.Options.RecoveryRecord = ParseInt(value, "--recovery", state.Errors, 3);
+                break;
+            case "--existing":
+                state.Options.ExistingFileMode = value;
+                break;
+            case "--max-size":
+                state.Options.MaxSizeGB = ParseDouble(value, "--max-size", state.Errors, 666);
+                break;
+            case "--enclosure-list":
+                state.Options.EnclosureList = value;
+                break;
+            case "--log-file":
+                state.Options.LogFile = value;
+                break;
+        }
+    }
+
+    private static void ApplyMultipleValues(string canonicalName, IEnumerable<string> values, ParseState state)
+    {
+        switch (canonicalName)
+        {
+            case "--input":
+                state.Options.InputPaths = [.. state.Options.InputPaths, .. values];
+                break;
+            case "--enclosure":
+                state.Options.EnclosurePaths = [.. state.Options.EnclosurePaths, .. values];
+                break;
+        }
+    }
+
+    private static int ParseInt(string value, string optionName, List<string> errors, int fallback)
+    {
+        if (int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        errors.Add($"{optionName} 必须是整数。");
+        return fallback;
+    }
+
+    private static double ParseDouble(string value, string optionName, List<string> errors, double fallback)
+    {
+        if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return parsed;
+        }
+
+        errors.Add($"{optionName} 必须是数字。");
+        return fallback;
+    }
+
+    private static void AddRemainingAsInputs(string[] args, int startIndex, string[] existing, out string[] inputs)
+    {
+        inputs = [.. existing, .. args.Skip(startIndex)];
     }
 
     private static void Validate(

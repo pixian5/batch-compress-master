@@ -1,6 +1,6 @@
 # 当前架构
 
-本仓库根目录即为当前 Avalonia 项目，不包含可构建的 WinForms 应用。目标框架为 `net10.0`，UI 框架为 Avalonia 11.3.18，MVVM 使用 CommunityToolkit.Mvvm。
+本仓库根目录即为当前 Avalonia 项目，不包含可构建的 WinForms 应用。目标框架为 `net10.0`，UI 框架为 Avalonia 12.1.1，MVVM 使用 CommunityToolkit.Mvvm 8.4.2。
 
 ## 分层
 
@@ -23,7 +23,7 @@ Views/MainWindow.axaml + App.axaml
 
 ## 命令行入口
 
-`Program` 在初始化 Avalonia 前处理帮助、版本和参数错误。`CommandLineHandler` 同时接受 `compress`/`extract` 动词与旧版 `--compress`/`--decompress` 开关，统一规范格式、单位和布尔默认值，并验证互斥模式、输入来源、密码来源、数值范围及文件路径。解析失败返回退出码 2，不会继续启动 GUI。
+`Program` 在初始化 Avalonia 前处理帮助、版本和参数错误。`CommandLineHandler` 是项目内轻量解析器，同时接受 `compress`/`extract` 动词与旧版 `--compress`/`--decompress` 开关，统一规范格式、单位和布尔默认值，并验证互斥模式、输入来源、密码来源、数值范围及文件路径。解析失败返回退出码 2，不会继续启动 GUI。该层不再依赖 System.CommandLine，避免预览期 API 变更影响发布。
 
 `HeadlessBatchRunner` 支持来源目录、精确重复 `--input` 和 TXT 密码清单。`--source` 在压缩时展开目录直接子项，`--input` 中的目录作为单个压缩来源；解压目录只枚举匹配格式的归档。CLI 使用同步进度接收器维持 stdout/stderr 和计数顺序，`--dry-run` 不创建输出目录。
 
@@ -45,7 +45,7 @@ Windows 与 Linux 使用 Avalonia 原生 `TrayIcon`。由于实测 macOS 上 Ava
 
 窗口大小和位置由视图层保存并在下次启动恢复。普通关闭会退出应用；“隐藏到托盘”和托盘“显示/隐藏”菜单只改变主窗口可见性。所有高级选项默认可用，没有许可证或解锁验证流程。
 
-## 维护约束（0.2.3）
+## 维护约束（0.2.4）
 
 - 归档进程参数必须使用 `ArgumentList`，不得拼接 Shell 命令字符串；stdout/stderr 必须并行异步读取。
 - 活动源码新增或修改的注释使用中文，并以 `GPT-5, YYYY-MM-DD：` 标注复杂逻辑的维护日期和原因。
