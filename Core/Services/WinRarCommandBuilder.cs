@@ -76,9 +76,9 @@ public static class WinRarCommandBuilder
             arguments.Add($"-w{options.TempDirectory}");
         }
 
-        if (options.ExcludeExtensions is { Length: > 0 })
+        if (options.RarStoreOnlyExtensions is { Length: > 0 })
         {
-            arguments.Add($"-ms{string.Join(";", options.ExcludeExtensions)}");
+            arguments.Add($"-ms{string.Join(";", options.RarStoreOnlyExtensions)}");
         }
 
         arguments.Add("-oi:50000000");

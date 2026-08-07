@@ -282,6 +282,9 @@ public partial class MainWindowViewModel : ViewModelBase
     
     [ObservableProperty]
     private int _failCount = 0;
+
+    [ObservableProperty]
+    private int _postProcessFailCount = 0;
     
     [ObservableProperty]
     private int _ignoreCount = 0;
@@ -686,6 +689,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 CurrentFile = info.CurrentFile;
                 SuccessCount = info.SuccessCount;
                 FailCount = info.FailCount;
+                PostProcessFailCount = info.PostProcessFailCount;
                 IgnoreCount = info.IgnoreCount;
                 NonExistCount = info.NonExistCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
@@ -736,10 +740,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
             await OfferShutdownCancellationAsync(options);
             
-            CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
+            CommandLog += $"\n完成: 成功={SuccessCount}, 归档失败={FailCount}, 后处理失败={PostProcessFailCount}, " +
                          $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
-            _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 失败: {FailCount}");
+            _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 归档失败: {FailCount}, 后处理失败: {PostProcessFailCount}");
         }
         catch (OperationCanceledException)
         {
@@ -838,6 +842,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 CurrentFile = info.CurrentFile;
                 SuccessCount = info.SuccessCount;
                 FailCount = info.FailCount;
+                PostProcessFailCount = info.PostProcessFailCount;
                 IgnoreCount = info.IgnoreCount;
                 NonExistCount = info.NonExistCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
@@ -888,10 +893,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
             await OfferShutdownCancellationAsync(options);
             
-            CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
+            CommandLog += $"\n完成: 成功={SuccessCount}, 归档失败={FailCount}, 后处理失败={PostProcessFailCount}, " +
                          $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
                          
-            _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 失败: {FailCount}");
+            _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 归档失败: {FailCount}, 后处理失败: {PostProcessFailCount}");
         }
         catch (OperationCanceledException)
         {
@@ -1049,6 +1054,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         SuccessCount = 0;
         FailCount = 0;
+        PostProcessFailCount = 0;
         IgnoreCount = 0;
         NonExistCount = 0;
         ProcessedSizeGB = 0;
@@ -1090,7 +1096,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var remaining = RemainingTime > TimeSpan.Zero ? $"，剩余约 {RemainingTime:hh\\:mm\\:ss}" : string.Empty;
         _systemIntegration.ShowNotification(
             $"{operation}进行中",
-            $"已处理 {completedCount} 项，成功 {info.SuccessCount}，失败 {info.FailCount}，当前：{info.CurrentFile}{remaining}");
+            $"已处理 {completedCount} 项，成功 {info.SuccessCount}，归档失败 {info.FailCount}，后处理失败 {info.PostProcessFailCount}，当前：{info.CurrentFile}{remaining}");
     }
     
     private BatchOperationOptions BuildBatchOperationOptions()

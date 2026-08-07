@@ -45,10 +45,16 @@ Windows 与 Linux 使用 Avalonia 原生 `TrayIcon`。由于实测 macOS 上 Ava
 
 窗口大小和位置由视图层保存并在下次启动恢复。普通关闭会退出应用；“隐藏到托盘”和托盘“显示/隐藏”菜单只改变主窗口可见性。所有高级选项默认可用，没有许可证或解锁验证流程。
 
-## 维护约束（0.2.7）
+## 维护约束（0.2.8）
 
 - 归档进程参数必须使用 `ArgumentList`，不得拼接 Shell 命令字符串；stdout/stderr 必须并行异步读取。
 - 活动源码新增或修改的注释使用中文，并以 `GPT-5, YYYY-MM-DD：` 标注复杂逻辑的维护日期和原因。
 - `desktop.ini`、`.DS_Store`、`Thumbs.db`、Linux 桌面元数据及回收站目录由统一过滤器跳过，不能进入归档任务。
 - `tools/7zip/` 中的官方 7zz 和 `tools/WinRAR/rarreg.key` 是项目运行资源，不应被 `.gitignore` 忽略；其他本地密钥、证书和环境文件不得提交。
+
+## RAR 与 7z 后端边界
+
+格式路由必须在创建 `ArchiveOptions` 后立即进入对应引擎：RAR 只进入 `RarArchiveEngine`/`WinRarCommandBuilder`，7z 和 ZIP 只进入 `SevenZipArchiveEngine`/`SevenZipCommandBuilder`。两个构建器都使用 `ArgumentList`，但参数集合不是同一套：WinRAR 的 `-ms`、`-rr`、`-k`、`-z`、`-qo` 不得传给 7zz；7zz 的 `-t7z`、`-tzip`、`-mx`、`-mhe`、`-mem`、`-ao*` 不得传给 WinRAR。
+
+默认文件分类和两套后端的能力限制记录在 [RAR 与 7z 后端边界](2026-08-07-RAR与7z边界.md)。
 - 构建输出、发布目录、覆盖率结果、IDE 缓存和平台临时文件由根 `.gitignore` 统一排除。

@@ -43,7 +43,8 @@ public class ArchiveOptions
     public string? VolumeSize { get; set; }
     public ExistingFileMode ExistingFileMode { get; set; } = ExistingFileMode.Skip;
     public int RecoveryRecordPercent { get; set; }
-    public string[]? ExcludeExtensions { get; set; }
+    // GPT-5, 2026-08-07：仅供 WinRarCommandBuilder 生成按扩展名仅存储的 -ms 参数；不是排除清单。
+    public string[]? RarStoreOnlyExtensions { get; set; }
     public bool LockArchive { get; set; }
     public string[]? AdditionalInputs { get; set; }
 }

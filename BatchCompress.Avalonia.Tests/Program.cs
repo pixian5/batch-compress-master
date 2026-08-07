@@ -23,6 +23,7 @@ internal static class Program
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
             ("附件根目录与空目录", TestAttachmentRootInputs),
             ("跳过已有归档统计", TestExistingSkipProgress),
+            ("后处理冲突保留源和目标", TestPostProcessConflict),
             ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke),
             ("完整命令行解析", TestCommandLineParsing),
             ("命令行错误校验", TestCommandLineValidation),
@@ -145,18 +146,36 @@ internal static class Program
         AssertEqual("a", PasswordUtility.GetPasswordSourceName("a.7z.001", PasswordNameMode.BaseName));
         AssertEqual("a.rar", PasswordUtility.GetPasswordSourceName("a.rar", PasswordNameMode.ArchiveName));
         AssertEqual("a", PasswordUtility.GetPasswordSourceName("a.rar", PasswordNameMode.BaseName));
+        Assert(!ArchiveDefaults.StoreOnlyExtensions.Intersect(ArchiveDefaults.CompressionFriendlyExtensions).Any(),
+            "仅存储与适合压缩清单不得重叠");
+        Assert(!ArchiveDefaults.StoreOnlyExtensions.Intersect(ArchiveDefaults.ContentDependentExtensions).Any(),
+            "仅存储与内容相关清单不得重叠");
+        Assert(!ArchiveDefaults.CompressionFriendlyExtensions.Intersect(ArchiveDefaults.ContentDependentExtensions).Any(),
+            "适合压缩与内容相关清单不得重叠");
+        AssertContains(ArchiveDefaults.CompressionFriendlyExtensions, "tar");
+        AssertContains(ArchiveDefaults.ContentDependentExtensions, "pdf");
 
         var rarOptions = CreateOptions();
-        rarOptions.ExcludeExtensions = ArchiveDefaults.StoreOnlyExtensions;
+        rarOptions.RarStoreOnlyExtensions = ArchiveDefaults.StoreOnlyExtensions;
         var rarArguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.rar", rarOptions);
-        AssertContains(rarArguments, "-ms7z;ace;arj;bz2;cab;gz;mp4;mkv;rm;rmvb;flv;mov;lha;lz;lzh;mp3;rar;taz;tgz;xz;z;zip;zipx");
+        AssertContains(rarArguments, "-ms7z;ace;arj;bz2;cab;gz;lha;lz;lzh;rar;taz;tgz;xz;z;zip;zipx;aac;avi;flac;flv;m4a;mkv;mov;mp3;mp4;ogg;opus;rm;rmvb;webm;avif;gif;heic;jpeg;jpg;png;webp;docx;odg;odp;ods;odt;pptx;xlsx");
+        Assert(!rarArguments.Any(argument => argument is "-t7z" or "-tzip" || argument.StartsWith("-mx=", StringComparison.Ordinal)),
+            "RAR 参数不得包含 7zz 的格式或压缩级别语法");
 
         var sevenZipOptions = CreateOptions();
         sevenZipOptions.ArchiveFormat = "7z";
-        sevenZipOptions.ExcludeExtensions = ArchiveDefaults.StoreOnlyExtensions;
+        sevenZipOptions.RarStoreOnlyExtensions = ArchiveDefaults.StoreOnlyExtensions;
         var sevenZipArguments = SevenZipCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.7z", sevenZipOptions);
         Assert(!sevenZipArguments.Any(argument => argument.StartsWith("-xr!", StringComparison.Ordinal)),
             "7z/ZIP 不得把 RAR 的仅存储规则转换为排除规则");
+        Assert(!sevenZipArguments.Any(argument =>
+                argument.StartsWith("-rr", StringComparison.Ordinal) ||
+                argument == "-k" ||
+                argument == "-qo+" ||
+                argument.StartsWith("-z", StringComparison.Ordinal) ||
+                argument.StartsWith("-ms7z;", StringComparison.Ordinal)),
+            "7zz 参数不得包含 WinRAR 专属参数");
+        AssertThrows<NotSupportedException>(() => SevenZipCommandBuilder.NormalizeArchiveFormat("rar"));
         return Task.CompletedTask;
     }
 
@@ -379,6 +398,72 @@ internal static class Program
             AssertEqual(1, snapshots.Last().IgnoreCount);
             AssertEqual(0, snapshots.Last().FailCount);
             AssertEqual(0, engine.CompressionCalls);
+        }
+        finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
+    }
+
+    private static async Task TestPostProcessConflict()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-post-process-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source");
+        var output = Path.Combine(root, "out");
+        var processed = Path.Combine(root, "【已压缩】", "source");
+        Directory.CreateDirectory(source);
+        Directory.CreateDirectory(output);
+        Directory.CreateDirectory(processed);
+        File.WriteAllText(Path.Combine(source, "source.txt"), "source remains");
+        File.WriteAllText(Path.Combine(processed, "existing.txt"), "target remains");
+        var snapshots = new List<OperationProgressInfo>();
+        try
+        {
+            await new BatchOperationService(new TestArchiveEngine(), new TestSystemIntegration()).BatchCompressAsync(
+                [source],
+                new BatchOperationOptions
+                {
+                    OutputPath = output,
+                    Extension = "rar",
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    MoveSourceAfter = true
+                },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            var final = snapshots.Last();
+            AssertEqual(1, final.SuccessCount);
+            AssertEqual(0, final.FailCount);
+            AssertEqual(1, final.PostProcessFailCount);
+            Assert(Directory.Exists(source), "移动目标冲突时必须保留源目录");
+            Assert(File.Exists(Path.Combine(processed, "existing.txt")), "移动目标冲突时必须保留目标目录");
+
+            var firstVolume = Path.Combine(root, "archive.7z.001");
+            var secondVolume = Path.Combine(root, "archive.7z.002");
+            var extractedProcessed = Path.Combine(root, "【已解压】");
+            var conflictingSecondVolume = Path.Combine(extractedProcessed, "archive.7z.002");
+            File.WriteAllText(firstVolume, "first volume");
+            File.WriteAllText(secondVolume, "second volume");
+            Directory.CreateDirectory(extractedProcessed);
+            File.WriteAllText(conflictingSecondVolume, "existing target");
+            snapshots.Clear();
+
+            await new BatchOperationService(new TestArchiveEngine(), new TestSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = firstVolume, FileSize = new FileInfo(firstVolume).Length }],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "extracted"),
+                    Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    MoveSourceAfter = true
+                },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            final = snapshots.Last();
+            AssertEqual(1, final.SuccessCount);
+            AssertEqual(0, final.FailCount);
+            AssertEqual(1, final.PostProcessFailCount);
+            Assert(File.Exists(firstVolume) && File.Exists(secondVolume), "任一分卷目标冲突时必须保留整组源卷");
+            Assert(!File.Exists(Path.Combine(extractedProcessed, "archive.7z.001")), "分卷冲突时不得移动部分分卷");
+            AssertEqual("existing target", File.ReadAllText(conflictingSecondVolume));
         }
         finally { if (Directory.Exists(root)) Directory.Delete(root, true); }
     }

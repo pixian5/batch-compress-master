@@ -117,7 +117,7 @@ public class HeadlessBatchRunner
             else if (!_options.Quiet)
             {
                 // 非详细模式只显示一行可刷新的简要进度。
-                Console.Write($"\rProcessed: {info.SuccessCount} success, {info.FailCount} failed, {info.IgnoreCount} skipped    ");
+                Console.Write($"\rProcessed: {info.SuccessCount} success, {info.FailCount} failed, {info.PostProcessFailCount} post-process failed, {info.IgnoreCount} skipped    ");
             }
         });
 
@@ -134,12 +134,13 @@ public class HeadlessBatchRunner
 
             WriteLine(string.Empty);
             var summary = $"Completed: Success={progressInfo.SuccessCount}, Failed={progressInfo.FailCount}, " +
-                         $"Skipped={progressInfo.IgnoreCount}, NotFound={progressInfo.NonExistCount}";
+                         $"PostProcessFailed={progressInfo.PostProcessFailCount}, Skipped={progressInfo.IgnoreCount}, " +
+                         $"NotFound={progressInfo.NonExistCount}";
             _logger.LogOperation("COMPLETE", summary);
             WriteLine(summary);
             WriteLine($"Log file: {_logger.LogFilePath}");
 
-            return progressInfo.FailCount > 0
+            return progressInfo.FailCount > 0 || progressInfo.PostProcessFailCount > 0
                 ? 1
                 : progressInfo.SuccessCount > 0 || progressInfo.IgnoreCount > 0 ? 0 : 1;
         }

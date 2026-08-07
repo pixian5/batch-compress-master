@@ -12,6 +12,7 @@ public class OperationProgressInfo
     public string CurrentFile { get; set; } = string.Empty;
     public int SuccessCount { get; set; }
     public int FailCount { get; set; }
+    public int PostProcessFailCount { get; set; }
     public int IgnoreCount { get; set; }
     public int NonExistCount { get; set; }
     public double ProcessedSizeGB { get; set; }
@@ -62,7 +63,7 @@ public class BatchOperationOptions
     public Core.Interfaces.ExistingFileMode ExistingFileMode { get; set; }
     public int RecoveryRecordPercent { get; set; }
     public bool LockArchive { get; set; }
-    public string[] StoreOnlyExtensions { get; set; } = [.. ArchiveDefaults.StoreOnlyExtensions];
+    public string[] RarStoreOnlyExtensions { get; set; } = [.. ArchiveDefaults.StoreOnlyExtensions];
     
     // 附件目录和联系信息目录。
     public string[]? EnclosureDirectories { get; set; }

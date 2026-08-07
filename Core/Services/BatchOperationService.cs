@@ -412,8 +412,8 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode,
                 RecoveryRecordPercent = options.RecoveryRecordPercent,
                 LockArchive = options.LockArchive,
-                ExcludeExtensions = options.Extension.Equals("rar", StringComparison.OrdinalIgnoreCase)
-                    ? options.StoreOnlyExtensions
+                RarStoreOnlyExtensions = options.Extension.Equals("rar", StringComparison.OrdinalIgnoreCase)
+                    ? options.RarStoreOnlyExtensions
                     : null,
                 VolumeSize = !string.IsNullOrEmpty(options.VolumeSize) ? 
                     options.VolumeSize + options.VolumeSizeUnit : null
@@ -459,6 +459,8 @@ public class BatchOperationService
                     Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB, Total processed: {processedSizeGB:F3} GB");
                 }
                 
+                var postProcessFailed = false;
+
                 // 成功后执行删除或移动等后处理。
                 if (options.DeleteSourceAfter)
                 {
@@ -476,7 +478,8 @@ public class BatchOperationService
                     }
                     catch (Exception ex) 
                     { 
-                        Log(LogLevel.Warning, $"Failed to delete source: {ex.Message}");
+                        RecordPostProcessFailure(progressInfo, $"删除源失败：{sourcePath}：{ex.Message}");
+                        postProcessFailed = true;
                     }
                 }
                 else if (options.MoveSourceAfter)
@@ -491,35 +494,21 @@ public class BatchOperationService
                         
                         var targetPath = Path.Combine(processedDir, name);
                         Log(LogLevel.Debug, $"Moving source to: {targetPath}");
-                        
-                        // 检查目标是否存在，如果存在则先删除
-                        if (Directory.Exists(targetPath))
-                        {
-                            Directory.Delete(targetPath, true);
-                        }
-                        else if (File.Exists(targetPath))
-                        {
-                            File.Delete(targetPath);
-                        }
-                        
-                        if (Directory.Exists(sourcePath))
-                        {
-                            Directory.Move(sourcePath, targetPath);
-                        }
-                        else if (File.Exists(sourcePath))
-                        {
-                            File.Move(sourcePath, targetPath);
-                        }
+
+                        postProcessFailed = !TryMoveWithoutOverwrite(sourcePath, targetPath, progressInfo, "压缩源");
                     }
                     catch (Exception ex) 
                     { 
-                        Log(LogLevel.Warning, $"Failed to move source: {ex.Message}");
+                        RecordPostProcessFailure(progressInfo, $"移动压缩源失败：{sourcePath}：{ex.Message}");
+                        postProcessFailed = true;
                     }
                 }
                 
-                // 成功消息仍写入成功日志，但不重复写入命令日志。
-                progressInfo.Message = $"成功: {name}";
-                progressInfo.IsError = false;
+                // 归档成功和后处理成功分别统计，避免“归档成功但移动失败”被显示为完全成功。
+                progressInfo.Message = postProcessFailed
+                    ? $"成功但后处理失败: {name}"
+                    : $"成功: {name}";
+                progressInfo.IsError = postProcessFailed;
             }
             else
             {
@@ -700,14 +689,41 @@ public class BatchOperationService
                 processedSizeGB += sizeGB;
                 progressInfo.ProcessedSizeGB = processedSizeGB;
                 
+                var postProcessFailed = false;
+
                 // 成功后按选项删除或移动源归档。
                 if (options.DeleteSourceAfter || options.MoveSourceAfter)
                 {
                     // 取得同一分卷组的全部文件，确保后处理完整。
                     var volumeFiles = GetAllVolumeFiles(archivePath, options.Extension);
+                    var moveBlockedByConflict = false;
+
+                    // GPT-5, 2026-08-07：分卷移动先整体检查目标，避免前几卷已移动、后几卷冲突而形成半组状态。
+                    if (options.MoveSourceAfter)
+                    {
+                        var conflictingTarget = volumeFiles
+                            .Select(volumeFile => Path.Combine(
+                                Path.GetDirectoryName(volumeFile) ?? string.Empty,
+                                "【已解压】",
+                                Path.GetFileName(volumeFile)))
+                            .FirstOrDefault(target => File.Exists(target) || Directory.Exists(target));
+                        if (conflictingTarget != null)
+                        {
+                            RecordPostProcessFailure(
+                                progressInfo,
+                                $"解压归档目标已存在，已保留整组源卷：{conflictingTarget}");
+                            moveBlockedByConflict = true;
+                            postProcessFailed = true;
+                        }
+                    }
                     
                     foreach (var volumeFile in volumeFiles)
                     {
+                        if (moveBlockedByConflict)
+                        {
+                            break;
+                        }
+
                         try
                         {
                             if (options.DeleteSourceAfter)
@@ -726,26 +742,26 @@ public class BatchOperationService
                                 
                                 var targetPath = Path.Combine(processedDir, Path.GetFileName(volumeFile));
                                 Log(LogLevel.Debug, $"Moving archive to: {targetPath}");
-                                
-                                // 检查目标是否存在，如果存在则先删除
-                                if (File.Exists(targetPath))
+
+                                if (!TryMoveWithoutOverwrite(volumeFile, targetPath, progressInfo, "解压归档"))
                                 {
-                                    File.Delete(targetPath);
+                                    postProcessFailed = true;
                                 }
-                                
-                                File.Move(volumeFile, targetPath);
                             }
                         }
                         catch (Exception ex) 
                         { 
-                            Log(LogLevel.Warning, $"Failed to process archive file: {ex.Message}");
+                            RecordPostProcessFailure(progressInfo, $"处理解压归档失败：{volumeFile}：{ex.Message}");
+                            postProcessFailed = true;
                         }
                     }
                 }
                 
-                // 成功消息仍写入成功日志，但不重复写入命令日志。
-                progressInfo.Message = $"成功: {archiveName}";
-                progressInfo.IsError = false;
+                // 归档成功和后处理成功分别统计，避免后处理失败被隐藏。
+                progressInfo.Message = postProcessFailed
+                    ? $"成功但后处理失败: {archiveName}"
+                    : $"成功: {archiveName}";
+                progressInfo.IsError = postProcessFailed;
             }
             else
             {
@@ -813,6 +829,7 @@ public class BatchOperationService
         CurrentFile = source.CurrentFile,
         SuccessCount = source.SuccessCount,
         FailCount = source.FailCount,
+        PostProcessFailCount = source.PostProcessFailCount,
         IgnoreCount = source.IgnoreCount,
         NonExistCount = source.NonExistCount,
         ProcessedSizeGB = source.ProcessedSizeGB,
@@ -821,6 +838,49 @@ public class BatchOperationService
         StartTime = source.StartTime,
         Elapsed = source.Elapsed
     };
+
+    // GPT-5, 2026-08-07：移动属于可选后处理，目标冲突时必须保留原目标和源文件，禁止先删除目标。
+    private bool TryMoveWithoutOverwrite(
+        string sourcePath,
+        string targetPath,
+        OperationProgressInfo progressInfo,
+        string itemType)
+    {
+        if (File.Exists(targetPath) || Directory.Exists(targetPath))
+        {
+            RecordPostProcessFailure(progressInfo, $"{itemType}目标已存在，已保留双方文件：{targetPath}");
+            return false;
+        }
+
+        try
+        {
+            if (Directory.Exists(sourcePath))
+            {
+                Directory.Move(sourcePath, targetPath);
+            }
+            else if (File.Exists(sourcePath))
+            {
+                File.Move(sourcePath, targetPath);
+            }
+            else
+            {
+                throw new FileNotFoundException("源文件或目录不存在", sourcePath);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            RecordPostProcessFailure(progressInfo, $"移动{itemType}失败：{sourcePath} -> {targetPath}：{ex.Message}");
+            return false;
+        }
+    }
+
+    private void RecordPostProcessFailure(OperationProgressInfo progressInfo, string message)
+    {
+        progressInfo.PostProcessFailCount++;
+        Log(LogLevel.Warning, message);
+    }
     
     /// <summary>
     /// 获取分卷归档的全部卷文件。
