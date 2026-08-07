@@ -19,6 +19,7 @@
     <Compile Include="..\Core\Services\SevenZipCommandBuilder.cs" Link="Core\Services\SevenZipCommandBuilder.cs" />
     <Compile Include="..\Core\Services\SevenZipArchiveEngine.cs" Link="Core\Services\SevenZipArchiveEngine.cs" />
     <Compile Include="..\Core\Services\ArchiveEngineRouter.cs" Link="Core\Services\ArchiveEngineRouter.cs" />
+    <Compile Include="..\Core\Services\ArchiveVolumeResolver.cs" Link="Core\Services\ArchiveVolumeResolver.cs" />
     <Compile Include="..\Core\Services\RarArchiveEngine.cs" Link="Core\Services\RarArchiveEngine.cs" />
     <Compile Include="..\Core\Services\OutputPathResolver.cs" Link="Core\Services\OutputPathResolver.cs" />
     <Compile Include="..\Core\Services\PasswordUtility.cs" Link="Core\Services\PasswordUtility.cs" />

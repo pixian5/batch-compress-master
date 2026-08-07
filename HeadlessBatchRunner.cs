@@ -109,7 +109,7 @@ public class HeadlessBatchRunner
             progressInfo = info;
             var status = info.IsError ? "ERROR" : "INFO";
             _logger.LogOperation(status, info.Message);
-            
+
             if (_options.Verbose)
             {
                 WriteLine($"[{status}] {info.Message}");
@@ -135,12 +135,16 @@ public class HeadlessBatchRunner
             WriteLine(string.Empty);
             var summary = $"Completed: Success={progressInfo.SuccessCount}, Failed={progressInfo.FailCount}, " +
                          $"PostProcessFailed={progressInfo.PostProcessFailCount}, Skipped={progressInfo.IgnoreCount}, " +
-                         $"NotFound={progressInfo.NonExistCount}";
+                         $"NotFound={progressInfo.NonExistCount}, IncompleteVolumes={progressInfo.IncompleteVolumeCount}, " +
+                         $"Ambiguous={progressInfo.AmbiguousArchiveCount}";
             _logger.LogOperation("COMPLETE", summary);
             WriteLine(summary);
             WriteLine($"Log file: {_logger.LogFilePath}");
 
-            return progressInfo.FailCount > 0 || progressInfo.PostProcessFailCount > 0
+            return progressInfo.FailCount > 0 ||
+                   progressInfo.PostProcessFailCount > 0 ||
+                   progressInfo.IncompleteVolumeCount > 0 ||
+                   progressInfo.AmbiguousArchiveCount > 0
                 ? 1
                 : progressInfo.SuccessCount > 0 || progressInfo.IgnoreCount > 0 ? 0 : 1;
         }
@@ -270,9 +274,8 @@ public class HeadlessBatchRunner
         {
             if (Directory.Exists(_options.SourcePath))
             {
-                paths.AddRange(_batchOperationService.LoadFilesFromFolder(
+                paths.AddRange(_batchOperationService.LoadCompressionSourcesFromFolder(
                     _options.SourcePath,
-                    _options.Extension,
                     _options.SkipProcessed));
             }
             else if (File.Exists(_options.SourcePath))
@@ -327,9 +330,9 @@ public class HeadlessBatchRunner
     {
         if (File.Exists(path))
         {
-            if (MatchesArchiveFormat(path))
+            if (ArchiveVolumeResolver.MatchesFormat(path, _options.Extension))
             {
-                entries.Add(CreateFileEntry(path));
+                AddResolvedArchive(entries, path);
             }
             return;
         }
@@ -339,26 +342,23 @@ public class HeadlessBatchRunner
             return;
         }
 
-        foreach (var file in Directory.EnumerateFiles(path, "*", SearchOption.TopDirectoryOnly))
+        foreach (var file in _batchOperationService.LoadArchivesFromFolder(
+                     path,
+                     _options.Extension,
+                     _options.SkipProcessed))
         {
-            if (MatchesArchiveFormat(file))
-            {
-                entries.Add(CreateFileEntry(file));
-            }
+            AddResolvedArchive(entries, file);
         }
     }
 
-    private bool MatchesArchiveFormat(string path)
+    private static void AddResolvedArchive(List<FileEntry> entries, string path)
     {
-        var name = Path.GetFileName(path);
-        var extension = _options.Extension.Trim().TrimStart('.');
-        if (name.EndsWith($".{extension}", StringComparison.OrdinalIgnoreCase))
+        var resolved = ArchiveVolumeResolver.Resolve(path);
+        var taskPath = resolved.FirstVolumePath ?? resolved.Volumes.FirstOrDefault()?.Path ?? path;
+        if (File.Exists(taskPath))
         {
-            return true;
+            entries.Add(CreateFileEntry(taskPath));
         }
-
-        return extension.Equals("7z", StringComparison.OrdinalIgnoreCase) &&
-               System.Text.RegularExpressions.Regex.IsMatch(name, @"\.7z\.0*1$", System.Text.RegularExpressions.RegexOptions.IgnoreCase);
     }
 
     private static FileEntry CreateFileEntry(string path) => new()
@@ -428,8 +428,8 @@ public class HeadlessBatchRunner
             VolumeSizeUnit = _options.VolumeUnit,
             QuickOpen = _options.QuickOpen,
             TestArchive = _options.TestArchive,
-            CommentFile = !string.IsNullOrEmpty(_options.CommentFile) && File.Exists(_options.CommentFile) 
-                ? _options.CommentFile 
+            CommentFile = !string.IsNullOrEmpty(_options.CommentFile) && File.Exists(_options.CommentFile)
+                ? _options.CommentFile
                 : null,
             TempDirectory = !string.IsNullOrEmpty(_options.TempDir) ? _options.TempDir : _options.OutputPath,
             ExistingFileMode = existingMode,

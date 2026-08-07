@@ -21,6 +21,9 @@ internal static class Program
             ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
             ("7z 压缩与解压参数", TestSevenZipArguments),
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
+            ("统一归档分卷解析", TestArchiveVolumeResolver),
+            ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
+            ("解压目录扫描与首卷去重", TestArchiveFolderScanning),
             ("附件根目录与空目录", TestAttachmentRootInputs),
             ("跳过已有归档统计", TestExistingSkipProgress),
             ("后处理冲突保留源和目标", TestPostProcessConflict),
@@ -344,11 +347,152 @@ internal static class Program
         await router.CompressAsync("source", "archive.7z", new ArchiveOptions { ArchiveFormat = ".7Z" });
         await router.ExtractAsync("archive.7z.001", "output", new ArchiveOptions { ArchiveFormat = "rar" });
         await router.ExtractAsync("archive.rar", "output", new ArchiveOptions { ArchiveFormat = "rar" });
+        await router.ExtractAsync("archive.zip", "output", new ArchiveOptions { ArchiveFormat = "rar" });
+        await router.ExtractAsync("archive.tar", "output", new ArchiveOptions { ArchiveFormat = "rar" });
+        await router.ExtractAsync("archive", "output", new ArchiveOptions { ArchiveFormat = "rar" });
 
         AssertEqual(1, rar.CompressionCalls);
-        AssertEqual(1, rar.ExtractionCalls);
+        AssertEqual(2, rar.ExtractionCalls);
         AssertEqual(2, sevenZip.CompressionCalls);
-        AssertEqual(1, sevenZip.ExtractionCalls);
+        AssertEqual(3, sevenZip.ExtractionCalls);
+        AssertThrows<NotSupportedException>(() =>
+            router.CompressAsync("source", "archive.tar", new ArchiveOptions { ArchiveFormat = "tar" })
+                .GetAwaiter().GetResult());
+    }
+
+    private static Task TestArchiveVolumeResolver()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-volume-resolver-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            foreach (var name in new[]
+                     {
+                         "rar.part01.rar", "rar.part02.rar", "rar.part10.rar",
+                         "seven.7z.001", "seven.7z.002", "zip.zip.001", "zip.zip.002"
+                     })
+            {
+                File.WriteAllText(Path.Combine(root, name), name);
+            }
+
+            var rar = ArchiveVolumeResolver.Resolve(Path.Combine(root, "rar.part02.rar"));
+            AssertEqual(ArchiveVolumeKind.RarPart, rar.VolumeKind);
+            AssertEqual("rar.part01.rar", Path.GetFileName(rar.FirstVolumePath!));
+            AssertEqual(3, rar.Volumes.Count);
+            AssertEqual(1L, rar.Volumes[0].Number);
+            AssertEqual(2L, rar.Volumes[1].Number);
+            AssertEqual(10L, rar.Volumes[2].Number);
+            Assert(!rar.IsSequenceContiguous, "part01、part02、part10 必须识别出中间缺卷");
+
+            var seven = ArchiveVolumeResolver.Resolve(Path.Combine(root, "seven.7z"));
+            AssertEqual(ArchiveVolumeKind.SevenZipNumeric, seven.VolumeKind);
+            AssertEqual("seven.7z.001", Path.GetFileName(seven.FirstVolumePath!));
+            Assert(seven.CanExtract, "逻辑 7z 名应解析到完整数字分卷首卷");
+
+            var zip = ArchiveVolumeResolver.Resolve(Path.Combine(root, "zip.zip.002"));
+            AssertEqual(ArchiveVolumeKind.ZipNumeric, zip.VolumeKind);
+            AssertEqual("zip.zip.001", Path.GetFileName(zip.FirstVolumePath!));
+            Assert(zip.CanExtract, "ZIP 数字分卷应支持非首卷重定向");
+
+            File.WriteAllText(Path.Combine(root, "duplicate.7z.1"), "1");
+            File.WriteAllText(Path.Combine(root, "duplicate.7z.001"), "001");
+            var duplicate = ArchiveVolumeResolver.Resolve(Path.Combine(root, "duplicate.7z.001"));
+            Assert(duplicate.HasDuplicateNumbers, "相同编号不同宽度必须判为歧义");
+
+            File.WriteAllText(Path.Combine(root, "missing.7z.002"), "2");
+            File.WriteAllText(Path.Combine(root, "missing.7z.003"), "3");
+            var missing = ArchiveVolumeResolver.Resolve(Path.Combine(root, "missing.7z.003"));
+            Assert(!missing.HasRequiredFirstVolume, "缺少 .001 时不能把 .002 当首卷");
+            Assert(!missing.CanExtract, "缺首卷的分卷组不得进入引擎");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static async Task TestVolumeValidationAndProgress()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-volume-progress-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var missingSecond = Path.Combine(root, "broken.7z.001");
+            var third = Path.Combine(root, "broken.7z.003");
+            File.WriteAllText(missingSecond, "1");
+            File.WriteAllText(third, "3");
+            var engine = new RecordingArchiveEngine();
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = missingSecond, FileSize = 1 }],
+                new BatchOperationOptions { OutputPath = Path.Combine(root, "out"), Extension = "7z" },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            var final = snapshots.Last();
+            AssertEqual(1, final.IncompleteVolumeCount);
+            AssertEqual(1, final.IgnoreCount);
+            AssertEqual(0, engine.ExtractionCalls);
+
+            var absoluteWithoutExtension = Path.Combine(root, "absolute-name");
+            File.WriteAllText(absoluteWithoutExtension + ".rar", "rar");
+            var passwordBook = Path.Combine(root, "passwords.txt");
+            File.WriteAllLines(passwordBook, [absoluteWithoutExtension, "password"]);
+            var imported = new BatchOperationService(engine, new TestSystemIntegration())
+                .LoadFilesFromTextFileWithDiagnostics(passwordBook, Path.Combine(root, "other"), "rar");
+            AssertEqual(1, imported.RequestedCount);
+            AssertEqual(1, imported.Entries.Count);
+            AssertEqual(absoluteWithoutExtension + ".rar", imported.Entries[0].FilePath);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    private static async Task TestArchiveFolderScanning()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-folder-scan-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var first = Path.Combine(root, "group.zip.001");
+            var second = Path.Combine(root, "group.zip.002");
+            File.WriteAllText(first, "1");
+            File.WriteAllText(second, "2");
+            File.WriteAllText(Path.Combine(root, "other.rar"), "rar");
+            File.WriteAllText(Path.Combine(root, "note.txt"), "text");
+            Directory.CreateDirectory(Path.Combine(root, "folder"));
+
+            var engine = new RecordingArchiveEngine();
+            var service = new BatchOperationService(engine, new TestSystemIntegration());
+            var archives = service.LoadArchivesFromFolder(root, "zip", skipProcessed: false);
+            AssertEqual(1, archives.Count);
+            AssertEqual(first, archives[0]);
+
+            var compressionSources = service.LoadCompressionSourcesFromFolder(root, skipProcessed: false);
+            Assert(compressionSources.Contains(Path.Combine(root, "folder")), "压缩来源扫描必须保留直接子目录");
+            Assert(compressionSources.Contains(Path.Combine(root, "note.txt")), "压缩来源扫描不能按归档格式过滤");
+
+            var snapshots = new List<OperationProgressInfo>();
+            await service.BatchDecompressAsync(
+                [
+                    new FileEntry { FilePath = second, FileSize = 1 },
+                    new FileEntry { FilePath = first, FileSize = 1 }
+                ],
+                new BatchOperationOptions { OutputPath = Path.Combine(root, "out"), Extension = "zip" },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+            AssertEqual(1, engine.ExtractionCalls);
+            AssertEqual(1, snapshots.Last().SuccessCount);
+            AssertEqual(1, snapshots.Last().IgnoreCount);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
     }
 
     private static async Task TestAttachmentRootInputs()

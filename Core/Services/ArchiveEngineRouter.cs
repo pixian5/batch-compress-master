@@ -1,6 +1,4 @@
 using System;
-using System.IO;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
@@ -34,9 +32,12 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return IsSevenZipFormat(options.ArchiveFormat)
-            ? _sevenZipEngine.CompressAsync(input, output, options, cancellationToken)
-            : _rarEngine.CompressAsync(input, output, options, cancellationToken);
+        return NormalizeFormat(options.ArchiveFormat) switch
+        {
+            "rar" => _rarEngine.CompressAsync(input, output, options, cancellationToken),
+            "7z" or "zip" => _sevenZipEngine.CompressAsync(input, output, options, cancellationToken),
+            var format => throw new NotSupportedException($"不支持创建 {format} 格式归档。仅支持 rar、7z 和 zip。")
+        };
     }
 
     public Task<ArchiveResult> ExtractAsync(
@@ -46,21 +47,22 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return IsSevenZipArchive(archivePath) || IsSevenZipFormat(options.ArchiveFormat)
-            ? _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken)
-            : _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+        var detectedKind = ArchiveVolumeResolver.DetectArchiveKind(archivePath);
+        if (detectedKind == ArchiveKind.Rar)
+        {
+            return _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+        }
+
+        if (detectedKind != ArchiveKind.Unknown)
+        {
+            return _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+        }
+
+        return NormalizeFormat(options.ArchiveFormat) == "rar"
+            ? _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken)
+            : _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
     }
 
-    private static bool IsSevenZipFormat(string? format)
-    {
-        return format?.Trim().TrimStart('.').ToLowerInvariant() is "7z" or "zip";
-    }
-
-    private static bool IsSevenZipArchive(string archivePath)
-    {
-        var fileName = Path.GetFileName(archivePath);
-        return fileName.EndsWith(".7z", StringComparison.OrdinalIgnoreCase) ||
-               fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase) ||
-               Regex.IsMatch(fileName, @"\.7z\.\d+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
-    }
+    private static string NormalizeFormat(string? format) =>
+        format?.Trim().TrimStart('.').ToLowerInvariant() ?? string.Empty;
 }

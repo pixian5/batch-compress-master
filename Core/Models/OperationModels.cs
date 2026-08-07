@@ -15,6 +15,8 @@ public class OperationProgressInfo
     public int PostProcessFailCount { get; set; }
     public int IgnoreCount { get; set; }
     public int NonExistCount { get; set; }
+    public int IncompleteVolumeCount { get; set; }
+    public int AmbiguousArchiveCount { get; set; }
     public double ProcessedSizeGB { get; set; }
     public string Message { get; set; } = string.Empty;
     public bool IsError { get; set; }
@@ -50,7 +52,7 @@ public class BatchOperationOptions
     public double MaxSizeGB { get; set; }
     public bool ShutdownAfterComplete { get; set; }
     public PasswordNameMode PasswordNameMode { get; set; } = PasswordNameMode.ArchiveName;
-    
+
     // 压缩选项。
     public Core.Interfaces.CompressionLevel CompressionLevel { get; set; }
     public bool SolidArchive { get; set; }
@@ -64,7 +66,7 @@ public class BatchOperationOptions
     public int RecoveryRecordPercent { get; set; }
     public bool LockArchive { get; set; }
     public string[] RarStoreOnlyExtensions { get; set; } = [.. ArchiveDefaults.StoreOnlyExtensions];
-    
+
     // 附件目录和联系信息目录。
     public string[]? EnclosureDirectories { get; set; }
     public bool AddEnclosures { get; set; }
@@ -98,6 +100,9 @@ public sealed class TextFileImportResult
     public List<string> MissingEntries { get; } = new();
     public List<string> UnmatchedArchives { get; } = new();
     public List<string> VolumeCandidates { get; } = new();
+    public List<string> IncompleteVolumes { get; } = new();
+    public List<string> AmbiguousEntries { get; } = new();
+    public List<string> DuplicateVolumeEntries { get; } = new();
     public int RequestedCount { get; set; }
     public long MatchedBytes { get; set; }
 }

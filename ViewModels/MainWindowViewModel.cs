@@ -28,17 +28,17 @@ public partial class MainWindowViewModel : ViewModelBase
     private DateTime _lastProgressNotification = DateTime.MinValue;
     private int _lastNotifiedCompletedCount;
     private double _lastNotifiedProcessedSizeGB;
-    
+
     // 本地化支持。
     public LocalizationService Localization => LocalizationService.Instance;
     public LanguageStrings L => Localization.Strings;
-    
+
     /// <summary>
     /// 下拉框可用的语言列表。
     /// </summary>
-    public List<KeyValuePair<string, string>> AvailableLanguages { get; } = 
+    public List<KeyValuePair<string, string>> AvailableLanguages { get; } =
         LocalizationService.AvailableLanguages.ToList();
-    
+
     /// <summary>
     /// 当前选中的语言代码。
     /// </summary>
@@ -53,18 +53,18 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(CommandLogTabHeader))]
     [NotifyPropertyChangedFor(nameof(ProcessingSpeedDisplay))]
     private string _selectedLanguage = "zh-CN";
-    
+
     partial void OnSelectedLanguageChanged(string value)
     {
         // 修改本地化服务的当前语言；服务会替换全部界面字符串。
         Localization.CurrentLanguage = value;
-        
+
         // 强制通知全部依赖本地化字符串的绑定，确保界面立即刷新。
         OnPropertyChanged(nameof(L));
-        
+
         // 使用 ObservableCollection 重新填充下拉选项，触发控件刷新。
         RefreshAllDropdownOptions();
-        
+
         // 显式通知所有依赖 L 的计算属性。
         OnPropertyChanged(nameof(BrowseSourceButtonText));
         OnPropertyChanged(nameof(SourcePathWatermark));
@@ -74,38 +74,38 @@ public partial class MainWindowViewModel : ViewModelBase
         OnPropertyChanged(nameof(FailLogTabHeader));
         OnPropertyChanged(nameof(CommandLogTabHeader));
         OnPropertyChanged(nameof(ProcessingSpeedDisplay));
-        
+
         // 通知本地化服务的订阅者，使外部绑定也能收到语言切换事件。
         Localization.NotifyPropertyChanged(nameof(LocalizationService.Strings));
     }
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
     private int _sourceMode; // 0 = 解压密码本，1 = 压缩路径清单，2 = 来源目录
-    
+
     public string BrowseSourceButtonText => SourceMode < 2 ? L.SelectTxt : L.SelectDirectory;
-    
+
     public string SourcePathWatermark => SourceMode < 2 ? L.TxtPathWatermark : L.SavePathWatermark;
     public string SourcePathLabel => SourceMode == 0
         ? L.FromTxtMode
         : SourceMode == 1 ? L.CompressionTxtMode : L.CompressFolderMode;
-    
+
     /// <summary>
     /// 随语言切换动态更新的来源模式选项。
     /// </summary>
     public ObservableCollection<string> SourceModeOptions { get; } = new();
-    
+
     /// <summary>
     /// 随语言切换动态更新的压缩级别选项。
     /// </summary>
     public ObservableCollection<string> CompressionLevelOptions { get; } = new();
-    
+
     /// <summary>
     /// 随语言切换动态更新的已有文件处理选项。
     /// </summary>
     public ObservableCollection<string> ExistingFileModeOptions { get; } = new();
-    
+
     /// <summary>
     /// 随语言切换刷新绑定的分卷单位选项。
     /// 单位文本虽然不随语言变化，但仍使用 ObservableCollection 保证控件正确刷新。
@@ -131,7 +131,7 @@ public partial class MainWindowViewModel : ViewModelBase
             ? currentPasswordNameMode
             : 0;
     }
-    
+
     /// <summary>
     /// 使用当前语言重新填充全部下拉选项，确保 ComboBox 显示文本同步。
     /// </summary>
@@ -142,13 +142,13 @@ public partial class MainWindowViewModel : ViewModelBase
         var currentCompressionLevel = CompressionLevel;
         var currentExistingFileMode = ExistingFileMode;
         var currentVolumeUnit = VolumeUnit;
-        
+
         // 清空并重新填充来源模式选项。
         SourceModeOptions.Clear();
         SourceModeOptions.Add(L.FromTxtMode);
         SourceModeOptions.Add(L.CompressionTxtMode);
         SourceModeOptions.Add(L.CompressFolderMode);
-        
+
         // 清空并重新填充压缩级别选项。
         CompressionLevelOptions.Clear();
         CompressionLevelOptions.Add(L.NoCompression);
@@ -157,13 +157,13 @@ public partial class MainWindowViewModel : ViewModelBase
         CompressionLevelOptions.Add(L.Standard);
         CompressionLevelOptions.Add(L.Better);
         CompressionLevelOptions.Add(L.Best);
-        
+
         // 清空并重新填充已有文件处理选项。
         ExistingFileModeOptions.Clear();
         ExistingFileModeOptions.Add(L.SkipExisting);
         ExistingFileModeOptions.Add(L.UpdateExisting);
         ExistingFileModeOptions.Add(L.OverwriteExisting);
-        
+
         // 清空并重新填充分卷单位选项。
         VolumeUnitOptions.Clear();
         VolumeUnitOptions.Add("GB");
@@ -171,193 +171,199 @@ public partial class MainWindowViewModel : ViewModelBase
         VolumeUnitOptions.Add("KB");
 
         RefreshPasswordNameModeOptions();
-        
+
         // 集合重建后恢复有效索引，使 ComboBox 显示正确文本。
         SourceMode = currentSourceMode >= 0 && currentSourceMode < SourceModeOptions.Count ? currentSourceMode : 0;
         CompressionLevel = currentCompressionLevel >= 0 && currentCompressionLevel < CompressionLevelOptions.Count ? currentCompressionLevel : 0;
         ExistingFileMode = currentExistingFileMode >= 0 && currentExistingFileMode < ExistingFileModeOptions.Count ? currentExistingFileMode : 0;
         VolumeUnit = currentVolumeUnit >= 0 && currentVolumeUnit < VolumeUnitOptions.Count ? currentVolumeUnit : 0;
     }
-    
+
     public bool IsFromTxtMode => SourceMode < 2;
-    
+
     // 标签页标题附带当前条目数量。
     public string SourceFileListTabHeader => $"{L.FileListTab} ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string SuccessLogTabHeader => $"{L.SuccessLogTab} ({(string.IsNullOrEmpty(SuccessLog) ? 0 : SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string FailLogTabHeader => $"{L.FailLogTab} ({(string.IsNullOrEmpty(FailLog) ? 0 : FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string CommandLogTabHeader => $"{L.CommandLogTab} ({(string.IsNullOrEmpty(CommandLog) ? 0 : CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
-    
+
     [ObservableProperty]
     private string _sourcePath = string.Empty;
-    
+
     [ObservableProperty]
     private string _saveFilePath = string.Empty;
-    
+
     [ObservableProperty]
     private string _outputPath = string.Empty;
-    
+
     [ObservableProperty]
     private string _textFilePath = string.Empty;
-    
+
     [ObservableProperty]
     private string _extension = "rar";
-    
+
     [ObservableProperty]
     private bool _useRandomPassword = true;
-    
+
     [ObservableProperty]
     private string _customPassword = string.Empty;
 
     [ObservableProperty]
     private int _passwordNameMode;
-    
+
     [ObservableProperty]
     private int _compressionLevel = 1; // 0-5
-    
+
     [ObservableProperty]
     private bool _solidArchive = true;
-    
+
     [ObservableProperty]
     private bool _enableVolume = true;
-    
+
     [ObservableProperty]
     private string _volumeSize = "20";
-    
+
     [ObservableProperty]
     private int _volumeUnit = 0; // 0=G, 1=M, 2=K
 
     [ObservableProperty]
     private int _recoveryRecordPercent;
-    
+
     [ObservableProperty]
     private int _existingFileMode = 2; // 0=Skip, 1=Update, 2=Overwrite
 
     [ObservableProperty]
     private bool _lockArchive;
-    
+
     [ObservableProperty]
     private bool _quickOpen = false;
-    
+
     [ObservableProperty]
     private bool _testArchive = false;
-    
+
     [ObservableProperty]
     private bool _enableComment = true;
-    
+
     [ObservableProperty]
     private string _commentFilePath = "注释.txt";
-    
+
     [ObservableProperty]
     private string _tempDirectory = string.Empty;
-    
+
     [ObservableProperty]
     private bool _skipAlreadyProcessed = true;
-    
+
     [ObservableProperty]
     private bool _deleteSourceAfter = false;
-    
+
     [ObservableProperty]
     private bool _moveSourceAfter = false;
-    
+
     [ObservableProperty]
     private bool _addEnclosures = true;
-    
+
     [ObservableProperty]
     private string _enclosureList = string.Empty;
-    
+
     [ObservableProperty]
     private double _maxSizeGB = 666;
-    
+
     [ObservableProperty]
     private bool _shutdownAfterComplete = false;
 
     [ObservableProperty]
     private bool _isShutdownScheduled;
-    
+
     [ObservableProperty]
     private string _currentFile = "Ready";
-    
+
     [ObservableProperty]
     private int _successCount = 0;
-    
+
     [ObservableProperty]
     private int _failCount = 0;
 
     [ObservableProperty]
     private int _postProcessFailCount = 0;
-    
+
     [ObservableProperty]
     private int _ignoreCount = 0;
-    
+
     [ObservableProperty]
     private int _nonExistCount = 0;
-    
+
+    [ObservableProperty]
+    private int _incompleteVolumeCount = 0;
+
+    [ObservableProperty]
+    private int _ambiguousArchiveCount = 0;
+
     [ObservableProperty]
     private double _processedSizeGB = 0;
-    
+
     [ObservableProperty]
     private double _totalSizeGB = 0;
-    
+
     [ObservableProperty]
     private TimeSpan _elapsedTime = TimeSpan.Zero;
-    
+
     [ObservableProperty]
     private TimeSpan _remainingTime = TimeSpan.Zero;
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(ProcessingSpeedDisplay))]
     private double _processingSpeedMBPerSecond = 0;
-    
+
     /// <summary>
     /// 返回带本地化单位的处理速度显示文本。
     /// </summary>
     public string ProcessingSpeedDisplay => $"{ProcessingSpeedMBPerSecond:0}{L.ProcessingSpeedUnit}";
-    
+
     [ObservableProperty]
     private DateTime _estimatedCompletionTime = DateTime.MinValue;
-    
+
     private DateTime _operationStartTime = DateTime.MinValue;
-    
+
     [ObservableProperty]
     private string _outputSizeText = "0.0GB";
-    
+
     [ObservableProperty]
     private bool _isOperating = false;
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SourceFileListTabHeader))]
     private string _sourceFileList = string.Empty;
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SuccessLogTabHeader))]
     private string _successLog = string.Empty;
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(FailLogTabHeader))]
     private string _failLog = string.Empty;
-    
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(CommandLogTabHeader))]
     private string _commandLog = string.Empty;
-    
+
     [ObservableProperty]
     private string _passwordQueryFileName = string.Empty;
-    
+
     [ObservableProperty]
     private string _passwordQueryResult = string.Empty;
-    
+
     public MainWindowViewModel()
     {
         // GPT-5, 2026-08-06：按归档格式选择 WinRAR/RAR 或官方 7zz，界面不直接依赖具体命令行工具。
         _archiveEngine = new ArchiveEngineRouter();
         _systemIntegration = new SystemIntegrationService();
         _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
-        
+
         // GPT-5, 2026-08-05：在绑定渲染前填充可观察选项集合，并在语言变化时刷新。
         RefreshAllDropdownOptions();
-        
+
         // 设计器模式不执行运行时初始化。
-        if (Design.IsDesignMode) 
+        if (Design.IsDesignMode)
         {
             // 直接设置字段，避免设计器加载时触发异步任务。
             _sourceMode = 2;
@@ -381,7 +387,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // GPT-5, 2026-08-05：仅在剪贴板文本是现有目录时采用，绝不把任意复制文本作为路径。
         Task.Run(async () =>
         {
-            try 
+            try
             {
                 var clipboardText = await _systemIntegration.ReadClipboardTextAsync();
                 if (!string.IsNullOrEmpty(clipboardText) && Directory.Exists(clipboardText))
@@ -389,13 +395,13 @@ public partial class MainWindowViewModel : ViewModelBase
                     SaveFilePath = clipboardText;
                 }
             }
-            catch 
+            catch
             {
                 // 启动时读取剪贴板失败不应阻止应用打开。
             }
         });
     }
-    
+
     /// <summary>
     /// 检测系统语言并设置对应的界面语言。
     /// </summary>
@@ -406,7 +412,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var systemCulture = System.Globalization.CultureInfo.CurrentUICulture;
             var cultureName = systemCulture.Name;
             var twoLetterISOLanguageName = systemCulture.TwoLetterISOLanguageName;
-            
+
             // 将系统区域性映射到应用支持的语言。
             string languageCode;
             if (twoLetterISOLanguageName == "zh")
@@ -438,7 +444,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 // 未匹配时默认使用简体中文。
                 languageCode = "zh-CN";
             }
-            
+
             // 只有在资源存在时才切换语言。
             if (LocalizationService.AvailableLanguages.ContainsKey(languageCode))
             {
@@ -451,7 +457,7 @@ public partial class MainWindowViewModel : ViewModelBase
             System.Diagnostics.Debug.WriteLine($"Language detection failed: {ex.Message}");
         }
     }
-    
+
     // 由视图设置的文件选择回调。
     public Func<Task>? BrowseSourceRequested { get; set; }
     public Func<Task>? BrowseOutputRequested { get; set; }
@@ -461,7 +467,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public Func<Task>? ShowHelpRequested { get; set; }
     public Action? HideWindowRequested { get; set; }
     public Func<Task<bool>>? ConfirmShutdownCancellationRequested { get; set; }
-    
+
     [RelayCommand]
     private async Task BrowseSourceAsync()
     {
@@ -470,7 +476,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await BrowseSourceRequested();
         }
     }
-    
+
     [RelayCommand]
     private async Task BrowseOutputAsync()
     {
@@ -479,7 +485,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await BrowseOutputRequested();
         }
     }
-    
+
     [RelayCommand]
     private async Task BrowseTextFileAsync()
     {
@@ -488,7 +494,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await BrowseTextFileRequested();
         }
     }
-    
+
     [RelayCommand]
     private async Task BrowseSaveFileAsync()
     {
@@ -515,7 +521,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await ShowHelpRequested();
         }
     }
-    
+
     [RelayCommand]
     private async Task RefreshFileListAsync()
     {
@@ -529,11 +535,11 @@ public partial class MainWindowViewModel : ViewModelBase
             // 从目录扫描加载。
             await LoadFromFolderAsync();
         }
-        
+
         // 刷新输出目录的已有大小统计。
         UpdateOutputSize();
     }
-    
+
     private async Task LoadFromTextFileAsync()
     {
         var result = await Task.Run(() =>
@@ -586,6 +592,19 @@ public partial class MainWindowViewModel : ViewModelBase
                           string.Join(Environment.NewLine, result.MissingEntries) + Environment.NewLine;
         }
 
+        if (result.IncompleteVolumes.Count > 0)
+        {
+            CommandLog += $"[{type}] 分卷不完整 {result.IncompleteVolumes.Count} 项:\n" +
+                          string.Join(Environment.NewLine, result.IncompleteVolumes) + Environment.NewLine;
+        }
+
+        if (result.AmbiguousEntries.Count > 0 || result.DuplicateVolumeEntries.Count > 0)
+        {
+            var ambiguous = result.AmbiguousEntries.Concat(result.DuplicateVolumeEntries);
+            CommandLog += $"[{type}] 名称或编号存在歧义 {ambiguous.Count()} 项:\n" +
+                          string.Join(Environment.NewLine, ambiguous) + Environment.NewLine;
+        }
+
         if (!passwordBook)
         {
             return;
@@ -603,7 +622,7 @@ public partial class MainWindowViewModel : ViewModelBase
                           string.Join(Environment.NewLine, result.VolumeCandidates) + Environment.NewLine;
         }
     }
-    
+
     private async Task LoadFromFolderAsync()
     {
         await Task.Run(() =>
@@ -612,14 +631,14 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 return;
             }
-            
+
             var files = _batchOperationService.LoadFilesFromFolder(
                 SaveFilePath, Extension, SkipAlreadyProcessed);
-            
+
             SourceFileList = string.Join(Environment.NewLine, files);
         });
     }
-    
+
     private void UpdateOutputSize()
     {
         if (!string.IsNullOrEmpty(OutputPath) && Directory.Exists(OutputPath))
@@ -628,7 +647,7 @@ public partial class MainWindowViewModel : ViewModelBase
             OutputSizeText = $"{size:F1}GB";
         }
     }
-    
+
     [RelayCommand]
     private async Task CompressAsync()
     {
@@ -647,43 +666,43 @@ public partial class MainWindowViewModel : ViewModelBase
             CommandLog += "当前来源模式是解压密码本，请切换到压缩路径清单或来源目录后再压缩。\n";
             return;
         }
-        
+
         try
         {
             IsOperating = true;
             ResetCounters();
             _operationStartTime = DateTime.Now;
-            
+
             _cancellationTokenSource = new CancellationTokenSource();
-            
+
             // GPT-5, 2026-08-05：处理前统一规范按行输入；空行绝不能成为归档任务。
             var sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                 .Select(s => s.Trim())
                 .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
                 .ToList();
-            
+
             // 列表为空时先尝试自动加载。
             if (sourcePaths.Count == 0)
             {
                 CommandLog += "列表中没有文件，正在自动加载...\n";
                 await RefreshFileListAsync();
-                
+
                 // 自动加载后再次检查列表。
                 sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
                     .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
                     .ToList();
-                    
+
                 if (sourcePaths.Count == 0)
                 {
                     CommandLog += "仍然没有要压缩的文件\n";
                     return;
                 }
             }
-            
+
             // GPT-5, 2026-08-05：在操作开始时快照选项，避免处理中修改影响在途任务。
             var options = BuildBatchOperationOptions();
-            
+
             var progress = new Progress<OperationProgressInfo>(info =>
             {
                 CurrentFile = info.CurrentFile;
@@ -692,17 +711,19 @@ public partial class MainWindowViewModel : ViewModelBase
                 PostProcessFailCount = info.PostProcessFailCount;
                 IgnoreCount = info.IgnoreCount;
                 NonExistCount = info.NonExistCount;
+                IncompleteVolumeCount = info.IncompleteVolumeCount;
+                AmbiguousArchiveCount = info.AmbiguousArchiveCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
-                
+
                 // 更新处理统计。
                 ElapsedTime = DateTime.Now - _operationStartTime;
-                
+
                 // 根据已处理大小和耗时计算 MB/秒。
                 if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
                 {
                     ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
                 }
-                
+
                 // 根据当前速度估算剩余时间和完成时刻。
                 if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
                 {
@@ -732,17 +753,17 @@ public partial class MainWindowViewModel : ViewModelBase
                 {
                     SuccessLog += info.Message + "\n";
                 }
-                
+
             });
-            
+
             await _batchOperationService.BatchCompressAsync(
                 sourcePaths, options, progress, _cancellationTokenSource.Token);
 
             await OfferShutdownCancellationAsync(options);
-            
+
             CommandLog += $"\n完成: 成功={SuccessCount}, 归档失败={FailCount}, 后处理失败={PostProcessFailCount}, " +
-                         $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
-                         
+                         $"忽略={IgnoreCount}, 未找到={NonExistCount}, 分卷不完整={IncompleteVolumeCount}, 歧义={AmbiguousArchiveCount}\n";
+
             _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 归档失败: {FailCount}, 后处理失败: {PostProcessFailCount}");
         }
         catch (OperationCanceledException)
@@ -761,29 +782,29 @@ public partial class MainWindowViewModel : ViewModelBase
             _cancellationTokenSource = null;
         }
     }
-    
+
     [RelayCommand]
     private async Task DecompressAsync()
     {
         if (IsOperating) return;
-        
+
         try
         {
             IsOperating = true;
             ResetCounters();
             _operationStartTime = DateTime.Now;
-            
+
             _cancellationTokenSource = new CancellationTokenSource();
-            
+
             // 解析来源列表；解压密码本模式包含交替密码行。
             List<FileEntry> entries;
-            
+
             // 列表为空时先尝试自动加载。
             if (string.IsNullOrEmpty(SourceFileList.Trim()))
             {
                 CommandLog += "No files in list, trying to load automatically...\n";
                 await RefreshFileListAsync();
-                
+
                 // 自动加载后仍为空时记录错误并返回。
                 if (string.IsNullOrEmpty(SourceFileList.Trim()))
                 {
@@ -791,18 +812,18 @@ public partial class MainWindowViewModel : ViewModelBase
                     return;
                 }
             }
-            
+
             if (SourceMode == 0)
             {
                 // 密码本模式按文件行、密码行交替解析。
                 entries = new List<FileEntry>();
                 var lines = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-                
+
                 for (int i = 0; i < lines.Length; i += 2)
                 {
                     var filePath = lines[i].Trim();
                     var password = i + 1 < lines.Length ? lines[i + 1].Trim() : null;
-                    
+
                     if (!SystemMetadataFileFilter.ShouldSkip(filePath) && File.Exists(filePath))
                     {
                         entries.Add(new FileEntry
@@ -819,8 +840,11 @@ public partial class MainWindowViewModel : ViewModelBase
                 // 其他模式只有文件路径。
                 var files = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
                     .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s) && File.Exists(s));
-                
+                    .Where(s => !string.IsNullOrEmpty(s) &&
+                                !SystemMetadataFileFilter.ShouldSkip(s) &&
+                                File.Exists(s) &&
+                                ArchiveVolumeResolver.MatchesFormat(s, Extension));
+
                 entries = files.Select(f => new FileEntry
                 {
                     FilePath = f,
@@ -828,15 +852,15 @@ public partial class MainWindowViewModel : ViewModelBase
                     FileSize = new FileInfo(f).Length
                 }).ToList();
             }
-            
+
             if (entries.Count == 0)
             {
                 CommandLog += "No files to decompress\n";
                 return;
             }
-            
+
             var options = BuildBatchOperationOptions();
-            
+
             var progress = new Progress<OperationProgressInfo>(info =>
             {
                 CurrentFile = info.CurrentFile;
@@ -845,17 +869,19 @@ public partial class MainWindowViewModel : ViewModelBase
                 PostProcessFailCount = info.PostProcessFailCount;
                 IgnoreCount = info.IgnoreCount;
                 NonExistCount = info.NonExistCount;
+                IncompleteVolumeCount = info.IncompleteVolumeCount;
+                AmbiguousArchiveCount = info.AmbiguousArchiveCount;
                 ProcessedSizeGB = info.ProcessedSizeGB;
-                
+
                 // 更新处理统计。
                 ElapsedTime = DateTime.Now - _operationStartTime;
-                
+
                 // 根据已处理大小和耗时计算 MB/秒。
                 if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
                 {
                     ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
                 }
-                
+
                 // 根据速度估算剩余时间和完成时刻。
                 if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
                 {
@@ -885,17 +911,17 @@ public partial class MainWindowViewModel : ViewModelBase
                 {
                     SuccessLog += info.Message + "\n";
                 }
-                
+
             });
-            
+
             await _batchOperationService.BatchDecompressAsync(
                 entries, options, progress, _cancellationTokenSource.Token);
 
             await OfferShutdownCancellationAsync(options);
-            
+
             CommandLog += $"\n完成: 成功={SuccessCount}, 归档失败={FailCount}, 后处理失败={PostProcessFailCount}, " +
-                         $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
-                         
+                         $"忽略={IgnoreCount}, 未找到={NonExistCount}, 分卷不完整={IncompleteVolumeCount}, 歧义={AmbiguousArchiveCount}\n";
+
             _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 归档失败: {FailCount}, 后处理失败: {PostProcessFailCount}");
         }
         catch (OperationCanceledException)
@@ -914,7 +940,7 @@ public partial class MainWindowViewModel : ViewModelBase
             _cancellationTokenSource = null;
         }
     }
-    
+
     [RelayCommand]
     private void CancelOperation()
     {
@@ -954,7 +980,7 @@ public partial class MainWindowViewModel : ViewModelBase
         CommandLog += "已请求取消关机。\n";
         _systemIntegration.ShowNotification("已取消关机", "已向系统发送取消关机请求。");
     }
-    
+
     [RelayCommand]
     private void ClearLogs()
     {
@@ -987,7 +1013,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         HideWindowRequested?.Invoke();
     }
-    
+
     [RelayCommand]
     private async Task OpenOutputFolderAsync()
     {
@@ -996,7 +1022,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await _systemIntegration.OpenFolderAsync(OutputPath);
         }
     }
-    
+
     [RelayCommand]
     private async Task OpenSourceFolderAsync()
     {
@@ -1005,7 +1031,7 @@ public partial class MainWindowViewModel : ViewModelBase
             await _systemIntegration.OpenFolderAsync(SourcePath);
         }
     }
-    
+
     [RelayCommand]
     private async Task QueryPasswordAsync()
     {
@@ -1017,7 +1043,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 PasswordNameMode == (int)Core.Models.PasswordNameMode.BaseName
                     ? Core.Models.PasswordNameMode.BaseName
                     : Core.Models.PasswordNameMode.ArchiveName);
-            
+
             // 生成多种历史兼容密码候选。
             var results = new List<string>();
             results.Add($"归档名: {filename}");
@@ -1029,17 +1055,17 @@ public partial class MainWindowViewModel : ViewModelBase
             results.Add($"GB2312-4位: {PasswordUtility.MD5GB2312(filename)}");
             results.Add("旧版兼容密码:");
             results.AddRange(PasswordUtility.GetLegacyPasswordCandidates(filename));
-            
+
             var finalPassword = PasswordUtility.GenerateCompressionPassword(passwordName);
             PasswordQueryResult = finalPassword;
-            
+
             CommandLog += string.Join("\n", results) + "\n";
-            
+
             // 将最终候选密码复制到剪贴板。
             await _systemIntegration.WriteClipboardTextAsync(finalPassword);
         });
     }
-    
+
     [RelayCommand]
     private void SetOutputSameAsSource()
     {
@@ -1049,7 +1075,7 @@ public partial class MainWindowViewModel : ViewModelBase
             TempDirectory = SaveFilePath;
         }
     }
-    
+
     private void ResetCounters()
     {
         SuccessCount = 0;
@@ -1057,8 +1083,10 @@ public partial class MainWindowViewModel : ViewModelBase
         PostProcessFailCount = 0;
         IgnoreCount = 0;
         NonExistCount = 0;
+        IncompleteVolumeCount = 0;
+        AmbiguousArchiveCount = 0;
         ProcessedSizeGB = 0;
-        
+
         // 重置处理统计。
         ElapsedTime = TimeSpan.Zero;
         RemainingTime = TimeSpan.Zero;
@@ -1098,18 +1126,18 @@ public partial class MainWindowViewModel : ViewModelBase
             $"{operation}进行中",
             $"已处理 {completedCount} 项，成功 {info.SuccessCount}，归档失败 {info.FailCount}，后处理失败 {info.PostProcessFailCount}，当前：{info.CurrentFile}{remaining}");
     }
-    
+
     private BatchOperationOptions BuildBatchOperationOptions()
     {
         // GPT-5, 2026-08-05：转换为引擎枚举或 WinRAR 单位前，钳制所有由索引驱动的控件值。
         string[] volumeUnits = { "g", "m", "k" };
         var volumeUnitIndex = VolumeUnit >= 0 && VolumeUnit < volumeUnits.Length ? VolumeUnit : 0;
-        
-        var clampedCompressionLevel = CompressionLevel >= 0 && CompressionLevel <= 5 
+
+        var clampedCompressionLevel = CompressionLevel >= 0 && CompressionLevel <= 5
             ? CompressionLevel : 3;
-        var clampedExistingFileMode = ExistingFileMode >= 0 && ExistingFileMode <= 2 
+        var clampedExistingFileMode = ExistingFileMode >= 0 && ExistingFileMode <= 2
             ? ExistingFileMode : 2;
-        
+
         return new BatchOperationOptions
         {
             SourcePath = SourcePath,
@@ -1137,17 +1165,17 @@ public partial class MainWindowViewModel : ViewModelBase
             RecoveryRecordPercent = Math.Clamp(RecoveryRecordPercent, 0, 100),
             LockArchive = LockArchive,
             AddEnclosures = AddEnclosures,
-            EnclosureDirectories = AddEnclosures ? 
+            EnclosureDirectories = AddEnclosures ?
                 EnclosureList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries) : null
         };
     }
-    
+
     partial void OnSourceModeChanged(int value)
     {
         // 来源模式改变后重新加载文件列表。
         Task.Run(async () => await RefreshFileListAsync());
     }
-    
+
     partial void OnSourcePathChanged(string value)
     {
         if (!string.IsNullOrEmpty(value))
@@ -1171,17 +1199,17 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         }
     }
-    
+
     partial void OnOutputPathChanged(string value)
     {
         UpdateOutputSize();
-        
+
         if (!string.IsNullOrEmpty(value))
         {
             TempDirectory = value;
         }
     }
-    
+
     partial void OnExtensionChanged(string value)
     {
         RefreshPasswordNameModeOptions();
@@ -1192,7 +1220,7 @@ public partial class MainWindowViewModel : ViewModelBase
             CommandLog += "7z 使用官方 7-Zip；恢复记录、快速打开和 RAR 注释选项不会应用。\n";
         }
     }
-    
+
     partial void OnCompressionLevelChanged(int value)
     {
         // 选择存储模式时关闭固实压缩，因为该组合没有意义。
@@ -1202,7 +1230,7 @@ public partial class MainWindowViewModel : ViewModelBase
             CommandLog += "Solid archive disabled for Store mode\n";
         }
     }
-    
+
     partial void OnDeleteSourceAfterChanged(bool value)
     {
         if (value && MoveSourceAfter)
@@ -1210,7 +1238,7 @@ public partial class MainWindowViewModel : ViewModelBase
             MoveSourceAfter = false;
         }
     }
-    
+
     partial void OnMoveSourceAfterChanged(bool value)
     {
         if (value && DeleteSourceAfter)
@@ -1218,7 +1246,7 @@ public partial class MainWindowViewModel : ViewModelBase
             DeleteSourceAfter = false;
         }
     }
-    
+
     partial void OnSaveFilePathChanged(string value)
     {
         if (!string.IsNullOrEmpty(value))
@@ -1235,7 +1263,7 @@ public partial class MainWindowViewModel : ViewModelBase
             TotalSizeGB = 0;
         }
     }
-    
+
     private async Task UpdateTotalSizeAsync()
     {
         await Task.Run(() =>
@@ -1244,7 +1272,7 @@ public partial class MainWindowViewModel : ViewModelBase
             {
                 // 两种目录相关模式都以 SaveFilePath 作为统计来源。
                 string targetPath = SaveFilePath;
-                
+
                 if (!string.IsNullOrEmpty(targetPath) && Directory.Exists(targetPath))
                 {
                     // 计算目录中所有候选文件的总大小。
@@ -1263,21 +1291,21 @@ public partial class MainWindowViewModel : ViewModelBase
             }
         });
     }
-    
+
     private long CalculateDirectorySize(string path)
     {
         if (!Directory.Exists(path))
             return 0;
-        
+
         long size = 0;
-        
+
         try
         {
             // 枚举目录中的候选文件。
             string[] files = Directory.GetFiles(path, "*", SearchOption.AllDirectories)
                 .Where(file => !SystemMetadataFileFilter.ShouldSkip(file))
                 .ToArray();
-            
+
             // 汇总候选文件大小并换算为 GB。
             foreach (string file in files)
             {
@@ -1296,7 +1324,7 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             CommandLog += $"Error accessing directory {path}: {ex.Message}\n";
         }
-        
+
         return size;
     }
 }
