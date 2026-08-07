@@ -43,18 +43,6 @@ public static class SevenZipCommandBuilder
             arguments.Add($"-w{options.TempDirectory}");
         }
 
-        if (options.ExcludeExtensions is { Length: > 0 })
-        {
-            foreach (var extension in options.ExcludeExtensions)
-            {
-                var normalized = extension.Trim().TrimStart('.');
-                if (normalized.Length > 0)
-                {
-                    arguments.Add($"-xr!*.{normalized}");
-                }
-            }
-        }
-
         arguments.Add(output);
         arguments.Add(input);
         if (options.AdditionalInputs is { Length: > 0 })

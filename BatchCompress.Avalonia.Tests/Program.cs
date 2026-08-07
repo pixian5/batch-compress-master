@@ -13,6 +13,7 @@ internal static class Program
         {
             ("格式参数", TestFormatArguments),
             ("密码与失败返回码", TestPasswordAndFailureExitCodes),
+            ("密码命名与 RAR 仅存储", TestPasswordNamingAndStoreOnlyExtensions),
             ("取消传播", TestCancellation),
             ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
             ("空保存路径回退", TestOutputPathFallback),
@@ -133,6 +134,29 @@ internal static class Program
         Assert(WinRarExitCodes.IsSuccess(1), "返回码 1 必须表示警告成功");
         Assert(!WinRarExitCodes.IsSuccess(2), "返回码 2 必须表示失败");
         Assert(!WinRarExitCodes.IsSuccess(255), "返回码 255 必须表示失败");
+        return Task.CompletedTask;
+    }
+
+    private static Task TestPasswordNamingAndStoreOnlyExtensions()
+    {
+        AssertEqual("a.rar", PasswordUtility.GetPasswordSourceName("a.part001.rar", PasswordNameMode.ArchiveName));
+        AssertEqual("a", PasswordUtility.GetPasswordSourceName("a.part001.rar", PasswordNameMode.BaseName));
+        AssertEqual("a.7z", PasswordUtility.GetPasswordSourceName("a.7z.001", PasswordNameMode.ArchiveName));
+        AssertEqual("a", PasswordUtility.GetPasswordSourceName("a.7z.001", PasswordNameMode.BaseName));
+        AssertEqual("a.rar", PasswordUtility.GetPasswordSourceName("a.rar", PasswordNameMode.ArchiveName));
+        AssertEqual("a", PasswordUtility.GetPasswordSourceName("a.rar", PasswordNameMode.BaseName));
+
+        var rarOptions = CreateOptions();
+        rarOptions.ExcludeExtensions = ArchiveDefaults.StoreOnlyExtensions;
+        var rarArguments = WinRarCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.rar", rarOptions);
+        AssertContains(rarArguments, "-ms7z;ace;arj;bz2;cab;gz;mp4;mkv;rm;rmvb;flv;mov;lha;lz;lzh;mp3;rar;taz;tgz;xz;z;zip;zipx");
+
+        var sevenZipOptions = CreateOptions();
+        sevenZipOptions.ArchiveFormat = "7z";
+        sevenZipOptions.ExcludeExtensions = ArchiveDefaults.StoreOnlyExtensions;
+        var sevenZipArguments = SevenZipCommandBuilder.BuildCompressionArguments("/tmp/input", "/tmp/output.7z", sevenZipOptions);
+        Assert(!sevenZipArguments.Any(argument => argument.StartsWith("-xr!", StringComparison.Ordinal)),
+            "7z/ZIP 不得把 RAR 的仅存储规则转换为排除规则");
         return Task.CompletedTask;
     }
 
@@ -433,6 +457,7 @@ internal static class Program
             "--max-size-gb", "0",
             "--volume-size", "20",
             "--volume-unit", "MB",
+            "--password-name", "base",
             "--dry-run"
         ]);
 
@@ -442,6 +467,7 @@ internal static class Program
         AssertEqual(2, options.InputPaths.Length);
         AssertEqual("7z", options.Extension);
         AssertEqual("m", options.VolumeUnit);
+        AssertEqual("base", options.PasswordName);
         Assert(!options.UseRandomPassword, "显式密码必须关闭随机密码");
         Assert(!options.Solid, "--no-solid 必须关闭固实压缩");
         Assert(!options.SkipProcessed, "--no-skip-processed 必须生效");
@@ -488,6 +514,9 @@ internal static class Program
         AssertCommandLineFails(
             ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--existing", "update", "--lock"],
             "不能与 --lock 同时使用");
+        AssertCommandLineFails(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--password-name", "unknown"],
+            "--password-name");
         return Task.CompletedTask;
     }
 

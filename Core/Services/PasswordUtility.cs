@@ -1,7 +1,11 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.RegularExpressions;
+using BatchCompress.Avalonia.Core.Models;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
@@ -13,6 +17,33 @@ namespace BatchCompress.Avalonia.Core.Services;
 // 仅用于复现历史归档密码。
 public static class PasswordUtility
 {
+    // GPT-5, 2026-08-07：压缩与解压必须共享同一命名规则。先把 RAR/7z 首卷还原为逻辑归档名，
+    // 再决定是否移除扩展名，保证 a.part001.rar 与 a.rar 使用相同的默认密码。
+    public static string GetPasswordSourceName(string archivePathOrName, PasswordNameMode mode)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(archivePathOrName);
+
+        var archiveName = Path.GetFileName(archivePathOrName);
+        var numberedVolumeExtension = Path.GetExtension(archiveName);
+        if (numberedVolumeExtension.Length > 1 &&
+            numberedVolumeExtension[1..].All(char.IsDigit))
+        {
+            archiveName = Path.GetFileNameWithoutExtension(archiveName);
+        }
+
+        var extension = Path.GetExtension(archiveName);
+        var baseName = Path.GetFileNameWithoutExtension(archiveName);
+        var partMatch = Regex.Match(baseName, @"^(?<name>.+)\.part\d+$", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+        if (partMatch.Success)
+        {
+            archiveName = partMatch.Groups["name"].Value + extension;
+        }
+
+        return mode == PasswordNameMode.BaseName
+            ? Path.GetFileNameWithoutExtension(archiveName)
+            : archiveName;
+    }
+
     /// <summary>
     /// 使用 UTF-8 编码计算 MD5，并从第 7 位开始截取 8 个字符。
     /// </summary>

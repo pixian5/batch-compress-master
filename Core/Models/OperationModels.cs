@@ -48,6 +48,7 @@ public class BatchOperationOptions
     public bool SkipAlreadyProcessed { get; set; }
     public double MaxSizeGB { get; set; }
     public bool ShutdownAfterComplete { get; set; }
+    public PasswordNameMode PasswordNameMode { get; set; } = PasswordNameMode.ArchiveName;
     
     // 压缩选项。
     public Core.Interfaces.CompressionLevel CompressionLevel { get; set; }
@@ -61,6 +62,7 @@ public class BatchOperationOptions
     public Core.Interfaces.ExistingFileMode ExistingFileMode { get; set; }
     public int RecoveryRecordPercent { get; set; }
     public bool LockArchive { get; set; }
+    public string[] StoreOnlyExtensions { get; set; } = [.. ArchiveDefaults.StoreOnlyExtensions];
     
     // 附件目录和联系信息目录。
     public string[]? EnclosureDirectories { get; set; }
@@ -75,6 +77,15 @@ public enum SourceMode
     FromTextFile = 0,          // 从文本文件读取归档和密码
     CompressionTextFile = 1,   // 从文本文件读取待压缩路径
     FromFolder = 2             // 从目录读取
+}
+
+/// <summary>
+/// 随机密码参与计算的归档名称形式。
+/// </summary>
+public enum PasswordNameMode
+{
+    ArchiveName = 0,
+    BaseName = 1
 }
 
 // GPT-5, 2026-08-06：文本导入结果同时保留有效条目和诊断信息，避免旧版静默丢弃无效行。

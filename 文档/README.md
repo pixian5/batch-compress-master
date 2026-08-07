@@ -8,7 +8,7 @@
 - [当前架构](ARCHITECTURE.md)：模块边界和运行机制。
 - [Avalonia 版本说明](AVALONIA_VERSION.md)：技术版本和打包方式。
 - [当前实现摘要](IMPLEMENTATION_SUMMARY.md)：已实现能力。
-- [详细设计文档](详细设计文档.md)：当前 0.2.5 实现、来源契约、注释规范和历史 WinForms 迁移参考。
+- [详细设计文档](详细设计文档.md)：当前 0.2.6 实现、来源契约、注释规范和历史 WinForms 迁移参考。
 - [Avalonia 12 与命令行解析器更新](2026-08-06-Avalonia12与命令行解析器更新.md)：本轮依赖升级、CLI 解析器迁移和验证记录。
 - [快速参考](QUICK_REFERENCE.md)：使用与排障。
 - [命令行参考](COMMAND_LINE.md)：动词、参数、输入语义、退出码和脚本示例。

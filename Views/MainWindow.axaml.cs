@@ -393,6 +393,7 @@ public partial class MainWindow : Window
             viewModel.BrowseAttachmentRequested = BrowseAttachmentAsync;
             viewModel.ShowHelpRequested = ShowHelpAsync;
             viewModel.HideWindowRequested = HideWindowFromViewModel;
+            viewModel.ConfirmShutdownCancellationRequested = ConfirmShutdownCancellationAsync;
         }
     }
 
@@ -439,8 +440,11 @@ public partial class MainWindow : Window
 
     private async Task ShowHelpAsync()
     {
-        await ShowMessageBoxAsync("帮助", "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nWinRAR 支持 RAR 和 ZIP；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会真正退出程序；需要后台运行时请使用“隐藏到托盘”，再通过托盘菜单显示/隐藏或退出。");
+        await ShowMessageBoxAsync("帮助", "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nRAR 使用 RAR，ZIP 和 7z 使用 7-Zip；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会真正退出程序；需要后台运行时请使用“隐藏到托盘”，再通过托盘菜单显示/隐藏或退出。");
     }
+
+    private Task<bool> ConfirmShutdownCancellationAsync() =>
+        ShowOkCancelMessageBoxAsync("关机计划", "系统将在一分钟后关机，是否取消？", "取消关机", "继续关机");
     
     private async Task BrowseSourceAsync()
     {
@@ -647,7 +651,11 @@ public partial class MainWindow : Window
         return await dialog.ShowDialog<bool>(this);
     }
     
-    private async Task<bool> ShowOkCancelMessageBoxAsync(string title, string message)
+    private async Task<bool> ShowOkCancelMessageBoxAsync(
+        string title,
+        string message,
+        string? confirmText = null,
+        string? cancelText = null)
     {
         // GPT-5, 2026-08-05：使用明确布尔结果，区分用户取消与选择器失败。
         Window? dialog = null;
@@ -669,8 +677,8 @@ public partial class MainWindow : Window
                         Spacing = 20,
                         Children =
                         {
-                            new Button { Content = L.Ok, Width = 100 },
-                            new Button { Content = L.CancelDialog, Width = 100 }
+                            new Button { Content = confirmText ?? L.Ok, Width = 100 },
+                            new Button { Content = cancelText ?? L.CancelDialog, Width = 100 }
                         }
                     }
                 }

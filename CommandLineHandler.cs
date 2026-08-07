@@ -22,6 +22,7 @@ public sealed class CommandLineOptions
     public string? Password { get; set; }
     public string? PasswordFile { get; set; }
     public bool ReadPasswordFromStandardInput { get; set; }
+    public string PasswordName { get; set; } = "archive";
     public int CompressionLevel { get; set; } = 3;
     public bool Solid { get; set; } = true;
     public string? VolumeSize { get; set; }
@@ -123,6 +124,7 @@ public static class CommandLineHandler
           --password, -p <密码>          直接提供自定义密码
           --password-file <文件>         从文件第一行读取密码
           --password-stdin               从标准输入第一行读取密码
+          --password-name <archive|base> 密码依据：a.rar（默认）或 a
 
         处理策略:
           --existing <skip|update|overwrite>
@@ -202,6 +204,7 @@ public static class CommandLineHandler
         options.Extension = NormalizeFormat(options.Extension);
         options.VolumeUnit = NormalizeVolumeUnit(options.VolumeUnit);
         options.ExistingFileMode = (options.ExistingFileMode ?? "overwrite").Trim().ToLowerInvariant();
+        options.PasswordName = (options.PasswordName ?? "archive").Trim().ToLowerInvariant();
         options.Gui = effectiveArgs.Length == 0 || state.ExplicitGui;
         options.Solid = options.Solid && !state.NoSolid;
         options.SkipProcessed = options.SkipProcessed && !state.NoSkipProcessed;
@@ -253,6 +256,7 @@ public static class CommandLineHandler
         Add(definitions, "--password", ValueKind.Single, "--password", "-p");
         Add(definitions, "--password-file", ValueKind.Single, "--password-file");
         Add(definitions, "--password-stdin", ValueKind.Flag, "--password-stdin");
+        Add(definitions, "--password-name", ValueKind.Single, "--password-name");
         Add(definitions, "--level", ValueKind.Single, "--level", "-l");
         Add(definitions, "--solid", ValueKind.Flag, "--solid");
         Add(definitions, "--no-solid", ValueKind.Flag, "--no-solid");
@@ -521,6 +525,9 @@ public static class CommandLineHandler
             case "--password-file":
                 state.Options.PasswordFile = value;
                 break;
+            case "--password-name":
+                state.Options.PasswordName = value;
+                break;
             case "--level":
                 state.Options.CompressionLevel = ParseInt(value, "--level", state.Errors, 3);
                 break;
@@ -671,6 +678,10 @@ public static class CommandLineHandler
         if (options.ExistingFileMode is not ("skip" or "update" or "overwrite"))
         {
             errors.Add("--existing 仅支持 skip、update、overwrite。");
+        }
+        if (options.PasswordName is not ("archive" or "base"))
+        {
+            errors.Add("--password-name 仅支持 archive、base。");
         }
         if (options.ExistingFileMode == "update" && options.LockArchive)
         {

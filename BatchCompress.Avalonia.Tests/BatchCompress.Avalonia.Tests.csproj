@@ -25,6 +25,7 @@
     <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
     <Compile Include="..\Core\Services\BatchOperationService.cs" Link="Core\Services\BatchOperationService.cs" />
     <Compile Include="..\Core\Models\OperationModels.cs" Link="Core\Models\OperationModels.cs" />
+    <Compile Include="..\Core\Models\ArchiveDefaults.cs" Link="Core\Models\ArchiveDefaults.cs" />
     <Compile Include="..\Core\Interfaces\ISystemIntegration.cs" Link="Core\Interfaces\ISystemIntegration.cs" />
   </ItemGroup>
 

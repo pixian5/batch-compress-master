@@ -111,6 +111,8 @@ public partial class MainWindowViewModel : ViewModelBase
     /// 单位文本虽然不随语言变化，但仍使用 ObservableCollection 保证控件正确刷新。
     /// </summary>
     public ObservableCollection<string> VolumeUnitOptions { get; } = new();
+
+    public ObservableCollection<string> PasswordNameModeOptions { get; } = new();
     
     /// <summary>
     /// 使用当前语言重新填充全部下拉选项，确保 ComboBox 显示文本同步。
@@ -122,6 +124,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var currentCompressionLevel = CompressionLevel;
         var currentExistingFileMode = ExistingFileMode;
         var currentVolumeUnit = VolumeUnit;
+        var currentPasswordNameMode = PasswordNameMode;
         
         // 清空并重新填充来源模式选项。
         SourceModeOptions.Clear();
@@ -149,12 +152,19 @@ public partial class MainWindowViewModel : ViewModelBase
         VolumeUnitOptions.Add("GB");
         VolumeUnitOptions.Add("MB");
         VolumeUnitOptions.Add("KB");
+
+        PasswordNameModeOptions.Clear();
+        PasswordNameModeOptions.Add("a.rar（默认）");
+        PasswordNameModeOptions.Add("a");
         
         // 集合重建后恢复有效索引，使 ComboBox 显示正确文本。
         SourceMode = currentSourceMode >= 0 && currentSourceMode < SourceModeOptions.Count ? currentSourceMode : 0;
         CompressionLevel = currentCompressionLevel >= 0 && currentCompressionLevel < CompressionLevelOptions.Count ? currentCompressionLevel : 0;
         ExistingFileMode = currentExistingFileMode >= 0 && currentExistingFileMode < ExistingFileModeOptions.Count ? currentExistingFileMode : 0;
         VolumeUnit = currentVolumeUnit >= 0 && currentVolumeUnit < VolumeUnitOptions.Count ? currentVolumeUnit : 0;
+        PasswordNameMode = currentPasswordNameMode >= 0 && currentPasswordNameMode < PasswordNameModeOptions.Count
+            ? currentPasswordNameMode
+            : 0;
     }
     
     public bool IsFromTxtMode => SourceMode < 2;
@@ -185,6 +195,9 @@ public partial class MainWindowViewModel : ViewModelBase
     
     [ObservableProperty]
     private string _customPassword = string.Empty;
+
+    [ObservableProperty]
+    private int _passwordNameMode;
     
     [ObservableProperty]
     private int _compressionLevel = 1; // 0-5
@@ -245,6 +258,9 @@ public partial class MainWindowViewModel : ViewModelBase
     
     [ObservableProperty]
     private bool _shutdownAfterComplete = false;
+
+    [ObservableProperty]
+    private bool _isShutdownScheduled;
     
     [ObservableProperty]
     private string _currentFile = "Ready";
@@ -429,6 +445,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public Func<Task>? BrowseAttachmentRequested { get; set; }
     public Func<Task>? ShowHelpRequested { get; set; }
     public Action? HideWindowRequested { get; set; }
+    public Func<Task<bool>>? ConfirmShutdownCancellationRequested { get; set; }
     
     [RelayCommand]
     private async Task BrowseSourceAsync()
@@ -704,6 +721,8 @@ public partial class MainWindowViewModel : ViewModelBase
             
             await _batchOperationService.BatchCompressAsync(
                 sourcePaths, options, progress, _cancellationTokenSource.Token);
+
+            await OfferShutdownCancellationAsync(options);
             
             CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
                          $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
@@ -854,6 +873,8 @@ public partial class MainWindowViewModel : ViewModelBase
             
             await _batchOperationService.BatchDecompressAsync(
                 entries, options, progress, _cancellationTokenSource.Token);
+
+            await OfferShutdownCancellationAsync(options);
             
             CommandLog += $"\n完成: 成功={SuccessCount}, 失败={FailCount}, " +
                          $"忽略={IgnoreCount}, 未找到={NonExistCount}\n";
@@ -882,6 +903,39 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         _cancellationTokenSource?.Cancel();
         CommandLog += "Cancelling operation...\n";
+    }
+
+    // GPT-5, 2026-08-07：批处理服务已向系统提交一分钟后的关机请求；GUI 随即提供确认框和持续可用的取消按钮。
+    // 无界面命令行不显示此交互，仍由操作系统的关机命令语义负责。
+    private async Task OfferShutdownCancellationAsync(BatchOperationOptions options)
+    {
+        if (!options.ShutdownAfterComplete)
+        {
+            return;
+        }
+
+        IsShutdownScheduled = true;
+        CommandLog += "已请求系统在一分钟后关机，可使用“取消关机”撤销。\n";
+        _systemIntegration.ShowNotification("关机计划", "系统将在一分钟后关机。可以在应用中取消。");
+
+        if (ConfirmShutdownCancellationRequested != null && await ConfirmShutdownCancellationRequested())
+        {
+            await CancelScheduledShutdownAsync();
+        }
+    }
+
+    [RelayCommand]
+    private async Task CancelScheduledShutdownAsync()
+    {
+        if (!IsShutdownScheduled)
+        {
+            return;
+        }
+
+        await _systemIntegration.CancelShutdownAsync();
+        IsShutdownScheduled = false;
+        CommandLog += "已请求取消关机。\n";
+        _systemIntegration.ShowNotification("已取消关机", "已向系统发送取消关机请求。");
     }
     
     [RelayCommand]
@@ -941,19 +995,25 @@ public partial class MainWindowViewModel : ViewModelBase
         await Task.Run(async () =>
         {
             var filename = PasswordQueryFileName + "." + Extension;
+            var passwordName = PasswordUtility.GetPasswordSourceName(
+                filename,
+                PasswordNameMode == (int)Core.Models.PasswordNameMode.BaseName
+                    ? Core.Models.PasswordNameMode.BaseName
+                    : Core.Models.PasswordNameMode.ArchiveName);
             
             // 生成多种历史兼容密码候选。
             var results = new List<string>();
-            results.Add($"文件名: {filename}");
-            results.Add($"压缩密码: {PasswordUtility.GenerateCompressionPassword(filename)}");
-            results.Add($"解压密码: {PasswordUtility.GenerateDecompressionPassword(filename)}");
+            results.Add($"归档名: {filename}");
+            results.Add($"密码依据: {passwordName}");
+            results.Add($"压缩密码: {PasswordUtility.GenerateCompressionPassword(passwordName)}");
+            results.Add($"解压密码: {PasswordUtility.GenerateDecompressionPassword(passwordName)}");
             results.Add($"UTF8-8位: {PasswordUtility.MD5UTF878(filename)}");
             results.Add($"UTF8-4位: {PasswordUtility.MD5UTF874(filename)}");
             results.Add($"GB2312-4位: {PasswordUtility.MD5GB2312(filename)}");
             results.Add("旧版兼容密码:");
             results.AddRange(PasswordUtility.GetLegacyPasswordCandidates(filename));
             
-            var finalPassword = PasswordUtility.GenerateCompressionPassword(filename);
+            var finalPassword = PasswordUtility.GenerateCompressionPassword(passwordName);
             PasswordQueryResult = finalPassword;
             
             CommandLog += string.Join("\n", results) + "\n";
@@ -1044,6 +1104,9 @@ public partial class MainWindowViewModel : ViewModelBase
             SkipAlreadyProcessed = SkipAlreadyProcessed,
             MaxSizeGB = MaxSizeGB,
             ShutdownAfterComplete = ShutdownAfterComplete,
+            PasswordNameMode = PasswordNameMode == (int)Core.Models.PasswordNameMode.BaseName
+                ? Core.Models.PasswordNameMode.BaseName
+                : Core.Models.PasswordNameMode.ArchiveName,
             CompressionLevel = (Core.Interfaces.CompressionLevel)clampedCompressionLevel,
             SolidArchive = SolidArchive && clampedCompressionLevel > 0,
             VolumeSize = EnableVolume ? VolumeSize : null,

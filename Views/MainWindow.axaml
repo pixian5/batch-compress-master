@@ -81,6 +81,8 @@
                                         <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="按文件名生成压缩密码"/>
                                         <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left"
                                                  PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="关闭随机密码后使用此密码"/>
+                                        <TextBlock Text="密码依据" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedIndex="{Binding PasswordNameMode}" ItemsSource="{Binding PasswordNameModeOptions}" Width="120" ToolTip.Tip="随机密码使用归档名 a.rar（默认）或不含归档扩展名的 a"/>
                                     </StackPanel>
 
                                     <!-- 查询结果区域 -->
@@ -154,6 +156,7 @@
                                         <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="仅在操作成功后删除源文件，请谨慎使用"/>
                                         <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}" ToolTip.Tip="仅在操作成功后移动源文件"/>
                                         <CheckBox Content="{Binding L.ShutdownAfterComplete}" IsChecked="{Binding ShutdownAfterComplete}" ToolTip.Tip="全部任务完成后请求系统在一分钟后关机"/>
+                                        <Button Content="取消关机" Command="{Binding CancelScheduledShutdownCommand}" IsVisible="{Binding IsShutdownScheduled}" ToolTip.Tip="取消当前已请求的系统关机"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>

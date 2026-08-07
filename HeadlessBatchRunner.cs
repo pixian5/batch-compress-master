@@ -418,6 +418,9 @@ public class HeadlessBatchRunner
             SkipAlreadyProcessed = _options.SkipProcessed,
             MaxSizeGB = _options.MaxSizeGB,
             ShutdownAfterComplete = _options.ShutdownAfter,
+            PasswordNameMode = _options.PasswordName == "base"
+                ? PasswordNameMode.BaseName
+                : PasswordNameMode.ArchiveName,
             CompressionLevel = compressionLevel,
             SolidArchive = _options.Solid && _options.CompressionLevel > 0,
             VolumeSize = _options.VolumeSize,

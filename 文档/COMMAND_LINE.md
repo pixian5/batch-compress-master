@@ -34,7 +34,8 @@ macOS 应用包中的可执行文件：
 
 ## 密码
 
-- 默认按归档文件名生成兼容密码。
+- 默认按规范化后的归档文件名生成兼容密码：`a.part001.rar` 使用 `a.rar`，`a.7z.001` 使用 `a.7z`。
+- `--password-name archive|base`：密码依据为完整归档名（默认，如 `a.rar`）或去除归档扩展名（`a`）。压缩、普通解压与分卷解压使用同一规则。
 - `--no-random-password` 创建或解压无密码归档。
 - `--password VALUE` 直接提供密码。
 - `--password-file PATH` 从文件第一行读取密码。
@@ -56,9 +57,12 @@ macOS 应用包中的可执行文件：
 | `--temp-dir PATH` | 归档程序临时目录。 |
 | `--existing skip|update|overwrite` | 已有文件处理策略。 |
 | `--lock` | 锁定 RAR 归档；不能与 `--existing update` 同时使用。 |
+| `--password-name archive|base` | 随机密码依据：完整归档名（默认）或去除归档扩展名。 |
 | `--max-size-gb N` | 最大处理总量；0 表示不限。 |
 | `--delete-source` / `--move-source` | 成功后删除或移动，二者互斥。 |
 | `--shutdown` | 全部任务完成后请求系统关机。 |
+
+RAR 默认将已有归档和常见媒体格式作为“仅存储”内容，避免二次压缩；ZIP/7z 会保留全部文件，不将该规则误映射为排除项。
 
 默认开启跳过已处理项目和添加附件，可使用 `--no-skip-processed`、`--no-add-enclosures` 关闭。附件目录通过可重复的 `--enclosure PATH` 指定；`--enclosure-list` 保留旧版换行列表兼容。
 

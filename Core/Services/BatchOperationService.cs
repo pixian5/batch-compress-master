@@ -388,7 +388,8 @@ public class BatchOperationService
             string? password = null;
             if (options.UseRandomPassword)
             {
-                password = PasswordUtility.GenerateCompressionPassword(outputFileName);
+                var passwordName = PasswordUtility.GetPasswordSourceName(outputFileName, options.PasswordNameMode);
+                password = PasswordUtility.GenerateCompressionPassword(passwordName);
             }
             else if (!string.IsNullOrEmpty(options.CustomPassword))
             {
@@ -411,6 +412,9 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode,
                 RecoveryRecordPercent = options.RecoveryRecordPercent,
                 LockArchive = options.LockArchive,
+                ExcludeExtensions = options.Extension.Equals("rar", StringComparison.OrdinalIgnoreCase)
+                    ? options.StoreOnlyExtensions
+                    : null,
                 VolumeSize = !string.IsNullOrEmpty(options.VolumeSize) ? 
                     options.VolumeSize + options.VolumeSizeUnit : null
             };
@@ -656,7 +660,8 @@ public class BatchOperationService
             string? password = entry.Password;
             if (string.IsNullOrEmpty(password) && options.UseRandomPassword)
             {
-                password = PasswordUtility.GenerateDecompressionPassword(archiveName);
+                var passwordName = PasswordUtility.GetPasswordSourceName(archiveName, options.PasswordNameMode);
+                password = PasswordUtility.GenerateDecompressionPassword(passwordName);
             }
             else if (string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(options.CustomPassword))
             {
