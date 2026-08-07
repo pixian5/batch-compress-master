@@ -113,6 +113,24 @@ public partial class MainWindowViewModel : ViewModelBase
     public ObservableCollection<string> VolumeUnitOptions { get; } = new();
 
     public ObservableCollection<string> PasswordNameModeOptions { get; } = new();
+
+    // GPT-5, 2026-08-07：密码依据提示跟随当前归档扩展名变化，但选项刷新不能改变用户已经选择的模式。
+    private void RefreshPasswordNameModeOptions()
+    {
+        var currentPasswordNameMode = PasswordNameMode;
+        var normalizedExtension = Extension.Trim().TrimStart('.').ToLowerInvariant();
+        if (normalizedExtension.Length == 0)
+        {
+            normalizedExtension = "rar";
+        }
+
+        PasswordNameModeOptions.Clear();
+        PasswordNameModeOptions.Add($"文件名.{normalizedExtension}");
+        PasswordNameModeOptions.Add("文件名");
+        PasswordNameMode = currentPasswordNameMode >= 0 && currentPasswordNameMode < PasswordNameModeOptions.Count
+            ? currentPasswordNameMode
+            : 0;
+    }
     
     /// <summary>
     /// 使用当前语言重新填充全部下拉选项，确保 ComboBox 显示文本同步。
@@ -124,7 +142,6 @@ public partial class MainWindowViewModel : ViewModelBase
         var currentCompressionLevel = CompressionLevel;
         var currentExistingFileMode = ExistingFileMode;
         var currentVolumeUnit = VolumeUnit;
-        var currentPasswordNameMode = PasswordNameMode;
         
         // 清空并重新填充来源模式选项。
         SourceModeOptions.Clear();
@@ -153,18 +170,13 @@ public partial class MainWindowViewModel : ViewModelBase
         VolumeUnitOptions.Add("MB");
         VolumeUnitOptions.Add("KB");
 
-        PasswordNameModeOptions.Clear();
-        PasswordNameModeOptions.Add("a.rar（默认）");
-        PasswordNameModeOptions.Add("a");
+        RefreshPasswordNameModeOptions();
         
         // 集合重建后恢复有效索引，使 ComboBox 显示正确文本。
         SourceMode = currentSourceMode >= 0 && currentSourceMode < SourceModeOptions.Count ? currentSourceMode : 0;
         CompressionLevel = currentCompressionLevel >= 0 && currentCompressionLevel < CompressionLevelOptions.Count ? currentCompressionLevel : 0;
         ExistingFileMode = currentExistingFileMode >= 0 && currentExistingFileMode < ExistingFileModeOptions.Count ? currentExistingFileMode : 0;
         VolumeUnit = currentVolumeUnit >= 0 && currentVolumeUnit < VolumeUnitOptions.Count ? currentVolumeUnit : 0;
-        PasswordNameMode = currentPasswordNameMode >= 0 && currentPasswordNameMode < PasswordNameModeOptions.Count
-            ? currentPasswordNameMode
-            : 0;
     }
     
     public bool IsFromTxtMode => SourceMode < 2;
@@ -1166,6 +1178,8 @@ public partial class MainWindowViewModel : ViewModelBase
     
     partial void OnExtensionChanged(string value)
     {
+        RefreshPasswordNameModeOptions();
+
         // GPT-5, 2026-08-06：7z 已由官方 7zz 完整支持；这里只提示该格式不具备 RAR 专属恢复记录和快速打开能力。
         if (value.Trim().TrimStart('.').Equals("7z", StringComparison.OrdinalIgnoreCase))
         {
