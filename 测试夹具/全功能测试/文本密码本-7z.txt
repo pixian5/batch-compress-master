@@ -1,0 +1,6 @@
+输出/7z/普通文本.txt.7z
+fixture-password
+输出/7z/带空格 文件.txt.7z
+fixture-password
+输出/7z/不存在的归档.7z
+missing-password

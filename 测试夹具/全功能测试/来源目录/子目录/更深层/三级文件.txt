@@ -1,0 +1,1 @@
+The folder scanner is intentionally non-recursive; this file tests directory-as-input behavior.

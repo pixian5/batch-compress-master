@@ -1,0 +1,1 @@
+This directory should be skipped when --skip-processed is enabled.

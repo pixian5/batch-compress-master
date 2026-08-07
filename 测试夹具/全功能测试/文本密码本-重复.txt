@@ -1,0 +1,4 @@
+输出/7z/普通文本.txt.7z
+fixture-password
+输出/7z/普通文本.txt.7z
+other-password
