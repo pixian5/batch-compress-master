@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -51,6 +52,10 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
             var testArguments = SevenZipCommandBuilder.BuildTestArguments(output, options.Password);
             var testResult = await ExecuteAsync(testArguments, cancellationToken).ConfigureAwait(false);
             // GPT-5, 2026-08-06：创建和校验是两次进程，返回时合并两者原始输出，避免丢失第一阶段诊断信息。
+            testResult.CommandLine = string.Join(
+                Environment.NewLine,
+                new[] { result.CommandLine, testResult.CommandLine }
+                    .Where(line => !string.IsNullOrWhiteSpace(line)));
             testResult.StandardOutput = JoinOutput(result.StandardOutput, testResult.StandardOutput);
             testResult.StandardError = JoinOutput(result.StandardError, testResult.StandardError);
             return testResult;
@@ -216,6 +221,7 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
             ExitCode = result.ExitCode,
             StandardOutput = result.StandardOutput,
             StandardError = result.StandardError,
+            CommandLine = result.CommandLine,
             ErrorMessage = success ? null : BuildFailureMessage(result)
         };
     }

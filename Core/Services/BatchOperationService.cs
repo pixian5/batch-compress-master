@@ -880,6 +880,14 @@ public class BatchOperationService
         OperationProgressInfo progressInfo,
         IProgress<OperationProgressInfo> progress)
     {
+        if (!string.IsNullOrWhiteSpace(result.CommandLine))
+        {
+            progress.Report(CloneProgress(
+                progressInfo,
+                $"[{prefix}] command{Environment.NewLine}{result.CommandLine}",
+                isError: false));
+        }
+
         if (!string.IsNullOrWhiteSpace(result.StandardOutput))
         {
             progress.Report(CloneProgress(

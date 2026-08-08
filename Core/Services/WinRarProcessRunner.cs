@@ -5,7 +5,11 @@ using System.Threading.Tasks;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
-public sealed record WinRarProcessResult(int ExitCode, string StandardOutput, string StandardError);
+public sealed record WinRarProcessResult(
+    int ExitCode,
+    string StandardOutput,
+    string StandardError,
+    string CommandLine);
 
 // GPT-5, 2026-08-06：保留 WinRAR 专用类型作为稳定调用接口，实际进程生命周期由通用执行器统一管理。
 public sealed class WinRarProcessRunner
@@ -26,6 +30,10 @@ public sealed class WinRarProcessRunner
             .RunAsync(arguments, cancellationToken)
             .ConfigureAwait(false);
 
-        return new WinRarProcessResult(result.ExitCode, result.StandardOutput, result.StandardError);
+        return new WinRarProcessResult(
+            result.ExitCode,
+            result.StandardOutput,
+            result.StandardError,
+            result.CommandLine);
     }
 }

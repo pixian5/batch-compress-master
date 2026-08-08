@@ -550,6 +550,7 @@ public class RarArchiveEngine : IArchiveEngine
             ExitCode = result.ExitCode,
             StandardOutput = standardOutput,
             StandardError = standardError,
+            CommandLine = result.CommandLine,
             ErrorMessage = success ? null : BuildFailureMessage(result.ExitCode, standardOutput, standardError)
         };
     }

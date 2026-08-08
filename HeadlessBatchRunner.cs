@@ -197,7 +197,7 @@ public class HeadlessBatchRunner
     }
 
     // GPT-5, 2026-08-06：直接密码、密码文件与标准输入在解析层已保证互斥。
-    // 此处只解析选中的秘密来源，并且绝不把密码值写入日志或控制台。
+    // 此处只解析选中的秘密来源；归档命令和原始进程输出由统一批处理日志链路按用户要求原样记录。
     private bool TryResolvePassword(out string error)
     {
         error = string.Empty;

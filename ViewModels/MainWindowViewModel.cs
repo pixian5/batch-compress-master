@@ -1077,8 +1077,18 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ClearSourceList()
     {
         SourceFileList = string.Empty;
-        _compressionTabState.SourceFileList = string.Empty;
-        _decompressionTabState.SourceFileList = string.Empty;
+        if (ActiveTab == 0)
+        {
+            _compressionTabState.SourceFileList = string.Empty;
+        }
+        else if (ActiveTab == 1)
+        {
+            _decompressionTabState.SourceFileList = string.Empty;
+        }
+        else
+        {
+            ClearAllSourceLists();
+        }
     }
 
     [RelayCommand]
@@ -1093,10 +1103,17 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private void ClearAllLogs()
     {
-        ClearSourceList();
+        ClearAllSourceLists();
+        SourceFileList = string.Empty;
         ClearSuccessLog();
         ClearFailLog();
         ClearCommandLog();
+    }
+
+    private void ClearAllSourceLists()
+    {
+        _compressionTabState.SourceFileList = string.Empty;
+        _decompressionTabState.SourceFileList = string.Empty;
     }
 
     [RelayCommand]
@@ -1117,9 +1134,13 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task OpenSourceFolderAsync()
     {
-        if (!string.IsNullOrEmpty(SourcePath) && Directory.Exists(SourcePath))
+        var sourceDirectory = !string.IsNullOrWhiteSpace(SaveFilePath) && Directory.Exists(SaveFilePath)
+            ? SaveFilePath
+            : File.Exists(SourcePath) ? Path.GetDirectoryName(Path.GetFullPath(SourcePath)) : SourcePath;
+
+        if (!string.IsNullOrEmpty(sourceDirectory) && Directory.Exists(sourceDirectory))
         {
-            await _systemIntegration.OpenFolderAsync(SourcePath);
+            await _systemIntegration.OpenFolderAsync(sourceDirectory);
         }
     }
 

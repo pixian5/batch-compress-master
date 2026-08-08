@@ -59,6 +59,7 @@ public class ArchiveResult
     public string? ErrorMessage { get; set; }
     public string StandardOutput { get; set; } = string.Empty;
     public string StandardError { get; set; } = string.Empty;
+    public string CommandLine { get; set; } = string.Empty;
 }
 
 /// <summary>

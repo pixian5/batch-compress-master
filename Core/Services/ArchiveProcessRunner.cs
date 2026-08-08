@@ -1,12 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
-public sealed record ArchiveProcessResult(int ExitCode, string StandardOutput, string StandardError);
+public sealed record ArchiveProcessResult(
+    int ExitCode,
+    string StandardOutput,
+    string StandardError,
+    string CommandLine);
 
 // GPT-5, 2026-08-06：所有归档程序共用这一进程边界。参数逐项写入 ArgumentList，
 // stdout/stderr 同时异步读取以防止管道阻塞，取消时终止整个子进程树。
@@ -28,6 +33,8 @@ public sealed class ArchiveProcessRunner
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+
+        var commandLine = BuildCommandLine(_executablePath, arguments);
 
         using var process = new Process
         {
@@ -70,7 +77,31 @@ public sealed class ArchiveProcessRunner
         return new ArchiveProcessResult(
             process.ExitCode,
             await standardOutputTask.ConfigureAwait(false),
-            await standardErrorTask.ConfigureAwait(false));
+            await standardErrorTask.ConfigureAwait(false),
+            commandLine);
+    }
+
+    // 保留可直接复制核对的完整参数；调用方明确要求日志不脱敏，因此密码也原样保留。
+    private static string BuildCommandLine(string executablePath, IReadOnlyList<string> arguments)
+    {
+        return string.Join(" ", new[] { executablePath }
+            .Concat(arguments)
+            .Select(QuoteCommandArgument));
+    }
+
+    private static string QuoteCommandArgument(string value)
+    {
+        if (value.Length == 0)
+        {
+            return "\"\"";
+        }
+
+        if (value.All(character => !char.IsWhiteSpace(character) && character != '\"'))
+        {
+            return value;
+        }
+
+        return $"\"{value.Replace("\\", "\\\\").Replace("\"", "\\\"")}\"";
     }
 
     private static async Task WaitForExitAfterKillAsync(Process process)

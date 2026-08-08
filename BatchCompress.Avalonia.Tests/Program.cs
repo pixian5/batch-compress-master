@@ -17,6 +17,7 @@ internal static class Program
             ("密码命名与 RAR 仅存储", TestPasswordNamingAndStoreOnlyExtensions),
             ("取消传播", TestCancellation),
             ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
+            ("完整命令日志参数", TestCommandLogArguments),
             ("空保存路径回退", TestOutputPathFallback),
             ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords),
             ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
@@ -247,6 +248,42 @@ internal static class Program
         // GPT-5, 2026-08-06：进程输出是原始诊断记录，密码文本明确不得被替换为 ***。
         AssertEqual(rawPassword, result.StandardOutput);
         AssertEqual("stderr-marker", result.StandardError);
+        Assert(result.CommandLine.Contains(rawPassword, StringComparison.Ordinal),
+            "完整命令行必须保留原始密码参数，不得脱敏");
+    }
+
+    private static async Task TestCommandLogArguments()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-command-log-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source.txt");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(source, "source");
+
+        var snapshots = new List<OperationProgressInfo>();
+        try
+        {
+            var engine = new CommandReportingArchiveEngine();
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchCompressAsync(
+                [source],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "out"),
+                    Extension = "rar",
+                    ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            var commandMessage = snapshots
+                .Select(snapshot => snapshot.Message)
+                .FirstOrDefault(message => message.Contains("[压缩命令] command", StringComparison.Ordinal));
+            Assert(commandMessage?.Contains("secret password", StringComparison.Ordinal) == true,
+                "批处理命令日志必须原样包含引擎返回的完整参数");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
     }
 
     private static Task TestOutputPathFallback()
@@ -895,5 +932,28 @@ internal static class Program
             ExtractionCalls++;
             return Task.FromResult(new ArchiveResult { Success = true });
         }
+    }
+
+    private sealed class CommandReportingArchiveEngine : IArchiveEngine
+    {
+        public bool IsAvailable() => true;
+
+        public Task<ArchiveResult> CompressAsync(
+            string input,
+            string output,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ArchiveResult
+            {
+                Success = true,
+                CommandLine = $"rar a -psecret password \"{output}\" \"{input}\""
+            });
+
+        public Task<ArchiveResult> ExtractAsync(
+            string archivePath,
+            string outputDir,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ArchiveResult { Success = true });
     }
 }
