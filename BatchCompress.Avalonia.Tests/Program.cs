@@ -105,6 +105,12 @@ internal static class Program
                     $"窗口标题不得显示 UI 框架名称: {title}");
                 Assert(title.Contains("v", StringComparison.OrdinalIgnoreCase),
                     $"窗口标题必须显示版本号: {title}");
+                Assert(!string.IsNullOrWhiteSpace(localization.Strings.CompressionTab),
+                    $"压缩一级标签不得为空: {language}");
+                Assert(!string.IsNullOrWhiteSpace(localization.Strings.DecompressionTab),
+                    $"解压一级标签不得为空: {language}");
+                Assert(!string.IsNullOrWhiteSpace(localization.Strings.LogsTab),
+                    $"日志一级标签不得为空: {language}");
             }
         }
         finally

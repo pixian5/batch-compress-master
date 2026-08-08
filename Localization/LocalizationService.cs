@@ -184,6 +184,9 @@ public class LocalizationService : INotifyPropertyChanged
             SuccessLogTab = "成功记录",
             FailLogTab = "失败记录",
             CommandLogTab = "命令日志",
+            CompressionTab = "压缩",
+            DecompressionTab = "解压",
+            LogsTab = "日志",
             
             // 对话框按钮。
             Ok = "确定",
@@ -301,6 +304,9 @@ public class LocalizationService : INotifyPropertyChanged
             SuccessLogTab = "成功記錄",
             FailLogTab = "失敗記錄",
             CommandLogTab = "命令日誌",
+            CompressionTab = "壓縮",
+            DecompressionTab = "解壓",
+            LogsTab = "日誌",
             
             // 对话框按钮。
             Ok = "確定",
@@ -418,6 +424,9 @@ public class LocalizationService : INotifyPropertyChanged
             SuccessLogTab = "Success Log",
             FailLogTab = "Error Log",
             CommandLogTab = "Command Log",
+            CompressionTab = "Compress",
+            DecompressionTab = "Decompress",
+            LogsTab = "Logs",
             
             // 对话框按钮。
             Ok = "OK",
@@ -535,6 +544,9 @@ public class LocalizationService : INotifyPropertyChanged
             SuccessLogTab = "成功ログ",
             FailLogTab = "エラーログ",
             CommandLogTab = "コマンドログ",
+            CompressionTab = "圧縮",
+            DecompressionTab = "解凍",
+            LogsTab = "ログ",
             
             // 对话框按钮。
             Ok = "OK",
@@ -652,6 +664,9 @@ public class LocalizationService : INotifyPropertyChanged
             SuccessLogTab = "Erfolgsprotokoll",
             FailLogTab = "Fehlerprotokoll",
             CommandLogTab = "Befehlsprotokoll",
+            CompressionTab = "Komprimieren",
+            DecompressionTab = "Entpacken",
+            LogsTab = "Protokoll",
             
             // 对话框按钮。
             Ok = "OK",

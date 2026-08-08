@@ -27,10 +27,20 @@
                   AllowAutoHide="False"
                   HorizontalScrollBarVisibility="Disabled"
                   VerticalScrollBarVisibility="Visible">
-        <StackPanel Margin="10" Spacing="8">
+        <StackPanel Margin="10" Spacing="10">
+
+            <!-- 一级导航：操作页共用同一套状态，日志页集中显示四类运行记录。 -->
+            <Border Background="#F4F6F8" BorderBrush="#D8DEE4" BorderThickness="1" Padding="4" CornerRadius="6">
+                <TabControl SelectedIndex="{Binding ActiveTab}" Background="Transparent" BorderThickness="0"
+                            HorizontalContentAlignment="Stretch">
+                    <TabItem Header="{Binding L.CompressionTab}" Padding="24,9" FontWeight="SemiBold" />
+                    <TabItem Header="{Binding L.DecompressionTab}" Padding="24,9" FontWeight="SemiBold" />
+                    <TabItem Header="{Binding L.LogsTab}" Padding="24,9" FontWeight="SemiBold" />
+                </TabControl>
+            </Border>
 
             <!-- GPT-5, 2026-08-05：来源和输出路径分离，因为旧版 TXT 模式从 SaveFilePath 解析列表项。 -->
-            <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
+            <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5" IsVisible="{Binding IsOperationTab}">
                 <StackPanel Spacing="6">
                     <TextBlock Text="{Binding L.SourceAndDestination}" FontWeight="Bold" FontSize="14"/>
 
@@ -54,7 +64,7 @@
             </Border>
 
             <!-- GPT-5, 2026-08-05：压缩控件直接绑定 MainWindowViewModel，并在操作开始时快照。 -->
-            <Grid ColumnDefinitions="*" Margin="0,5">
+            <Grid ColumnDefinitions="*" Margin="0,5" IsVisible="{Binding IsOperationTab}">
                 <!-- Left Column: Compression Options -->
                 <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
                     <Expander.Header>
@@ -164,15 +174,17 @@
                 </Grid>
 
             <!-- GPT-5, 2026-08-05：命令依据 IsOperating 保持启用/禁用，防止并发 WinRAR 批处理。 -->
-            <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
+            <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5" IsVisible="{Binding IsOperationTab}">
                 <StackPanel Spacing="6">
                     <StackPanel Orientation="Horizontal" Spacing="10">
                         <Button Content="{Binding L.Compress}" Command="{Binding CompressCommand}" Width="100" Height="36" CornerRadius="18"
                                 IsEnabled="{Binding !IsOperating}" Background="#28a745" Foreground="White"
-                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前选项批量创建归档"/>
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前选项批量创建归档"
+                                IsVisible="{Binding IsCompressionTab}"/>
                         <Button Content="{Binding L.Decompress}" Command="{Binding DecompressCommand}" Width="100" Height="36" CornerRadius="18"
                                 IsEnabled="{Binding !IsOperating}" Background="#007bff" Foreground="White"
-                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前选项批量解压归档"/>
+                                HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前选项批量解压归档"
+                                IsVisible="{Binding IsDecompressionTab}"/>
                         <Button Content="{Binding L.Cancel}" Command="{Binding CancelOperationCommand}" Width="100" Height="36" CornerRadius="18"
                                 IsEnabled="{Binding IsOperating}" Background="#dc3545" Foreground="White"
                                 HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="请求取消正在执行的任务"/>
@@ -238,8 +250,14 @@
 
 
             <!-- GPT-5, 2026-08-05：将可编辑来源输入与只读结果、命令诊断信息分离。 -->
-            <Border BorderBrush="Gray" BorderThickness="1" Padding="0" CornerRadius="5">
-                <TabControl Height="300">
+            <Border BorderBrush="Gray" BorderThickness="1" Padding="0" CornerRadius="5" IsVisible="{Binding IsLogsTab}">
+                <StackPanel Spacing="6">
+                    <StackPanel Orientation="Horizontal" Spacing="8" Margin="8,8,8,0">
+                        <TextBlock Text="{Binding L.LogsTab}" FontWeight="Bold" VerticalAlignment="Center" />
+                        <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Height="28"
+                                ToolTip.Tip="清空所有列表和日志，快捷键 Ctrl+L" />
+                    </StackPanel>
+                    <TabControl Height="300">
                 <!-- Source File List -->
                 <TabItem Header="{Binding SourceFileListTabHeader}">
                     <ScrollViewer>
@@ -272,6 +290,7 @@
                     </ScrollViewer>
                 </TabItem>
             </TabControl>
+                </StackPanel>
             </Border>
 
         </StackPanel>

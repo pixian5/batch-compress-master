@@ -84,6 +84,22 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
     private int _sourceMode; // 0 = 解压密码本，1 = 压缩路径清单，2 = 来源目录
 
+    /// <summary>
+    /// 顶部一级导航：0=压缩，1=解压，2=日志。
+    /// 操作页共用来源、输出和选项状态，日志页集中展示现有日志子页。
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsCompressionTab))]
+    [NotifyPropertyChangedFor(nameof(IsDecompressionTab))]
+    [NotifyPropertyChangedFor(nameof(IsLogsTab))]
+    [NotifyPropertyChangedFor(nameof(IsOperationTab))]
+    private int _activeTab;
+
+    public bool IsCompressionTab => ActiveTab == 0;
+    public bool IsDecompressionTab => ActiveTab == 1;
+    public bool IsLogsTab => ActiveTab == 2;
+    public bool IsOperationTab => IsCompressionTab || IsDecompressionTab;
+
     public string BrowseSourceButtonText => SourceMode < 2 ? L.SelectTxt : L.SelectDirectory;
 
     public string SourcePathWatermark => SourceMode < 2 ? L.TxtPathWatermark : L.SavePathWatermark;

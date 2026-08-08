@@ -107,6 +107,9 @@ public class LanguageStrings : INotifyPropertyChanged
     public string SuccessLogTab { get; set; } = "成功记录";
     public string FailLogTab { get; set; } = "失败记录";
     public string CommandLogTab { get; set; } = "命令日志";
+    public string CompressionTab { get; set; } = "压缩";
+    public string DecompressionTab { get; set; } = "解压";
+    public string LogsTab { get; set; } = "日志";
     
     // 对话框按钮。
     public string Ok { get; set; } = "确定";
