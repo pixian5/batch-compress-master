@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using BatchCompress.Avalonia.Core.Interfaces;
+using BatchCompress.Avalonia.Core.Models;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
@@ -17,13 +18,29 @@ public static class SevenZipCommandBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(input);
         ArgumentException.ThrowIfNullOrWhiteSpace(output);
         ArgumentNullException.ThrowIfNull(options);
-        NormalizeArchiveFormat(options.ArchiveFormat);
+        var definition = GetCreatableDefinition(options.ArchiveFormat);
+        if (definition.SupportsSingleFileOnly &&
+            (Directory.Exists(input) || options.AdditionalInputs is { Length: > 0 }))
+        {
+            throw new NotSupportedException(
+                $"{definition.Extension} 是单文件压缩流格式，不能直接压缩目录；请先选择 tar 或 7z。");
+        }
 
-        var format = NormalizeArchiveFormat(options.ArchiveFormat);
-        var arguments = new List<string> { "a", $"-t{format}", $"-mx={MapCompressionLevel(options.CompressionLevel)}" };
+        var format = definition.Extension;
+        var arguments = new List<string>
+        {
+            "a",
+            $"-t{definition.ToolFormat}",
+            $"-mx={MapCompressionLevel(options.CompressionLevel)}"
+        };
         if (format == "7z")
         {
             arguments.Add(options.SolidArchive ? "-ms=on" : "-ms=off");
+        }
+
+        if (!string.IsNullOrEmpty(options.Password) && !definition.SupportsPassword)
+        {
+            throw new NotSupportedException($"{format} 格式不支持密码加密。");
         }
 
         AddPassword(arguments, options.Password, encryptFileNames: format == "7z");
@@ -86,10 +103,20 @@ public static class SevenZipCommandBuilder
 
     public static string NormalizeArchiveFormat(string? archiveFormat)
     {
-        var normalized = archiveFormat?.Trim().TrimStart('.').ToLowerInvariant();
-        return normalized is "7z" or "zip"
-            ? normalized
-            : throw new NotSupportedException($"7-Zip 后端不支持创建格式: {archiveFormat}");
+        return GetCreatableDefinition(archiveFormat).Extension;
+    }
+
+    public static string GetToolFormat(string? archiveFormat) => GetCreatableDefinition(archiveFormat).ToolFormat;
+
+    private static ArchiveFormatDefinition GetCreatableDefinition(string? archiveFormat)
+    {
+        if (ArchiveFormatCatalog.TryGet(archiveFormat, out var definition) && definition.CanCreate &&
+            string.Equals(definition.Backend, "7zz", StringComparison.OrdinalIgnoreCase))
+        {
+            return definition;
+        }
+
+        throw new NotSupportedException($"7-Zip 后端不支持创建格式: {archiveFormat}。");
     }
 
     private static int MapCompressionLevel(CompressionLevel level) => level switch

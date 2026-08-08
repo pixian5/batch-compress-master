@@ -105,7 +105,7 @@
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩格式支持 rar、zip 或 7z"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩格式支持 rar、7z、zip、tar、gz、bz2、xz、wim；iso 等只读格式仅用于解压"/>
                                 <CheckBox Grid.Row="0" Grid.Column="2" Content="{Binding L.Verify}" IsChecked="{Binding TestArchive}" Margin="20,0,0,3" ToolTip.Tip="压缩完成后使用对应归档程序校验结果"/>
                                 <!-- 自定义密码文本框已移至随机密码复选框右侧 -->
 

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using BatchCompress.Avalonia.Core.Models;
 
 namespace BatchCompress.Avalonia;
 
@@ -107,7 +108,7 @@ public static class CommandLineHandler
           --text-file, -t <文件>         解压文件名与逐项密码 TXT 清单
 
         压缩参数:
-          --extension, --format, -e      归档格式：rar、zip、7z
+          --extension, --format, -e      创建：rar、7z、zip、tar、gz、bz2、xz、wim；解压：7zz 可读取格式
           --level, -l <0..5>             压缩级别
           --solid / --no-solid           启用或关闭固实压缩
           --volume-size, -v <数字>       分卷数值
@@ -217,6 +218,12 @@ public static class CommandLineHandler
             options.ReadPasswordFromStandardInput
         }.Count(value => value);
         options.UseRandomPassword = state.RandomPassword && !state.NoRandomPassword && explicitPasswordSourceCount == 0;
+        if (ArchiveFormatCatalog.TryGet(options.Extension, out var selectedFormat) &&
+            !selectedFormat.SupportsPassword)
+        {
+            // 非加密格式不能因为全局默认随机密码而被构造器误传 -p 参数。
+            options.UseRandomPassword = false;
+        }
 
         Validate(options, state.ExplicitGui, explicitPasswordSourceCount, effectiveArgs, state.Errors);
         return new CommandLineParseOutcome { Options = options, Errors = state.Errors };
@@ -670,9 +677,23 @@ public static class CommandLineHandler
             errors.Add("--max-size 不能小于 0。");
         }
 
-        if (options.Extension is not ("rar" or "zip" or "7z"))
+        if (!ArchiveFormatCatalog.TryGet(options.Extension, out var formatDefinition))
         {
-            errors.Add("--extension 仅支持 rar、zip、7z。");
+            errors.Add($"--extension 不是已识别格式：{options.Extension}。可解压格式包括：{ArchiveFormatCatalog.ExtractFormatsText}。");
+        }
+        else if (options.Compress && !formatDefinition.CanCreate)
+        {
+            errors.Add($"--extension {options.Extension} 不支持创建；可创建格式包括：{ArchiveFormatCatalog.CreateFormatsText}。");
+        }
+        else if (options.Decompress && !formatDefinition.CanExtract)
+        {
+            errors.Add($"--extension {options.Extension} 不支持解压。");
+        }
+
+        if (options.Compress && formatDefinition is not null &&
+            explicitPasswordSourceCount > 0 && !formatDefinition.SupportsPassword)
+        {
+            errors.Add($"{formatDefinition.Extension} 格式不支持密码加密，请移除密码参数。");
         }
 
         if (options.ExistingFileMode is not ("skip" or "update" or "overwrite"))

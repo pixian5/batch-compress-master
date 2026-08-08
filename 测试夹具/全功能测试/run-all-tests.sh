@@ -110,7 +110,7 @@ run_case cli-help 0 "${APP[@]}" --help
 run_case cli-version 0 "${APP[@]}" --version
 run_case cli-alias-compress 0 "${APP[@]}" -c -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/alias" -e 7z --no-random-password --dry-run
 run_case cli-alias-decompress-missing-input 2 "${APP[@]}" -d -i "$OUT/alias/普通文本.txt.7z" -o "$OUT/alias-extract" -e 7z --no-random-password --dry-run
-run_case cli-invalid-format 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-format" -e tar
+run_case cli-invalid-format 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-format" -e iso
 run_case cli-invalid-level 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-level" -e 7z --level 6
 run_case cli-invalid-volume 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-volume" -e 7z --volume-size 0
 run_case cli-invalid-unit 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-unit" -e 7z --volume-size 1 --volume-unit q
@@ -146,6 +146,16 @@ run_case compress-7z-base 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空�
 run_case compress-zip 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/中文文件.txt" -o "$OUT/zip" -e zip --password fixture-password --test
 run_case compress-rar 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/子目录" -o "$OUT/rar" -e rar --password fixture-password --level 5 --solid --quick-open --recovery 1 --comment "$FIXTURE/comment.txt" --temp-dir "$TMP/rar" --test --verbose
 run_case compress-rar-lock 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/rar-lock" -e rar --no-random-password --lock --test
+run_case compress-tar 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/子目录" -o "$OUT/tar" -e tar --no-random-password --test
+run_case compress-gz 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/gz" -e gz --no-random-password --test
+run_case compress-bz2 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/bz2" -e bz2 --no-random-password --test
+run_case compress-xz 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/xz" -e xz --no-random-password --test
+run_case compress-wim 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/子目录" -o "$OUT/wim" -e wim --no-random-password --test
+check_file compress-tar-output "$OUT/tar/子目录.tar"
+check_file compress-gz-output "$OUT/gz/普通文本.txt.gz"
+check_file compress-bz2-output "$OUT/bz2/普通文本.txt.bz2"
+check_file compress-xz-output "$OUT/xz/普通文本.txt.xz"
+check_file compress-wim-output "$OUT/wim/子目录.wim"
 run_case compress-folder 0 "${APP[@]}" compress --source "$FIXTURE/来源目录" -o "$OUT/folder" -e 7z --no-random-password --no-skip-processed --no-add-enclosures --level 0 --no-solid --existing overwrite
 run_case compress-attachment-inline 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/attachment-inline" -e 7z --no-random-password --enclosure "$FIXTURE/附件/联系信息.txt" --enclosure "$FIXTURE/附件/空附件目录" --enclosure "$FIXTURE/附件/不存在附件目录" --test
 enclosure_literal="$FIXTURE/附件/联系信息.txt\n$FIXTURE/附件/空附件目录"
@@ -173,20 +183,32 @@ run_case post-move-file 0 "${APP[@]}" compress -i "$GEN/move-source.txt" -o "$OU
 check_absent post-move-file-source "$GEN/move-source.txt"
 check_file post-move-file-target "$GEN/【已压缩】/move-source.txt"
 
-# 分卷创建；7z --test 保留已知校验路径缺陷作为预期失败证据。
+# 分卷创建和创建后校验；7zz 使用实际首卷执行 t。
 run_case volume-7z 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/vol7z" -e 7z --no-random-password --volume-size 1 --volume-unit m
-run_case volume-7z-test-known 1 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/vol7z-test" -e 7z --no-random-password --volume-size 1 --volume-unit m --test
-run_case volume-zip-test-known 1 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volzip-test" -e zip --no-random-password --volume-size 1 --volume-unit m --test
+run_case volume-7z-test 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/vol7z-test" -e 7z --no-random-password --volume-size 1 --volume-unit m --test
+run_case volume-zip-test 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volzip-test" -e zip --no-random-password --volume-size 1 --volume-unit m --test
 run_case volume-zip 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volzip" -e zip --no-random-password --volume-size 1 --volume-unit m
 run_case volume-rar 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volrar" -e rar --no-random-password --volume-size 1 --volume-unit m --recovery 1 --test
+run_case volume-tar 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/voltar" -e tar --no-random-password --volume-size 1 --volume-unit m --test
 check_file volume-7z-first "$OUT/vol7z/大文件随机.bin.7z.001"
 check_file volume-zip-first "$OUT/volzip/大文件随机.bin.zip.001"
 check_file volume-rar-first "$OUT/volrar/大文件随机.bin.part1.rar"
+check_file volume-tar-first "$OUT/voltar/大文件随机.bin.tar.001"
 
 # 解压三格式、随机密码、密码本、stdin、多输入、目录扫描和分卷诊断。
 run_case extract-7z 0 "${APP[@]}" extract -i "$OUT/7z-nopw/普通文本.txt.7z" -o "$OUT/extract-7z" -e 7z --no-random-password --existing overwrite
 run_case extract-zip 0 "${APP[@]}" extract -i "$OUT/zip/中文文件.txt.zip" -o "$OUT/extract-zip" -e zip --password fixture-password --existing overwrite
 run_case extract-rar 0 "${APP[@]}" extract -i "$OUT/rar/子目录.rar" -o "$OUT/extract-rar" -e rar --password fixture-password --existing overwrite
+run_case extract-tar 0 "${APP[@]}" extract -i "$OUT/tar/子目录.tar" -o "$OUT/extract-tar" -e tar --no-random-password --existing overwrite
+run_case extract-gz 0 "${APP[@]}" extract -i "$OUT/gz/普通文本.txt.gz" -o "$OUT/extract-gz" -e gz --no-random-password --existing overwrite
+run_case extract-bz2 0 "${APP[@]}" extract -i "$OUT/bz2/普通文本.txt.bz2" -o "$OUT/extract-bz2" -e bz2 --no-random-password --existing overwrite
+run_case extract-xz 0 "${APP[@]}" extract -i "$OUT/xz/普通文本.txt.xz" -o "$OUT/extract-xz" -e xz --no-random-password --existing overwrite
+run_case extract-wim 0 "${APP[@]}" extract -i "$OUT/wim/子目录.wim" -o "$OUT/extract-wim" -e wim --no-random-password --existing overwrite
+check_file extract-tar-content "$OUT/extract-tar/子目录/嵌套文件.txt"
+check_file extract-gz-content "$OUT/extract-gz/普通文本.txt"
+check_file extract-bz2-content "$OUT/extract-bz2/普通文本.txt"
+check_file extract-xz-content "$OUT/extract-xz/普通文本.txt"
+check_file extract-wim-content "$OUT/extract-wim/子目录/嵌套文件.txt"
 run_case extract-random 0 "${APP[@]}" extract -i "$OUT/7z-random/更新测试.txt.7z" -o "$OUT/extract-random" -e 7z
 run_case extract-base 0 "${APP[@]}" extract -i "$OUT/7z-base/空文件.txt.7z" -o "$OUT/extract-base" -e 7z --password-name base
 run_stdin_case extract-stdin 0 $'fixture-password\n' "${APP[@]}" extract -i "$OUT/7z-password-file/带空格 文件.txt.7z" -o "$OUT/extract-stdin" -e 7z --password-stdin
@@ -203,9 +225,11 @@ run_case extract-textbook-duplicate 0 "${APP[@]}" extract --source "$FIXTURE" --
 run_case extract-volume-7z 0 "${APP[@]}" extract -i "$OUT/vol7z/大文件随机.bin.7z.001" -o "$OUT/extract-volume-7z" -e 7z --no-random-password --existing overwrite
 run_case extract-volume-zip 0 "${APP[@]}" extract -i "$OUT/volzip/大文件随机.bin.zip.001" -o "$OUT/extract-volume-zip" -e zip --no-random-password --existing overwrite
 run_case extract-volume-rar 0 "${APP[@]}" extract -i "$OUT/volrar/大文件随机.bin.part1.rar" -o "$OUT/extract-volume-rar" -e rar --no-random-password --existing overwrite
+run_case extract-volume-tar 0 "${APP[@]}" extract -i "$OUT/voltar/大文件随机.bin.tar.001" -o "$OUT/extract-volume-tar" -e tar --no-random-password --existing overwrite
 check_sha extract-volume-7z-content "$GEN/大文件随机.bin" "$OUT/extract-volume-7z/大文件随机.bin"
 check_sha extract-volume-zip-content "$GEN/大文件随机.bin" "$OUT/extract-volume-zip/大文件随机.bin"
 check_sha extract-volume-rar-content "$GEN/大文件随机.bin" "$OUT/extract-volume-rar/大文件随机.bin"
+check_sha extract-volume-tar-content "$GEN/大文件随机.bin" "$OUT/extract-volume-tar/大文件随机.bin"
 
 # 缺卷：复制一、三、四卷，二卷缺失；程序必须诊断并返回 1，不产生部分解压。
 mkdir -p "$GEN/incomplete-7z"

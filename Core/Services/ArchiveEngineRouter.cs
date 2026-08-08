@@ -2,6 +2,7 @@ using System;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
+using BatchCompress.Avalonia.Core.Models;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
@@ -32,11 +33,14 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(options);
-        return NormalizeFormat(options.ArchiveFormat) switch
+        var format = ArchiveFormatCatalog.Normalize(options.ArchiveFormat);
+        return format switch
         {
             "rar" => _rarEngine.CompressAsync(input, output, options, cancellationToken),
-            "7z" or "zip" => _sevenZipEngine.CompressAsync(input, output, options, cancellationToken),
-            var format => throw new NotSupportedException($"不支持创建 {format} 格式归档。仅支持 rar、7z 和 zip。")
+            _ when ArchiveFormatCatalog.CanCreate(format) =>
+                _sevenZipEngine.CompressAsync(input, output, options, cancellationToken),
+            _ => throw new NotSupportedException(
+                $"不支持创建 {format} 格式归档。当前支持：{ArchiveFormatCatalog.CreateFormatsText}。")
         };
     }
 
@@ -58,11 +62,8 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
             return _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
         }
 
-        return NormalizeFormat(options.ArchiveFormat) == "rar"
+        return ArchiveFormatCatalog.Normalize(options.ArchiveFormat) == "rar"
             ? _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken)
             : _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
     }
-
-    private static string NormalizeFormat(string? format) =>
-        format?.Trim().TrimStart('.').ToLowerInvariant() ?? string.Empty;
 }

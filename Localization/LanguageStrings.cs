@@ -141,6 +141,6 @@ public class LanguageStrings : INotifyPropertyChanged
     public string StillNoFiles { get; set; } = "仍然没有要处理的文件";
     public string CancellingOperation { get; set; } = "正在取消操作...";
     public string PasswordSetSuccessfully { get; set; } = "密码设置成功";
-    public string Warning7zFormat { get; set; } = "警告: WinRAR 无法压缩为7z格式，只能解压。请考虑使用rar或zip。";
+    public string Warning7zFormat { get; set; } = "7z、ZIP 及其他 7zz 格式由官方 7-Zip 创建和解压。";
     public string SolidDisabledForStore { get; set; } = "存储模式下已禁用固实压缩";
 }

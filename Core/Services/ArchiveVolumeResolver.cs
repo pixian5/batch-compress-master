@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
+using BatchCompress.Avalonia.Core.Models;
 
 namespace BatchCompress.Avalonia.Core.Services;
 
@@ -27,7 +28,8 @@ public enum ArchiveVolumeKind
     None,
     RarPart,
     SevenZipNumeric,
-    ZipNumeric
+    ZipNumeric,
+    SevenZipOtherNumeric
 }
 
 /// <summary>
@@ -62,7 +64,7 @@ public sealed class ArchiveVolumeResolveResult
 }
 
 /// <summary>
-/// GPT-5, 2026-08-07：统一解析单卷、RAR part 分卷、7z 数字分卷和 ZIP 数字分卷。
+/// GPT-5, 2026-08-07：统一解析单卷、RAR part 分卷和 7zz 数字分卷。
 /// 解析结果是解压入口、完整性校验和后处理文件集合的唯一依据。
 /// </summary>
 public static class ArchiveVolumeResolver
@@ -79,11 +81,9 @@ public static class ArchiveVolumeResolver
         @"^(?<base>.+)\.zip\.(?<number>\d+)$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
-    private static readonly HashSet<string> SevenZipExtractionExtensions = new(StringComparer.OrdinalIgnoreCase)
-    {
-        "7z", "zip", "tar", "gz", "gzip", "tgz", "bz2", "bzip2", "tbz2", "xz", "txz",
-        "iso", "cab", "lzh", "lha", "arj", "z", "lzma", "cpio", "rpm", "deb", "dmg", "wim"
-    };
+    private static readonly Regex SevenZipOtherNumericRegex = new(
+        $@"^(?<base>.+)\.(?<extension>{ArchiveFormatCatalog.GetSupportedExtensionPattern()})\.(?<number>\d+)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static ArchiveVolumeResolveResult Resolve(string path)
     {
@@ -149,9 +149,9 @@ public static class ArchiveVolumeResolver
         return new ArchiveVolumeResolveResult
         {
             RequestedPath = requestedPath,
-            ArchiveKind = KindForVolume(effectivePattern.Kind),
+            ArchiveKind = KindForVolume(effectivePattern),
             VolumeKind = effectivePattern.Kind,
-            ActualExtension = ExtensionForVolume(effectivePattern.Kind),
+            ActualExtension = effectivePattern.Extension,
             LogicalArchiveName = effectivePattern.LogicalArchiveName,
             FirstVolumePath = hasRequiredFirstVolume ? firstVolumes[0].Path : null,
             Volumes = volumes,
@@ -162,21 +162,50 @@ public static class ArchiveVolumeResolver
         };
     }
 
+    /// <summary>
+    /// 返回创建输出对应的基础文件和全部已存在分卷。与 Resolve 的“单卷优先”语义不同，
+    /// 此方法用于覆盖、跳过和大小统计，必须同时看到基础文件与遗留分卷。
+    /// </summary>
+    public static IReadOnlyList<string> ResolveOutputFiles(string outputPath)
+    {
+        ArgumentException.ThrowIfNullOrWhiteSpace(outputPath);
+        var fullPath = Path.GetFullPath(outputPath);
+        var directory = Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory();
+        var files = new List<string>();
+
+        if (File.Exists(fullPath))
+        {
+            files.Add(fullPath);
+        }
+
+        if (Directory.Exists(directory))
+        {
+            var pattern = CreatePatternFromSingleArchiveName(Path.GetFileName(fullPath));
+            if (pattern.Kind != ArchiveVolumeKind.None)
+            {
+                files.AddRange(EnumerateVolumes(directory, pattern).Select(volume => volume.Path));
+            }
+        }
+
+        return files.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
     public static ArchiveKind DetectArchiveKind(string path)
     {
         var name = Path.GetFileName(path);
         var pattern = ParseVolumePattern(name);
         if (pattern.Kind != ArchiveVolumeKind.None)
         {
-            return KindForVolume(pattern.Kind);
+            return KindForVolume(pattern);
         }
 
-        return DetectArchiveExtension(name) switch
+        var extension = ArchiveFormatCatalog.Normalize(DetectArchiveExtension(name));
+        return extension switch
         {
             "rar" => ArchiveKind.Rar,
             "7z" => ArchiveKind.SevenZip,
             "zip" => ArchiveKind.Zip,
-            { Length: > 0 } extension when SevenZipExtractionExtensions.Contains(extension) => ArchiveKind.Other,
+            { Length: > 0 } when ArchiveFormatCatalog.CanExtract(extension) => ArchiveKind.Other,
             _ => ArchiveKind.Unknown
         };
     }
@@ -186,7 +215,7 @@ public static class ArchiveVolumeResolver
         var name = Path.GetFileName(path);
         var pattern = ParseVolumePattern(name);
         return pattern.Kind != ArchiveVolumeKind.None
-            ? ExtensionForVolume(pattern.Kind)
+            ? pattern.Extension
             : Path.GetExtension(name).TrimStart('.').ToLowerInvariant();
     }
 
@@ -194,8 +223,9 @@ public static class ArchiveVolumeResolver
 
     public static bool MatchesFormat(string path, string extension)
     {
-        var normalized = extension.Trim().TrimStart('.').ToLowerInvariant();
-        return DetectArchiveExtension(path).Equals(normalized, StringComparison.OrdinalIgnoreCase);
+        var normalized = ArchiveFormatCatalog.Normalize(extension);
+        return ArchiveFormatCatalog.Normalize(DetectArchiveExtension(path))
+            .Equals(normalized, StringComparison.OrdinalIgnoreCase);
     }
 
     private static ArchiveVolumeResolveResult CreateSingleVolumeResult(
@@ -267,6 +297,8 @@ public static class ArchiveVolumeResolver
             "rar" => CreatePattern(ArchiveVolumeKind.RarPart, baseName, name),
             "7z" => CreatePattern(ArchiveVolumeKind.SevenZipNumeric, baseName, name),
             "zip" => CreatePattern(ArchiveVolumeKind.ZipNumeric, baseName, name),
+            _ when ArchiveFormatCatalog.CanExtract(extension) =>
+                CreatePattern(ArchiveVolumeKind.SevenZipOtherNumeric, baseName, name, extension),
             _ => VolumePattern.None
         };
     }
@@ -287,10 +319,30 @@ public static class ArchiveVolumeResolver
             }
         }
 
+        var genericMatch = SevenZipOtherNumericRegex.Match(name);
+        if (genericMatch.Success)
+        {
+            var extension = genericMatch.Groups["extension"].Value;
+            var normalizedExtension = ArchiveFormatCatalog.Normalize(extension);
+            if (normalizedExtension is not ("rar" or "7z" or "zip") &&
+                ArchiveFormatCatalog.CanExtract(normalizedExtension))
+            {
+                return CreatePattern(
+                    ArchiveVolumeKind.SevenZipOtherNumeric,
+                    genericMatch.Groups["base"].Value,
+                    name,
+                    extension);
+            }
+        }
+
         return VolumePattern.None;
     }
 
-    private static VolumePattern CreatePattern(ArchiveVolumeKind kind, string baseName, string logicalName)
+    private static VolumePattern CreatePattern(
+        ArchiveVolumeKind kind,
+        string baseName,
+        string logicalName,
+        string? extension = null)
     {
         if (string.IsNullOrEmpty(baseName))
         {
@@ -303,6 +355,8 @@ public static class ArchiveVolumeResolver
             ArchiveVolumeKind.RarPart => $@"^{escapedBase}\.part(?<number>\d+)\.rar$",
             ArchiveVolumeKind.SevenZipNumeric => $@"^{escapedBase}\.7z\.(?<number>\d+)$",
             ArchiveVolumeKind.ZipNumeric => $@"^{escapedBase}\.zip\.(?<number>\d+)$",
+            ArchiveVolumeKind.SevenZipOtherNumeric =>
+                $@"^{escapedBase}\.{Regex.Escape(extension ?? string.Empty)}\.(?<number>\d+)$",
             _ => "(?!)"
         };
         var archiveName = kind switch
@@ -310,35 +364,40 @@ public static class ArchiveVolumeResolver
             ArchiveVolumeKind.RarPart => baseName + ".rar",
             ArchiveVolumeKind.SevenZipNumeric => baseName + ".7z",
             ArchiveVolumeKind.ZipNumeric => baseName + ".zip",
+            ArchiveVolumeKind.SevenZipOtherNumeric => baseName + "." + extension,
             _ => logicalName
+        };
+        var actualExtension = kind switch
+        {
+            ArchiveVolumeKind.RarPart => "rar",
+            ArchiveVolumeKind.SevenZipNumeric => "7z",
+            ArchiveVolumeKind.ZipNumeric => "zip",
+            ArchiveVolumeKind.SevenZipOtherNumeric => extension ?? string.Empty,
+            _ => string.Empty
         };
         return new VolumePattern(
             kind,
             archiveName,
+            actualExtension,
             new Regex(expression, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
     }
 
-    private static ArchiveKind KindForVolume(ArchiveVolumeKind kind) => kind switch
+    private static ArchiveKind KindForVolume(VolumePattern pattern) => pattern.Kind switch
     {
         ArchiveVolumeKind.RarPart => ArchiveKind.Rar,
         ArchiveVolumeKind.SevenZipNumeric => ArchiveKind.SevenZip,
         ArchiveVolumeKind.ZipNumeric => ArchiveKind.Zip,
+        ArchiveVolumeKind.SevenZipOtherNumeric => ArchiveKind.Other,
         _ => ArchiveKind.Unknown
-    };
-
-    private static string ExtensionForVolume(ArchiveVolumeKind kind) => kind switch
-    {
-        ArchiveVolumeKind.RarPart => "rar",
-        ArchiveVolumeKind.SevenZipNumeric => "7z",
-        ArchiveVolumeKind.ZipNumeric => "zip",
-        _ => string.Empty
     };
 
     private sealed record VolumePattern(
         ArchiveVolumeKind Kind,
         string LogicalArchiveName,
+        string Extension,
         Regex Matcher)
     {
-        public static VolumePattern None { get; } = new(ArchiveVolumeKind.None, string.Empty, new Regex("(?!)"));
+        public static VolumePattern None { get; } =
+            new(ArchiveVolumeKind.None, string.Empty, string.Empty, new Regex("(?!)"));
     }
 }

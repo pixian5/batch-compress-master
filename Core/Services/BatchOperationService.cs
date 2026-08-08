@@ -355,6 +355,19 @@ public class BatchOperationService
 
         double processedSizeGB = 0;
 
+        var normalizedFormat = ArchiveFormatCatalog.Normalize(options.Extension);
+        if (!ArchiveFormatCatalog.TryGet(normalizedFormat, out var formatDefinition) ||
+            !formatDefinition.CanCreate)
+        {
+            var message = $"不支持创建 {options.Extension} 格式归档。当前支持：{ArchiveFormatCatalog.CreateFormatsText}。";
+            Log(LogLevel.Error, message);
+            progressInfo.FailCount++;
+            progressInfo.Message = message;
+            progressInfo.IsError = true;
+            progress.Report(progressInfo);
+            return;
+        }
+
         foreach (var sourcePath in sourcePaths)
         {
             cancellationToken.ThrowIfCancellationRequested();
@@ -394,8 +407,9 @@ public class BatchOperationService
             var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, sourcePath);
             var outputPath = Path.Combine(outputDirectory, outputFileName);
 
-            // 根据用户选择处理已有输出文件。
-            if (File.Exists(outputPath))
+            // 根据用户选择处理已有输出文件。分卷输出可能没有基础文件，必须检查全部卷。
+            var existingOutputFiles = ArchiveVolumeResolver.ResolveOutputFiles(outputPath);
+            if (existingOutputFiles.Count > 0)
             {
                 if (options.ExistingFileMode == ExistingFileMode.Skip)
                 {
@@ -408,14 +422,17 @@ public class BatchOperationService
                 }
                 else if (options.ExistingFileMode == ExistingFileMode.Overwrite)
                 {
-                    Log(LogLevel.Debug, $"Deleting existing output: {outputPath}");
-                    File.Delete(outputPath);
+                    foreach (var existingOutputFile in existingOutputFiles)
+                    {
+                        Log(LogLevel.Debug, $"Deleting existing output: {existingOutputFile}");
+                        File.Delete(existingOutputFile);
+                    }
                 }
             }
 
             // 按当前选项生成单个归档的密码。
             string? password = null;
-            if (options.UseRandomPassword)
+            if (options.UseRandomPassword && formatDefinition.SupportsPassword)
             {
                 var passwordName = PasswordUtility.GetPasswordSourceName(outputFileName, options.PasswordNameMode);
                 password = PasswordUtility.GenerateCompressionPassword(passwordName);
@@ -479,13 +496,14 @@ public class BatchOperationService
                 Log(LogLevel.Information, $"Compression successful: {name} -> {outputFileName}");
                 progressInfo.SuccessCount++;
 
-                // 以输出归档大小累计处理量。
-                if (File.Exists(outputPath))
+                // 以实际输出文件累计处理量。分卷创建时基础路径通常不存在，必须把所有卷求和。
+                var outputBytes = CalculateArchiveOutputBytes(outputPath);
+                if (outputBytes > 0)
                 {
-                    var sizeGB = new FileInfo(outputPath).Length / (1024.0 * 1024.0 * 1024.0);
+                    var sizeGB = outputBytes / (1024.0 * 1024.0 * 1024.0);
                     processedSizeGB += sizeGB;
                     progressInfo.ProcessedSizeGB = processedSizeGB;
-                    Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB, Total processed: {processedSizeGB:F3} GB");
+                    Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB ({outputBytes} bytes), Total processed: {processedSizeGB:F3} GB");
                 }
 
                 var postProcessFailed = false;
@@ -607,6 +625,28 @@ public class BatchOperationService
 
         inputs = result.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
         return stagingDirectory;
+    }
+
+    private static long CalculateArchiveOutputBytes(string outputPath)
+    {
+        try
+        {
+            var files = ArchiveVolumeResolver.ResolveOutputFiles(outputPath)
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (files.Length > 0)
+            {
+                return files.Sum(path => new FileInfo(path).Length);
+            }
+
+            return File.Exists(outputPath) ? new FileInfo(outputPath).Length : 0;
+        }
+        catch
+        {
+            // 归档已成功时统计失败不应改变成功结果；记录后回退到基础路径。
+            return File.Exists(outputPath) ? new FileInfo(outputPath).Length : 0;
+        }
     }
 
     /// <summary>

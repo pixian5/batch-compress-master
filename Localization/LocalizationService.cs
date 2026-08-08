@@ -218,7 +218,7 @@ public class LocalizationService : INotifyPropertyChanged
             StillNoFiles = "仍然没有要处理的文件",
             CancellingOperation = "正在取消操作...",
             PasswordSetSuccessfully = "密码设置成功",
-            Warning7zFormat = "警告: WinRAR 无法压缩为7z格式，只能解压。请考虑使用rar或zip。",
+            Warning7zFormat = "7z、ZIP 及其他 7zz 格式由官方 7-Zip 创建和解压。",
             SolidDisabledForStore = "存储模式下已禁用固实压缩"
         };
     }
@@ -342,7 +342,7 @@ public class LocalizationService : INotifyPropertyChanged
             StillNoFiles = "仍然沒有要處理的檔案",
             CancellingOperation = "正在取消操作...",
             PasswordSetSuccessfully = "密碼設定成功",
-            Warning7zFormat = "警告: WinRAR 無法壓縮為7z格式，只能解壓。請考慮使用rar或zip。",
+            Warning7zFormat = "7z、ZIP 及其他 7zz 格式由官方 7-Zip 創建和解壓。",
             SolidDisabledForStore = "儲存模式下已停用固實壓縮"
         };
     }
@@ -466,7 +466,7 @@ public class LocalizationService : INotifyPropertyChanged
             StillNoFiles = "Still no files to process",
             CancellingOperation = "Cancelling operation...",
             PasswordSetSuccessfully = "Password set successfully",
-            Warning7zFormat = "Warning: WinRAR cannot compress to 7z format, only extract. Consider using rar or zip.",
+            Warning7zFormat = "7z, ZIP, and other 7zz formats are created and extracted by official 7-Zip.",
             SolidDisabledForStore = "Solid archive disabled for Store mode"
         };
     }
@@ -590,7 +590,7 @@ public class LocalizationService : INotifyPropertyChanged
             StillNoFiles = "まだ処理するファイルがありません",
             CancellingOperation = "操作をキャンセル中...",
             PasswordSetSuccessfully = "パスワードが設定されました",
-            Warning7zFormat = "警告: WinRARは7z形式に圧縮できません。解凍のみ可能です。rarまたはzipの使用を検討してください。",
+            Warning7zFormat = "7z、ZIP、その他の 7zz 形式は公式 7-Zip で作成・解凍します。",
             SolidDisabledForStore = "ストアモードではソリッドアーカイブが無効になりました"
         };
     }
@@ -714,7 +714,7 @@ public class LocalizationService : INotifyPropertyChanged
             StillNoFiles = "Noch keine Dateien zu verarbeiten",
             CancellingOperation = "Vorgang wird abgebrochen...",
             PasswordSetSuccessfully = "Passwort erfolgreich festgelegt",
-            Warning7zFormat = "Warnung: WinRAR kann nicht in das 7z-Format komprimieren, nur extrahieren. Erwägen Sie die Verwendung von rar oder zip.",
+            Warning7zFormat = "7z-, ZIP- und andere 7zz-Formate werden mit dem offiziellen 7-Zip erstellt und entpackt.",
             SolidDisabledForStore = "Solid-Archiv für Speichermodus deaktiviert"
         };
     }

@@ -13,6 +13,7 @@ internal static class Program
         var tests = new (string Name, Func<Task> Run)[]
         {
             ("格式参数", TestFormatArguments),
+            ("格式能力目录", TestFormatCatalog),
             ("密码与失败返回码", TestPasswordAndFailureExitCodes),
             ("密码命名与 RAR 仅存储", TestPasswordNamingAndStoreOnlyExtensions),
             ("取消传播", TestCancellation),
@@ -25,6 +26,7 @@ internal static class Program
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
             ("统一归档分卷解析", TestArchiveVolumeResolver),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
+            ("压缩分卷大小统计", TestCompressedVolumeSizeProgress),
             ("解压目录扫描与首卷去重", TestArchiveFolderScanning),
             ("附件根目录与空目录", TestAttachmentRootInputs),
             ("跳过已有归档统计", TestExistingSkipProgress),
@@ -163,6 +165,33 @@ internal static class Program
         options.LockArchive = true;
         AssertContains(WinRarCommandBuilder.BuildCompressionArguments("/tmp/source", "/tmp/archive.rar", options), "-k");
         AssertThrows<NotSupportedException>(() => WinRarCommandBuilder.NormalizeArchiveFormat("zip"));
+        return Task.CompletedTask;
+    }
+
+    private static Task TestFormatCatalog()
+    {
+        foreach (var format in new[] { "rar", "7z", "zip", "tar", "gz", "bz2", "xz", "wim" })
+        {
+            Assert(ArchiveFormatCatalog.CanCreate(format), $"{format} 必须列为可创建格式");
+            Assert(ArchiveFormatCatalog.CanExtract(format), $"{format} 必须列为可解压格式");
+        }
+
+        AssertEqual("gz", ArchiveFormatCatalog.Normalize("gzip"));
+        AssertEqual("bz2", ArchiveFormatCatalog.Normalize("bzip2"));
+        foreach (var format in new[]
+                 {
+                     "a", "obj", "chi", "chq", "chw", "pmd", "qcow2c", "avhdx", "pkg", "xip",
+                     "ova", "tzst", "taz", "lzma86", "001", "apk", "swm", "esd", "ppkg"
+                 })
+        {
+            Assert(ArchiveFormatCatalog.CanExtract(format), $"7zz 支持的后缀必须可解压：{format}");
+        }
+
+        Assert(ArchiveFormatCatalog.CanExtract("iso"), "iso 必须列为 7zz 可解压格式");
+        AssertEqual("ppmd", ArchiveFormatCatalog.Normalize("pmd"));
+        AssertEqual("split", ArchiveFormatCatalog.Normalize("001"));
+        Assert(!ArchiveFormatCatalog.CanCreate("iso"), "iso 不应伪装为可创建格式");
+        Assert(!ArchiveFormatCatalog.CanCreate("rar5"), "未知 RAR 后缀不应列为可创建格式");
         return Task.CompletedTask;
     }
 
@@ -421,6 +450,10 @@ internal static class Program
         await router.CompressAsync("source", "archive.rar", new ArchiveOptions { ArchiveFormat = "rar" });
         await router.CompressAsync("source", "archive.zip", new ArchiveOptions { ArchiveFormat = "zip" });
         await router.CompressAsync("source", "archive.7z", new ArchiveOptions { ArchiveFormat = ".7Z" });
+        foreach (var format in new[] { "tar", "gz", "bz2", "xz", "wim" })
+        {
+            await router.CompressAsync("source", $"archive.{format}", new ArchiveOptions { ArchiveFormat = format });
+        }
         await router.ExtractAsync("archive.7z.001", "output", new ArchiveOptions { ArchiveFormat = "rar" });
         await router.ExtractAsync("archive.rar", "output", new ArchiveOptions { ArchiveFormat = "rar" });
         await router.ExtractAsync("archive.zip", "output", new ArchiveOptions { ArchiveFormat = "rar" });
@@ -429,10 +462,10 @@ internal static class Program
 
         AssertEqual(1, rar.CompressionCalls);
         AssertEqual(2, rar.ExtractionCalls);
-        AssertEqual(2, sevenZip.CompressionCalls);
+        AssertEqual(7, sevenZip.CompressionCalls);
         AssertEqual(3, sevenZip.ExtractionCalls);
         AssertThrows<NotSupportedException>(() =>
-            router.CompressAsync("source", "archive.tar", new ArchiveOptions { ArchiveFormat = "tar" })
+            router.CompressAsync("source", "archive.iso", new ArchiveOptions { ArchiveFormat = "iso" })
                 .GetAwaiter().GetResult());
     }
 
@@ -445,7 +478,8 @@ internal static class Program
             foreach (var name in new[]
                      {
                          "rar.part01.rar", "rar.part02.rar", "rar.part10.rar",
-                         "seven.7z.001", "seven.7z.002", "zip.zip.001", "zip.zip.002"
+                         "seven.7z.001", "seven.7z.002", "zip.zip.001", "zip.zip.002",
+                         "tar.tar.001", "tar.tar.002"
                      })
             {
                 File.WriteAllText(Path.Combine(root, name), name);
@@ -469,6 +503,12 @@ internal static class Program
             AssertEqual(ArchiveVolumeKind.ZipNumeric, zip.VolumeKind);
             AssertEqual("zip.zip.001", Path.GetFileName(zip.FirstVolumePath!));
             Assert(zip.CanExtract, "ZIP 数字分卷应支持非首卷重定向");
+
+            var tar = ArchiveVolumeResolver.Resolve(Path.Combine(root, "tar.tar.002"));
+            AssertEqual(ArchiveVolumeKind.SevenZipOtherNumeric, tar.VolumeKind);
+            AssertEqual("tar", tar.ActualExtension);
+            AssertEqual("tar.tar.001", Path.GetFileName(tar.FirstVolumePath!));
+            Assert(tar.CanExtract, "7zz 其他格式数字分卷应支持非首卷重定向");
 
             File.WriteAllText(Path.Combine(root, "duplicate.7z.1"), "1");
             File.WriteAllText(Path.Combine(root, "duplicate.7z.001"), "001");
@@ -525,6 +565,39 @@ internal static class Program
         finally
         {
             Directory.Delete(root, true);
+        }
+    }
+
+    private static async Task TestCompressedVolumeSizeProgress()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-output-size-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source.txt");
+        var output = Path.Combine(root, "out");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(source, "source");
+        var snapshots = new List<OperationProgressInfo>();
+        try
+        {
+            await new BatchOperationService(new VolumeWritingArchiveEngine(), new TestSystemIntegration())
+                .BatchCompressAsync(
+                    [source],
+                    new BatchOperationOptions
+                    {
+                        OutputPath = output,
+                        Extension = "7z",
+                        ExistingFileMode = ExistingFileMode.Overwrite
+                    },
+                    new SnapshotProgress(snapshots),
+                    CancellationToken.None);
+
+            var final = snapshots.Last();
+            var expected = 3072d / (1024d * 1024d * 1024d);
+            Assert(Math.Abs(final.ProcessedSizeGB - expected) < 0.000000001,
+                $"分卷统计必须累计全部卷大小，期望 {expected}，实际 {final.ProcessedSizeGB}");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
         }
     }
 
@@ -608,6 +681,8 @@ internal static class Program
         Directory.CreateDirectory(output);
         File.WriteAllText(Path.Combine(source, "a.txt"), "a");
         File.WriteAllText(Path.Combine(output, "source.7z"), "already");
+        File.WriteAllText(Path.Combine(output, "source.7z.001"), "volume 1");
+        File.WriteAllText(Path.Combine(output, "source.7z.002"), "volume 2");
         var engine = new RecordingArchiveEngine();
         var snapshots = new List<OperationProgressInfo>();
         try
@@ -739,6 +814,47 @@ internal static class Program
                 AssertEqual("attachment content", File.ReadAllText(Path.Combine(output, "外部附件", "attachment.txt")));
                 Assert(Directory.Exists(Path.Combine(output, "空附件")), $"{format} 归档根目录必须包含空附件目录");
             }
+
+            foreach (var format in new[] { "tar", "wim" })
+            {
+                var archive = Path.Combine(testRoot, $"archive.{format}");
+                var output = Path.Combine(testRoot, $"extracted-{format}");
+                var options = new ArchiveOptions
+                {
+                    ArchiveFormat = format,
+                    CompressionLevel = CompressionLevel.Store,
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    TestArchive = true
+                };
+                var compressed = await engine.CompressAsync(source, archive, options);
+                Assert(compressed.Success, $"官方 7zz {format} 压缩失败: {compressed.ErrorMessage}");
+                var extracted = await engine.ExtractAsync(archive, output, options);
+                Assert(extracted.Success, $"官方 7zz {format} 解压失败: {extracted.ErrorMessage}");
+                var extractedFile = Directory.GetFiles(output, "content.txt", SearchOption.AllDirectories).SingleOrDefault();
+                Assert(extractedFile != null, $"{format} 解压结果中缺少 content.txt");
+                AssertEqual("official 7zz smoke test", File.ReadAllText(extractedFile!));
+            }
+
+            foreach (var format in new[] { "gz", "bz2", "xz" })
+            {
+                var input = Path.Combine(source, "content.txt");
+                var archive = Path.Combine(testRoot, $"stream.{format}");
+                var output = Path.Combine(testRoot, $"extracted-{format}");
+                var options = new ArchiveOptions
+                {
+                    ArchiveFormat = format,
+                    CompressionLevel = CompressionLevel.Normal,
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    TestArchive = true
+                };
+                var compressed = await engine.CompressAsync(input, archive, options);
+                Assert(compressed.Success, $"官方 7zz {format} 压缩失败: {compressed.ErrorMessage}");
+                var extracted = await engine.ExtractAsync(archive, output, options);
+                Assert(extracted.Success, $"官方 7zz {format} 解压失败: {extracted.ErrorMessage}");
+                var extractedFile = Directory.GetFiles(output, "*", SearchOption.AllDirectories).SingleOrDefault();
+                Assert(extractedFile != null, $"{format} 解压结果缺少文件");
+                AssertEqual("official 7zz smoke test", File.ReadAllText(extractedFile!));
+            }
         }
         finally
         {
@@ -805,7 +921,10 @@ internal static class Program
             ["--compress", "--decompress", "-i", "/tmp/a", "-o", "/tmp/out"],
             "不能同时指定");
         AssertCommandLineFails(["compress", "-i", "/tmp/a"], "--output");
-        AssertCommandLineFails(["compress", "-i", "/tmp/a", "-o", "/tmp/out", "-e", "tar"], "仅支持 rar");
+        AssertCommandLineFails(["compress", "-i", "/tmp/a", "-o", "/tmp/out", "-e", "iso"], "不支持创建");
+        var tar = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "-e", "tar", "--no-random-password"]);
+        Assert(tar.Success, string.Join(" | ", tar.Errors));
         AssertCommandLineFails(["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--level", "6"], "0 到 5");
         AssertCommandLineFails(
             ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--password", "a", "--password-stdin"],
@@ -948,6 +1067,30 @@ internal static class Program
                 Success = true,
                 CommandLine = $"rar a -psecret password \"{output}\" \"{input}\""
             });
+
+        public Task<ArchiveResult> ExtractAsync(
+            string archivePath,
+            string outputDir,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ArchiveResult { Success = true });
+    }
+
+    private sealed class VolumeWritingArchiveEngine : IArchiveEngine
+    {
+        public bool IsAvailable() => true;
+
+        public Task<ArchiveResult> CompressAsync(
+            string input,
+            string output,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            File.WriteAllBytes(output + ".001", new byte[1024]);
+            File.WriteAllBytes(output + ".002", new byte[2048]);
+            return Task.FromResult(new ArchiveResult { Success = true });
+        }
 
         public Task<ArchiveResult> ExtractAsync(
             string archivePath,

@@ -49,7 +49,9 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
             }
 
             // GPT-5, 2026-08-06：7zz 没有 WinRAR 的“创建后自动测试”开关，因此创建成功后显式执行 t。
-            var testArguments = SevenZipCommandBuilder.BuildTestArguments(output, options.Password);
+            // 7zz 分卷不会保留基础输出文件，必须使用实际首卷作为 t 命令入口。
+            var testPath = ResolveTestPath(output);
+            var testArguments = SevenZipCommandBuilder.BuildTestArguments(testPath, options.Password);
             var testResult = await ExecuteAsync(testArguments, cancellationToken).ConfigureAwait(false);
             // GPT-5, 2026-08-06：创建和校验是两次进程，返回时合并两者原始输出，避免丢失第一阶段诊断信息。
             testResult.CommandLine = string.Join(
@@ -262,5 +264,19 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
         }
 
         return first.TrimEnd() + Environment.NewLine + second;
+    }
+
+    private static string ResolveTestPath(string output)
+    {
+        try
+        {
+            var resolved = ArchiveVolumeResolver.Resolve(output);
+            return resolved.FirstVolumePath ?? output;
+        }
+        catch
+        {
+            // 创建结果已经成功时，解析失败不应隐藏原始输出；7zz 会给出最终校验诊断。
+            return output;
+        }
     }
 }
