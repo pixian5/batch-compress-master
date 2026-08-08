@@ -1,0 +1,238 @@
+#!/bin/zsh
+setopt NO_NOMATCH
+
+# BatchCompress.Avalonia 全功能端到端测试。
+# 运行前先完成 dotnet build；脚本只清理并重建本目录下的输出、临时和生成物。
+
+ROOT="${0:A:h:h:h}"
+FIXTURE="$ROOT/测试夹具/全功能测试"
+OUT="$FIXTURE/输出"
+TMP="$FIXTURE/临时"
+GEN="$FIXTURE/生成物"
+APP=(dotnet run --project "$ROOT/BatchCompress.Avalonia.csproj" --no-build --)
+
+PASS_COUNT=0
+FAIL_COUNT=0
+
+backup_dir="$(mktemp -d /tmp/google-compress-e2e-backup.XXXXXX)"
+for generated_name in 输出 临时 生成物; do
+  if [[ -e "$FIXTURE/$generated_name" ]]; then
+    mv "$FIXTURE/$generated_name" "$backup_dir/"
+  fi
+done
+mkdir -p "$OUT" "$TMP" "$GEN"
+print "Previous generated data moved to: $backup_dir"
+dd if=/dev/zero of="$GEN/大文件.bin" bs=1m count=3 status=none
+openssl rand -out "$GEN/大文件随机.bin" 3145728
+printf '%s\n' 'delete source payload' > "$GEN/delete-source.txt"
+printf '%s\n' 'move source payload' > "$GEN/move-source.txt"
+printf '%s\n' 'update-before' > "$GEN/更新测试.txt"
+mkdir -p "$GEN/delete-directory"
+printf '%s\n' 'delete directory payload' > "$GEN/delete-directory/item.txt"
+
+record_result() {
+  local ok="$1" name="$2" detail="$3"
+  if [[ "$ok" == "1" ]]; then
+    ((PASS_COUNT++))
+    print "PASS $name${detail:+: $detail}"
+  else
+    ((FAIL_COUNT++))
+    print -u2 "FAIL $name${detail:+: $detail}"
+  fi
+}
+
+run_case() {
+  local name="$1" expected="$2"
+  shift 2
+  local stdout="$GEN/$name.stdout"
+  local stderr="$GEN/$name.stderr"
+  "$@" >"$stdout" 2>"$stderr"
+  local exit_code=$?
+  if [[ "$exit_code" == "$expected" ]]; then
+    record_result 1 "$name" "exit=$exit_code"
+  else
+    record_result 0 "$name" "expected exit=$expected, got=$exit_code"
+  fi
+}
+
+run_stdin_case() {
+  local name="$1" expected="$2" input="$3"
+  shift 3
+  local stdout="$GEN/$name.stdout"
+  local stderr="$GEN/$name.stderr"
+  print -n -- "$input" | "$@" >"$stdout" 2>"$stderr"
+  local exit_code=$?
+  if [[ "$exit_code" == "$expected" ]]; then
+    record_result 1 "$name" "exit=$exit_code"
+  else
+    record_result 0 "$name" "expected exit=$expected, got=$exit_code"
+  fi
+}
+
+check_file() {
+  local name="$1" path="$2"
+  [[ -f "$path" ]] && record_result 1 "$name" || record_result 0 "$name" "missing: $path"
+}
+
+check_absent() {
+  local name="$1" path="$2"
+  [[ ! -e "$path" ]] && record_result 1 "$name" || record_result 0 "$name" "still exists: $path"
+}
+
+check_contains() {
+  local name="$1" path="$2" text="$3"
+  if [[ -f "$path" ]] && /usr/bin/grep -Fq -- "$text" "$path"; then
+    record_result 1 "$name"
+  else
+    record_result 0 "$name" "text not found: $text"
+  fi
+}
+
+check_not_contains() {
+  local name="$1" path="$2" text="$3"
+  if [[ ! -f "$path" ]] || ! /usr/bin/grep -Fq -- "$text" "$path"; then
+    record_result 1 "$name"
+  else
+    record_result 0 "$name" "unexpected text: $text"
+  fi
+}
+
+check_sha() {
+  local name="$1" expected="$2" actual="$3"
+  local expected_hash actual_hash
+  expected_hash="$(shasum -a 256 "$expected" | awk '{print $1}')"
+  actual_hash="$(shasum -a 256 "$actual" | awk '{print $1}')"
+  [[ "$expected_hash" == "$actual_hash" ]] && record_result 1 "$name" || record_result 0 "$name" "sha256 differs"
+}
+
+# 入口、帮助和严格参数校验。
+run_case cli-help 0 "${APP[@]}" --help
+run_case cli-version 0 "${APP[@]}" --version
+run_case cli-alias-compress 0 "${APP[@]}" -c -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/alias" -e 7z --no-random-password --dry-run
+run_case cli-alias-decompress-missing-input 2 "${APP[@]}" -d -i "$OUT/alias/普通文本.txt.7z" -o "$OUT/alias-extract" -e 7z --no-random-password --dry-run
+run_case cli-invalid-format 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-format" -e tar
+run_case cli-invalid-level 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-level" -e 7z --level 6
+run_case cli-invalid-volume 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-volume" -e 7z --volume-size 0
+run_case cli-invalid-unit 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-unit" -e 7z --volume-size 1 --volume-unit q
+run_case cli-invalid-recovery 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-recovery" -e rar --recovery 101
+run_case cli-conflicting-mode 2 "${APP[@]}" compress extract -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict" -e 7z
+run_case cli-conflicting-password 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict-password" -e 7z --password one --password-file "$FIXTURE/password.txt"
+run_case cli-conflicting-postprocess 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict-post" -e 7z --delete-source --move-source
+run_case cli-conflicting-output 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict-output" -e 7z --verbose --quiet
+run_case cli-conflicting-lock-update 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict-lock" -e rar --existing update --lock
+run_case cli-invalid-enclosure-file 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-enclosure" -e 7z --comment "$FIXTURE/missing-comment.txt"
+
+# 来源扫描、跳过标记、元数据过滤和 dry-run 不落盘。
+run_case scan-default-skip 0 "${APP[@]}" compress --source "$FIXTURE/来源目录" -o "$OUT/scan-default" -e 7z --dry-run
+check_absent scan-default-no-output-dir "$OUT/scan-default"
+check_not_contains scan-default-no-metadata "$GEN/scan-default-skip.stdout" ".DS_Store"
+check_not_contains scan-default-processed "$GEN/scan-default-skip.stdout" "待跳过【已压缩】"
+check_not_contains scan-default-processed-extract "$GEN/scan-default-skip.stdout" "待跳过【已解压】"
+run_case scan-no-skip 0 "${APP[@]}" compress --source "$FIXTURE/来源目录" -o "$OUT/scan-no-skip" -e 7z --dry-run --no-skip-processed
+check_contains scan-no-skip-processed "$GEN/scan-no-skip.stdout" "待跳过【已压缩】"
+run_case scan-explicit-inputs 0 "${APP[@]}" compress --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/子目录" -o "$OUT/scan-inputs" -e 7z --dry-run
+run_case compression-list-as-inputs 0 "${APP[@]}" compress --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/带空格 文件.txt" -o "$OUT/input-archives" -e 7z --no-random-password --test
+check_file input-archives-ordinary "$OUT/input-archives/普通文本.txt.7z"
+check_file input-archives-spaces "$OUT/input-archives/带空格 文件.txt.7z"
+
+# 三种格式、密码来源、压缩级别、固实、注释、临时目录和 RAR 专属选项。
+run_case compress-7z-nopw 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/7z-nopw" -e 7z --no-random-password --level 0 --no-solid --test --temp-dir "$TMP/7z"
+run_case cli-alias-decompress-real 0 "${APP[@]}" -d -i "$OUT/7z-nopw/普通文本.txt.7z" -o "$OUT/alias-extract" -e 7z --no-random-password
+run_case compress-7z-password-file 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/带空格 文件.txt" -o "$OUT/7z-password-file" -e 7z --password-file "$FIXTURE/password.txt" --level 5 --solid --test --log-file "$GEN/7z-password-file.log"
+run_stdin_case compress-7z-password-stdin 0 $'stdin-password\n' "${APP[@]}" compress -i "$FIXTURE/来源目录/中文文件.txt" -o "$OUT/7z-password-stdin" -e 7z --password-stdin --test
+run_case compress-7z-direct 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/特殊!@#$ 文件.txt" -o "$OUT/7z-direct" -e 7z --password 'direct password' --test --verbose
+run_case compress-7z-random 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/更新测试.txt" -o "$OUT/7z-random" -e 7z --test
+run_case compress-7z-base 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/7z-base" -e 7z --password-name base --test
+run_case compress-zip 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/中文文件.txt" -o "$OUT/zip" -e zip --password fixture-password --test
+run_case compress-rar 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/子目录" -o "$OUT/rar" -e rar --password fixture-password --level 5 --solid --quick-open --recovery 1 --comment "$FIXTURE/comment.txt" --temp-dir "$TMP/rar" --test --verbose
+run_case compress-rar-lock 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/rar-lock" -e rar --no-random-password --lock --test
+run_case compress-folder 0 "${APP[@]}" compress --source "$FIXTURE/来源目录" -o "$OUT/folder" -e 7z --no-random-password --no-skip-processed --no-add-enclosures --level 0 --no-solid --existing overwrite
+run_case compress-attachment-inline 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/attachment-inline" -e 7z --no-random-password --enclosure "$FIXTURE/附件/联系信息.txt" --enclosure "$FIXTURE/附件/空附件目录" --enclosure "$FIXTURE/附件/不存在附件目录" --test
+enclosure_literal="$FIXTURE/附件/联系信息.txt\n$FIXTURE/附件/空附件目录"
+run_case compress-attachment-list-literal 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/attachment-list-literal" -e 7z --no-random-password --enclosure-list "$enclosure_literal" --test
+run_case compress-no-attachments 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/no-attachments" -e 7z --no-random-password --no-add-enclosures --test
+
+# 已有文件策略、锁定归档、大小上限和后处理。
+run_case existing-initial 0 "${APP[@]}" compress -i "$GEN/更新测试.txt" -o "$OUT/existing" -e 7z --no-random-password --existing overwrite
+run_case existing-skip 0 "${APP[@]}" compress -i "$GEN/更新测试.txt" -o "$OUT/existing" -e 7z --no-random-password --existing skip
+check_contains existing-skip-log "$GEN/existing-skip.stdout" "Skipped"
+printf '%s\n' 'updated payload' > "$GEN/更新测试.txt"
+run_case existing-update 0 "${APP[@]}" compress -i "$GEN/更新测试.txt" -o "$OUT/existing" -e 7z --no-random-password --existing update
+printf '%s\n' 'overwritten payload' >> "$GEN/更新测试.txt"
+run_case existing-overwrite 0 "${APP[@]}" compress -i "$GEN/更新测试.txt" -o "$OUT/existing" -e 7z --no-random-password --existing overwrite
+run_case locked-update 1 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/rar-lock" -e rar --no-random-password --existing update
+run_case max-size-compress 0 "${APP[@]}" compress --input "$FIXTURE/来源目录/普通文本.txt" --input "$GEN/大文件.bin" -o "$OUT/max-size" -e 7z --no-random-password --max-size-gb 0.00000001
+check_file max-size-first "$OUT/max-size/普通文本.txt.7z"
+check_absent max-size-second "$OUT/max-size/大文件.bin.7z"
+run_case post-delete-file 0 "${APP[@]}" compress -i "$GEN/delete-source.txt" -o "$OUT/post-delete" -e 7z --no-random-password --delete-source
+check_absent post-delete-file-source "$GEN/delete-source.txt"
+check_file post-delete-file-archive "$OUT/post-delete/delete-source.txt.7z"
+run_case post-delete-directory 0 "${APP[@]}" compress -i "$GEN/delete-directory" -o "$OUT/post-delete-directory" -e 7z --no-random-password --delete-source
+check_absent post-delete-directory-source "$GEN/delete-directory"
+run_case post-move-file 0 "${APP[@]}" compress -i "$GEN/move-source.txt" -o "$OUT/post-move" -e 7z --no-random-password --move-source
+check_absent post-move-file-source "$GEN/move-source.txt"
+check_file post-move-file-target "$GEN/【已压缩】/move-source.txt"
+
+# 分卷创建；7z --test 保留已知校验路径缺陷作为预期失败证据。
+run_case volume-7z 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/vol7z" -e 7z --no-random-password --volume-size 1 --volume-unit m
+run_case volume-7z-test-known 1 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/vol7z-test" -e 7z --no-random-password --volume-size 1 --volume-unit m --test
+run_case volume-zip-test-known 1 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volzip-test" -e zip --no-random-password --volume-size 1 --volume-unit m --test
+run_case volume-zip 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volzip" -e zip --no-random-password --volume-size 1 --volume-unit m
+run_case volume-rar 0 "${APP[@]}" compress -i "$GEN/大文件随机.bin" -o "$OUT/volrar" -e rar --no-random-password --volume-size 1 --volume-unit m --recovery 1 --test
+check_file volume-7z-first "$OUT/vol7z/大文件随机.bin.7z.001"
+check_file volume-zip-first "$OUT/volzip/大文件随机.bin.zip.001"
+check_file volume-rar-first "$OUT/volrar/大文件随机.bin.part1.rar"
+
+# 解压三格式、随机密码、密码本、stdin、多输入、目录扫描和分卷诊断。
+run_case extract-7z 0 "${APP[@]}" extract -i "$OUT/7z-nopw/普通文本.txt.7z" -o "$OUT/extract-7z" -e 7z --no-random-password --existing overwrite
+run_case extract-zip 0 "${APP[@]}" extract -i "$OUT/zip/中文文件.txt.zip" -o "$OUT/extract-zip" -e zip --password fixture-password --existing overwrite
+run_case extract-rar 0 "${APP[@]}" extract -i "$OUT/rar/子目录.rar" -o "$OUT/extract-rar" -e rar --password fixture-password --existing overwrite
+run_case extract-random 0 "${APP[@]}" extract -i "$OUT/7z-random/更新测试.txt.7z" -o "$OUT/extract-random" -e 7z
+run_case extract-base 0 "${APP[@]}" extract -i "$OUT/7z-base/空文件.txt.7z" -o "$OUT/extract-base" -e 7z --password-name base
+run_stdin_case extract-stdin 0 $'fixture-password\n' "${APP[@]}" extract -i "$OUT/7z-password-file/带空格 文件.txt.7z" -o "$OUT/extract-stdin" -e 7z --password-stdin
+run_case extract-source-scan 0 "${APP[@]}" extract --source "$OUT/7z-nopw" -o "$OUT/extract-source-scan" -e 7z --no-random-password
+run_case extract-multiple 0 "${APP[@]}" extract -i "$OUT/7z-nopw/普通文本.txt.7z" -i "$OUT/7z-nopw/普通文本.txt.7z" -i "$OUT/7z-password-file/带空格 文件.txt.7z" -o "$OUT/extract-multiple" -e 7z --password fixture-password --existing overwrite
+printf '%s\n' \
+  '输出/7z-password-file/带空格 文件.txt.7z' 'fixture-password' \
+  '输出/7z-password-file/不存在的归档.7z' 'missing-password' > "$GEN/passwordbook-7z.txt"
+printf '%s\n' \
+  '输出/7z-password-file/带空格 文件.txt.7z' 'fixture-password' \
+  '输出/7z-password-file/带空格 文件.txt.7z' 'other-password' > "$GEN/passwordbook-duplicate.txt"
+run_case extract-textbook 0 "${APP[@]}" extract --source "$FIXTURE" --text-file "$GEN/passwordbook-7z.txt" -o "$OUT/extract-textbook" -e 7z --no-random-password --existing overwrite
+run_case extract-textbook-duplicate 0 "${APP[@]}" extract --source "$FIXTURE" --text-file "$GEN/passwordbook-duplicate.txt" -o "$OUT/extract-textbook-duplicate" -e 7z --no-random-password --existing overwrite
+run_case extract-volume-7z 0 "${APP[@]}" extract -i "$OUT/vol7z/大文件随机.bin.7z.001" -o "$OUT/extract-volume-7z" -e 7z --no-random-password --existing overwrite
+run_case extract-volume-zip 0 "${APP[@]}" extract -i "$OUT/volzip/大文件随机.bin.zip.001" -o "$OUT/extract-volume-zip" -e zip --no-random-password --existing overwrite
+run_case extract-volume-rar 0 "${APP[@]}" extract -i "$OUT/volrar/大文件随机.bin.part1.rar" -o "$OUT/extract-volume-rar" -e rar --no-random-password --existing overwrite
+check_sha extract-volume-7z-content "$GEN/大文件随机.bin" "$OUT/extract-volume-7z/大文件随机.bin"
+check_sha extract-volume-zip-content "$GEN/大文件随机.bin" "$OUT/extract-volume-zip/大文件随机.bin"
+check_sha extract-volume-rar-content "$GEN/大文件随机.bin" "$OUT/extract-volume-rar/大文件随机.bin"
+
+# 缺卷：复制一、三、四卷，二卷缺失；程序必须诊断并返回 1，不产生部分解压。
+mkdir -p "$GEN/incomplete-7z"
+cp "$OUT/vol7z/大文件随机.bin.7z.001" "$GEN/incomplete-7z/"
+cp "$OUT/vol7z/大文件随机.bin.7z.003" "$GEN/incomplete-7z/"
+cp "$OUT/vol7z/大文件随机.bin.7z.004" "$GEN/incomplete-7z/"
+run_case extract-incomplete-volume 1 "${APP[@]}" extract --source "$GEN/incomplete-7z" -o "$OUT/extract-incomplete" -e 7z --no-random-password
+check_not_contains incomplete-no-output "$GEN/extract-incomplete.stdout" "成功"
+
+# 解压已有文件策略和后处理。
+run_case extract-existing-initial 0 "${APP[@]}" extract -i "$OUT/attachment-inline/空文件.txt.7z" -o "$OUT/extract-existing" -e 7z --no-random-password --existing overwrite
+run_case extract-existing-skip 0 "${APP[@]}" extract -i "$OUT/attachment-inline/空文件.txt.7z" -o "$OUT/extract-existing" -e 7z --no-random-password --existing skip
+run_case extract-existing-update 0 "${APP[@]}" extract -i "$OUT/attachment-inline/空文件.txt.7z" -o "$OUT/extract-existing" -e 7z --no-random-password --existing update
+run_case extract-post-delete 0 "${APP[@]}" extract -i "$OUT/7z-password-file/带空格 文件.txt.7z" -o "$OUT/extract-post-delete" -e 7z --password fixture-password --delete-source
+check_absent extract-post-delete-archive "$OUT/7z-password-file/带空格 文件.txt.7z"
+check_file extract-post-delete-file "$OUT/extract-post-delete/带空格 文件.txt"
+
+# 错误密码、quiet/verbose 和原始日志内容。
+run_case extract-wrong-password 1 "${APP[@]}" extract -i "$OUT/7z-direct/特殊!@#$ 文件.txt.7z" -o "$OUT/extract-wrong" -e 7z --password wrong-password --quiet --log-file "$GEN/wrong-password.log"
+check_file wrong-password-log "$GEN/wrong-password.log"
+run_case compress-verbose 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/verbose" -e 7z --password 'raw log password' --verbose --log-file "$GEN/verbose.log"
+check_contains raw-password-in-log "$GEN/verbose.log" "raw log password"
+run_case compress-quiet-success 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/quiet" -e 7z --no-random-password --quiet
+check_file quiet-archive "$OUT/quiet/空文件.txt.7z"
+
+# 参数 --shutdown 只做帮助/解析和静态日志检查，禁止真实请求关机。
+check_contains shutdown-option-help "$GEN/cli-help.stdout" "--shutdown"
+
+print "\nTOTAL PASS=$PASS_COUNT FAIL=$FAIL_COUNT"
+[[ "$FAIL_COUNT" == 0 ]]
