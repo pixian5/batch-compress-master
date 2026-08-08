@@ -363,6 +363,7 @@ public partial class MainWindow : Window
                 // GPT-5, 2026-08-05：拖入目录即为文件夹扫描模式的来源目录。
                 if (Directory.Exists(firstPath))
                 {
+                    viewModel.SourceMode = 1;
                     viewModel.SaveFilePath = firstPath;
                     viewModel.CommandLog += L.DroppedFolder + firstPath + "\n";
                     break;
@@ -370,6 +371,7 @@ public partial class MainWindow : Window
                 // GPT-5, 2026-08-05：拖入 TXT 文件提供文件列表和可选密码。
                 else if (File.Exists(firstPath) && firstPath.EndsWith(".txt", StringComparison.OrdinalIgnoreCase))
                 {
+                    viewModel.SourceMode = 0;
                     viewModel.SourcePath = firstPath;
                     viewModel.CommandLog += L.DroppedTxtFile + firstPath + "\n";
                     break;
@@ -451,8 +453,8 @@ public partial class MainWindow : Window
         if (DataContext is not MainWindowViewModel viewModel)
             return;
         
-        // GPT-5, 2026-08-06：两个 TXT 模式都选择清单文件；只有旧版密码本模式需要归档所在目录。
-        if (viewModel.SourceMode == 0)
+        // 当前页决定 TXT 的含义：压缩页读取路径清单，解压页读取归档密码本。
+        if (viewModel.SourceMode == 0 && viewModel.IsDecompressionTab)
         {
             // GPT-5, 2026-08-05：旧版 TXT 流程相对 SaveFilePath 解析文件名，
             // 因此允许选择列表文件前必须先确定该目录。
@@ -507,7 +509,7 @@ public partial class MainWindow : Window
                 viewModel.SourcePath = fullPath;
             }
         }
-        else if (viewModel.SourceMode == 1)
+        else if (viewModel.SourceMode == 0 && viewModel.IsCompressionTab)
         {
             var fileOptions = new FilePickerOpenOptions
             {
@@ -536,7 +538,7 @@ public partial class MainWindow : Window
             var folders = await this.StorageProvider.OpenFolderPickerAsync(options);
             if (folders.Count > 0)
             {
-                viewModel.SourcePath = folders[0].Path.LocalPath;
+                viewModel.SaveFilePath = folders[0].Path.LocalPath;
             }
         }
     }

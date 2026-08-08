@@ -37,6 +37,7 @@ public class LanguageStrings : INotifyPropertyChanged
     public string FromTxtMode { get; set; } = "从txt读取要解压的文件：";
     public string CompressionTxtMode { get; set; } = "从txt读取待压缩路径：";
     public string CompressFolderMode { get; set; } = "压缩此文件夹内所有文件：";
+    public string DecompressFolderMode { get; set; } = "解压此文件夹内的归档：";
     public string SavePathWatermark { get; set; } = "待压缩/解压文件保存路径";
     public string SelectDirectory { get; set; } = "选择目录";
     public string TxtPathWatermark { get; set; } = "TXT文件的路径";
@@ -46,6 +47,7 @@ public class LanguageStrings : INotifyPropertyChanged
     
     // 压缩选项区域。
     public string CompressionOptions { get; set; } = "压缩选项";
+    public string DecompressionOptions { get; set; } = "解压选项";
     public string FileNameLabel { get; set; } = "文件名（不含扩展名）：";
     public string QueryPassword { get; set; } = "查询密码";
     public string RandomPassword { get; set; } = "随机密码";
@@ -74,6 +76,8 @@ public class LanguageStrings : INotifyPropertyChanged
     
     // 后处理选项。
     public string AfterProcessing { get; set; } = "压缩或解压后";
+    public string AfterCompression { get; set; } = "压缩完成后";
+    public string AfterDecompression { get; set; } = "解压完成后";
     public string DeleteSource { get; set; } = "删除源";
     public string MoveSource { get; set; } = "移动源";
     public string ShutdownAfterComplete { get; set; } = "完成后关机";

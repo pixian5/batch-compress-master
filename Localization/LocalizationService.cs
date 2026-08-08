@@ -114,6 +114,7 @@ public class LocalizationService : INotifyPropertyChanged
             FromTxtMode = "从txt读取要解压的文件：",
             CompressionTxtMode = "从txt读取待压缩路径：",
             CompressFolderMode = "压缩此文件夹内所有文件：",
+            DecompressFolderMode = "解压此文件夹内的归档：",
             SavePathWatermark = "待压缩/解压文件保存路径",
             SelectDirectory = "选择目录",
             TxtPathWatermark = "TXT文件的路径",
@@ -123,6 +124,7 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 压缩选项区域。
             CompressionOptions = "压缩选项",
+            DecompressionOptions = "解压选项",
             FileNameLabel = "文件名（不含扩展名）：",
             QueryPassword = "查询密码",
             RandomPassword = "随机密码",
@@ -151,6 +153,8 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 后处理选项。
             AfterProcessing = "压缩或解压后",
+            AfterCompression = "压缩完成后",
+            AfterDecompression = "解压完成后",
             DeleteSource = "删除源",
             MoveSource = "移动源",
             ShutdownAfterComplete = "完成后关机",
@@ -234,6 +238,7 @@ public class LocalizationService : INotifyPropertyChanged
             FromTxtMode = "從txt讀取要解壓的檔案：",
             CompressionTxtMode = "從txt讀取待壓縮路徑：",
             CompressFolderMode = "壓縮此資料夾內所有檔案：",
+            DecompressFolderMode = "解壓此資料夾內的封存檔：",
             SavePathWatermark = "待壓縮/解壓檔案儲存路徑",
             SelectDirectory = "選擇目錄",
             TxtPathWatermark = "TXT檔案的路徑",
@@ -243,6 +248,7 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 压缩选项区域。
             CompressionOptions = "壓縮選項",
+            DecompressionOptions = "解壓選項",
             FileNameLabel = "檔名（不含副檔名）：",
             QueryPassword = "查詢密碼",
             RandomPassword = "隨機密碼",
@@ -271,6 +277,8 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 后处理选项。
             AfterProcessing = "壓縮或解壓後",
+            AfterCompression = "壓縮完成後",
+            AfterDecompression = "解壓完成後",
             DeleteSource = "刪除源",
             MoveSource = "移動源",
             ShutdownAfterComplete = "完成後關機",
@@ -354,6 +362,7 @@ public class LocalizationService : INotifyPropertyChanged
             FromTxtMode = "Read files to decompress from txt:",
             CompressionTxtMode = "Read paths to compress from txt:",
             CompressFolderMode = "Compress all files in folder:",
+            DecompressFolderMode = "Extract archives in folder:",
             SavePathWatermark = "File save path for compress/decompress",
             SelectDirectory = "Browse",
             TxtPathWatermark = "Path to TXT file",
@@ -363,6 +372,7 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 压缩选项区域。
             CompressionOptions = "Compression Options",
+            DecompressionOptions = "Decompression Options",
             FileNameLabel = "File name (without extension):",
             QueryPassword = "Query Password",
             RandomPassword = "Random Password",
@@ -391,6 +401,8 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 后处理选项。
             AfterProcessing = "After Processing",
+            AfterCompression = "After Compression",
+            AfterDecompression = "After Decompression",
             DeleteSource = "Delete Source",
             MoveSource = "Move Source",
             ShutdownAfterComplete = "Shutdown After Complete",
@@ -474,6 +486,7 @@ public class LocalizationService : INotifyPropertyChanged
             FromTxtMode = "txtから解凍するファイルを読み込む：",
             CompressionTxtMode = "txtから圧縮するパスを読み込む：",
             CompressFolderMode = "フォルダ内のすべてのファイルを圧縮：",
+            DecompressFolderMode = "フォルダ内のアーカイブを解凍：",
             SavePathWatermark = "圧縮/解凍ファイルの保存パス",
             SelectDirectory = "参照",
             TxtPathWatermark = "TXTファイルのパス",
@@ -483,6 +496,7 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 压缩选项区域。
             CompressionOptions = "圧縮オプション",
+            DecompressionOptions = "解凍オプション",
             FileNameLabel = "ファイル名（拡張子なし）：",
             QueryPassword = "パスワード検索",
             RandomPassword = "ランダムパスワード",
@@ -511,6 +525,8 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 后处理选项。
             AfterProcessing = "処理後",
+            AfterCompression = "圧縮後",
+            AfterDecompression = "解凍後",
             DeleteSource = "ソース削除",
             MoveSource = "ソース移動",
             ShutdownAfterComplete = "完了後シャットダウン",
@@ -594,6 +610,7 @@ public class LocalizationService : INotifyPropertyChanged
             FromTxtMode = "Dateien zum Entpacken aus txt lesen:",
             CompressionTxtMode = "Zu komprimierende Pfade aus txt lesen:",
             CompressFolderMode = "Alle Dateien im Ordner komprimieren:",
+            DecompressFolderMode = "Archive im Ordner entpacken:",
             SavePathWatermark = "Speicherpfad für Komprimierung/Dekomprimierung",
             SelectDirectory = "Durchsuchen",
             TxtPathWatermark = "Pfad zur TXT-Datei",
@@ -603,6 +620,7 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 压缩选项区域。
             CompressionOptions = "Komprimierungsoptionen",
+            DecompressionOptions = "Dekomprimierungsoptionen",
             FileNameLabel = "Dateiname (ohne Erweiterung):",
             QueryPassword = "Passwort abfragen",
             RandomPassword = "Zufälliges Passwort",
@@ -631,6 +649,8 @@ public class LocalizationService : INotifyPropertyChanged
             
             // 后处理选项。
             AfterProcessing = "Nach der Verarbeitung",
+            AfterCompression = "Nach der Komprimierung",
+            AfterDecompression = "Nach dem Entpacken",
             DeleteSource = "Quelle löschen",
             MoveSource = "Quelle verschieben",
             ShutdownAfterComplete = "Nach Abschluss herunterfahren",

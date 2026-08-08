@@ -77,9 +77,8 @@ public class BatchOperationOptions
 /// </summary>
 public enum SourceMode
 {
-    FromTextFile = 0,          // 从文本文件读取归档和密码
-    CompressionTextFile = 1,   // 从文本文件读取待压缩路径
-    FromFolder = 2             // 从目录读取
+    TextFile = 0, // TXT 内容由当前压缩或解压页解释
+    Folder = 1    // 目录扫描策略由当前压缩或解压页决定
 }
 
 /// <summary>

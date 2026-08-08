@@ -28,6 +28,30 @@ public partial class MainWindowViewModel : ViewModelBase
     private DateTime _lastProgressNotification = DateTime.MinValue;
     private int _lastNotifiedCompletedCount;
     private double _lastNotifiedProcessedSizeGB;
+    private readonly OperationTabState _compressionTabState = new();
+    private readonly OperationTabState _decompressionTabState = new();
+    private bool _isSwitchingOperationTab;
+
+    private sealed class OperationTabState
+    {
+        public int SourceMode { get; set; } = 1;
+        public string SourcePath { get; set; } = string.Empty;
+        public string SaveFilePath { get; set; } = string.Empty;
+        public string OutputPath { get; set; } = string.Empty;
+        public string SourceFileList { get; set; } = string.Empty;
+        public string Extension { get; set; } = "rar";
+        public bool UseRandomPassword { get; set; } = true;
+        public string CustomPassword { get; set; } = string.Empty;
+        public int PasswordNameMode { get; set; }
+        public int ExistingFileMode { get; set; } = 2;
+        public bool SkipAlreadyProcessed { get; set; } = true;
+        public bool DeleteSourceAfter { get; set; }
+        public bool MoveSourceAfter { get; set; }
+        public double MaxSizeGB { get; set; } = 666;
+        public bool ShutdownAfterComplete { get; set; }
+        public string PasswordQueryFileName { get; set; } = string.Empty;
+        public string PasswordQueryResult { get; set; } = string.Empty;
+    }
 
     // 本地化支持。
     public LocalizationService Localization => LocalizationService.Instance;
@@ -82,7 +106,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(BrowseSourceButtonText))]
     [NotifyPropertyChangedFor(nameof(IsFromTxtMode))]
-    private int _sourceMode; // 0 = 解压密码本，1 = 压缩路径清单，2 = 来源目录
+    private int _sourceMode = 1; // 0 = 当前页 TXT 来源，1 = 当前页目录来源
 
     /// <summary>
     /// 顶部一级导航：0=压缩，1=解压，2=日志。
@@ -93,6 +117,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [NotifyPropertyChangedFor(nameof(IsDecompressionTab))]
     [NotifyPropertyChangedFor(nameof(IsLogsTab))]
     [NotifyPropertyChangedFor(nameof(IsOperationTab))]
+    [NotifyPropertyChangedFor(nameof(SourcePathLabel))]
     private int _activeTab;
 
     public bool IsCompressionTab => ActiveTab == 0;
@@ -100,12 +125,12 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsLogsTab => ActiveTab == 2;
     public bool IsOperationTab => IsCompressionTab || IsDecompressionTab;
 
-    public string BrowseSourceButtonText => SourceMode < 2 ? L.SelectTxt : L.SelectDirectory;
+    public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;
 
-    public string SourcePathWatermark => SourceMode < 2 ? L.TxtPathWatermark : L.SavePathWatermark;
-    public string SourcePathLabel => SourceMode == 0
-        ? L.FromTxtMode
-        : SourceMode == 1 ? L.CompressionTxtMode : L.CompressFolderMode;
+    public string SourcePathWatermark => SourceMode == 0 ? L.TxtPathWatermark : L.SavePathWatermark;
+    public string SourcePathLabel => IsCompressionTab
+        ? SourceMode == 0 ? L.CompressionTxtMode : L.CompressFolderMode
+        : SourceMode == 0 ? L.FromTxtMode : L.DecompressFolderMode;
 
     /// <summary>
     /// 随语言切换动态更新的来源模式选项。
@@ -159,11 +184,8 @@ public partial class MainWindowViewModel : ViewModelBase
         var currentExistingFileMode = ExistingFileMode;
         var currentVolumeUnit = VolumeUnit;
 
-        // 清空并重新填充来源模式选项。
-        SourceModeOptions.Clear();
-        SourceModeOptions.Add(L.FromTxtMode);
-        SourceModeOptions.Add(L.CompressionTxtMode);
-        SourceModeOptions.Add(L.CompressFolderMode);
+        // 当前操作页只展示与自身业务匹配的 TXT 和目录来源。
+        RefreshSourceModeOptions(ActiveTab, currentSourceMode);
 
         // 清空并重新填充压缩级别选项。
         CompressionLevelOptions.Clear();
@@ -189,13 +211,29 @@ public partial class MainWindowViewModel : ViewModelBase
         RefreshPasswordNameModeOptions();
 
         // 集合重建后恢复有效索引，使 ComboBox 显示正确文本。
-        SourceMode = currentSourceMode >= 0 && currentSourceMode < SourceModeOptions.Count ? currentSourceMode : 0;
         CompressionLevel = currentCompressionLevel >= 0 && currentCompressionLevel < CompressionLevelOptions.Count ? currentCompressionLevel : 0;
         ExistingFileMode = currentExistingFileMode >= 0 && currentExistingFileMode < ExistingFileModeOptions.Count ? currentExistingFileMode : 0;
         VolumeUnit = currentVolumeUnit >= 0 && currentVolumeUnit < VolumeUnitOptions.Count ? currentVolumeUnit : 0;
     }
 
-    public bool IsFromTxtMode => SourceMode < 2;
+    private void RefreshSourceModeOptions(int tab, int requestedMode)
+    {
+        SourceModeOptions.Clear();
+        if (tab == 1)
+        {
+            SourceModeOptions.Add(L.FromTxtMode);
+            SourceModeOptions.Add(L.DecompressFolderMode);
+        }
+        else
+        {
+            SourceModeOptions.Add(L.CompressionTxtMode);
+            SourceModeOptions.Add(L.CompressFolderMode);
+        }
+
+        SourceMode = requestedMode is 0 or 1 ? requestedMode : 1;
+    }
+
+    public bool IsFromTxtMode => SourceMode == 0;
 
     // 标签页标题附带当前条目数量。
     public string SourceFileListTabHeader => $"{L.FileListTab} ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
@@ -382,7 +420,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (Design.IsDesignMode)
         {
             // 直接设置字段，避免设计器加载时触发异步任务。
-            _sourceMode = 2;
+            _sourceMode = 1;
             _enclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                            "【解压密码】微信号：i17269637581\n" +
                            "【解压密码】QQ号：2027123419\n" +
@@ -394,7 +432,7 @@ public partial class MainWindowViewModel : ViewModelBase
         DetectSystemLanguage();
 
         // 设置运行时默认值。
-        SourceMode = 2;
+        SourceMode = 1;
         EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
                        "【解压密码】微信号：i17269637581\n" +
                        "【解压密码】QQ号：2027123419\n" +
@@ -541,41 +579,58 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task RefreshFileListAsync()
     {
-        if (SourceMode < 2)
+        var operationTab = ActiveTab;
+        var sourceMode = SourceMode;
+        if (operationTab is not (0 or 1))
+        {
+            return;
+        }
+
+        if (sourceMode == 0)
         {
             // 从 TXT 清单加载。
-            await LoadFromTextFileAsync();
+            await LoadFromTextFileAsync(operationTab);
         }
         else
         {
             // 从目录扫描加载。
-            await LoadFromFolderAsync();
+            await LoadFromFolderAsync(operationTab);
         }
 
         // 刷新输出目录的已有大小统计。
-        UpdateOutputSize();
+        if (ActiveTab == operationTab && SourceMode == sourceMode)
+        {
+            UpdateOutputSize();
+        }
     }
 
-    private async Task LoadFromTextFileAsync()
+    private async Task LoadFromTextFileAsync(int operationTab)
     {
+        var textPath = SourcePath;
+        var saveFilePath = SaveFilePath;
+        var extension = Extension;
         var result = await Task.Run(() =>
         {
-            var textPath = SourcePath;
             if (string.IsNullOrEmpty(textPath) || !File.Exists(textPath))
             {
                 return new TextFileImportResult();
             }
 
-            if (SourceMode == 1)
+            if (operationTab == 0)
             {
                 return _batchOperationService.LoadCompressionPathsFromTextFile(textPath);
             }
 
             return _batchOperationService.LoadFilesFromTextFileWithDiagnostics(
-                textPath, SaveFilePath, Extension);
+                textPath, saveFilePath, extension);
         });
 
-        if (SourceMode == 1)
+        if (ActiveTab != operationTab || SourceMode != 0)
+        {
+            return;
+        }
+
+        if (operationTab == 0)
         {
             SourceFileList = string.Join(Environment.NewLine, result.Paths);
             AppendTextImportDiagnostics(result, false);
@@ -639,20 +694,29 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private async Task LoadFromFolderAsync()
+    private async Task LoadFromFolderAsync(int operationTab)
     {
-        await Task.Run(() =>
+        var saveFilePath = SaveFilePath;
+        var extension = Extension;
+        var skipAlreadyProcessed = SkipAlreadyProcessed;
+        var files = await Task.Run(() =>
         {
-            if (string.IsNullOrEmpty(SaveFilePath) || !Directory.Exists(SaveFilePath))
+            if (string.IsNullOrEmpty(saveFilePath) || !Directory.Exists(saveFilePath))
             {
-                return;
+                return new List<string>();
             }
 
-            var files = _batchOperationService.LoadFilesFromFolder(
-                SaveFilePath, Extension, SkipAlreadyProcessed);
-
-            SourceFileList = string.Join(Environment.NewLine, files);
+            return operationTab == 0
+                ? _batchOperationService.LoadCompressionSourcesFromFolder(
+                    saveFilePath, skipAlreadyProcessed)
+                : _batchOperationService.LoadArchivesFromFolder(
+                    saveFilePath, extension, skipAlreadyProcessed);
         });
+
+        if (ActiveTab == operationTab && SourceMode == 1)
+        {
+            SourceFileList = string.Join(Environment.NewLine, files);
+        }
     }
 
     private void UpdateOutputSize()
@@ -669,17 +733,17 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (IsOperating) return;
 
+        if (!IsCompressionTab)
+        {
+            CommandLog += "压缩命令只能从压缩页启动。\n";
+            return;
+        }
+
         if (ExistingFileMode == 1 && LockArchive)
         {
             const string message = "更新现有文件不能与锁定归档同时使用。请取消其中一个选项。";
             CommandLog += $"[选项冲突] {message}\n";
             _systemIntegration.ShowNotification("选项冲突", message);
-            return;
-        }
-
-        if (SourceMode == 0)
-        {
-            CommandLog += "当前来源模式是解压密码本，请切换到压缩路径清单或来源目录后再压缩。\n";
             return;
         }
 
@@ -803,6 +867,12 @@ public partial class MainWindowViewModel : ViewModelBase
     private async Task DecompressAsync()
     {
         if (IsOperating) return;
+
+        if (!IsDecompressionTab)
+        {
+            CommandLog += "解压命令只能从解压页启动。\n";
+            return;
+        }
 
         try
         {
@@ -1004,7 +1074,12 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ClearSourceList() => SourceFileList = string.Empty;
+    private void ClearSourceList()
+    {
+        SourceFileList = string.Empty;
+        _compressionTabState.SourceFileList = string.Empty;
+        _decompressionTabState.SourceFileList = string.Empty;
+    }
 
     [RelayCommand]
     private void ClearSuccessLog() => SuccessLog = string.Empty;
@@ -1072,7 +1147,9 @@ public partial class MainWindowViewModel : ViewModelBase
             results.Add("旧版兼容密码:");
             results.AddRange(PasswordUtility.GetLegacyPasswordCandidates(filename));
 
-            var finalPassword = PasswordUtility.GenerateCompressionPassword(passwordName);
+            var finalPassword = IsCompressionTab
+                ? PasswordUtility.GenerateCompressionPassword(passwordName)
+                : PasswordUtility.GenerateDecompressionPassword(passwordName);
             PasswordQueryResult = finalPassword;
 
             CommandLog += string.Join("\n", results) + "\n";
@@ -1186,18 +1263,96 @@ public partial class MainWindowViewModel : ViewModelBase
         };
     }
 
+    partial void OnActiveTabChanged(int oldValue, int newValue)
+    {
+        if (oldValue is 0 or 1)
+        {
+            SaveOperationTabState(oldValue == 0 ? _compressionTabState : _decompressionTabState);
+        }
+
+        if (newValue is not (0 or 1))
+        {
+            return;
+        }
+
+        _isSwitchingOperationTab = true;
+        try
+        {
+            var state = newValue == 0 ? _compressionTabState : _decompressionTabState;
+            RefreshSourceModeOptions(newValue, state.SourceMode);
+            SourcePath = state.SourcePath;
+            SaveFilePath = state.SaveFilePath;
+            OutputPath = state.OutputPath;
+            SourceFileList = state.SourceFileList;
+            Extension = state.Extension;
+            UseRandomPassword = state.UseRandomPassword;
+            CustomPassword = state.CustomPassword;
+            PasswordNameMode = state.PasswordNameMode;
+            ExistingFileMode = state.ExistingFileMode;
+            SkipAlreadyProcessed = state.SkipAlreadyProcessed;
+            DeleteSourceAfter = state.DeleteSourceAfter;
+            MoveSourceAfter = state.MoveSourceAfter;
+            MaxSizeGB = state.MaxSizeGB;
+            ShutdownAfterComplete = state.ShutdownAfterComplete;
+            PasswordQueryFileName = state.PasswordQueryFileName;
+            PasswordQueryResult = state.PasswordQueryResult;
+        }
+        finally
+        {
+            _isSwitchingOperationTab = false;
+        }
+
+        OnPropertyChanged(nameof(SourcePathLabel));
+        Task.Run(async () =>
+        {
+            await RefreshFileListAsync();
+            await UpdateTotalSizeAsync();
+        });
+    }
+
+    private void SaveOperationTabState(OperationTabState state)
+    {
+        state.SourceMode = SourceMode;
+        state.SourcePath = SourcePath;
+        state.SaveFilePath = SaveFilePath;
+        state.OutputPath = OutputPath;
+        state.SourceFileList = SourceFileList;
+        state.Extension = Extension;
+        state.UseRandomPassword = UseRandomPassword;
+        state.CustomPassword = CustomPassword;
+        state.PasswordNameMode = PasswordNameMode;
+        state.ExistingFileMode = ExistingFileMode;
+        state.SkipAlreadyProcessed = SkipAlreadyProcessed;
+        state.DeleteSourceAfter = DeleteSourceAfter;
+        state.MoveSourceAfter = MoveSourceAfter;
+        state.MaxSizeGB = MaxSizeGB;
+        state.ShutdownAfterComplete = ShutdownAfterComplete;
+        state.PasswordQueryFileName = PasswordQueryFileName;
+        state.PasswordQueryResult = PasswordQueryResult;
+    }
+
     partial void OnSourceModeChanged(int value)
     {
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
+
         // 来源模式改变后重新加载文件列表。
         Task.Run(async () => await RefreshFileListAsync());
     }
 
     partial void OnSourcePathChanged(string value)
     {
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
+
         if (!string.IsNullOrEmpty(value))
         {
-            // 文本来源的两个模式都应在路径改变后重新解析清单。
-            if (SourceMode < 2)
+            // 当前页的 TXT 来源在路径改变后重新解析清单。
+            if (SourceMode == 0)
             {
                 Task.Run(async () =>
                 {
@@ -1209,7 +1364,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         else
         {
-            if (SourceMode < 2)
+            if (SourceMode == 0)
             {
                 TotalSizeGB = 0;
             }
@@ -1218,6 +1373,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnOutputPathChanged(string value)
     {
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
+
         UpdateOutputSize();
 
         if (!string.IsNullOrEmpty(value))
@@ -1229,6 +1389,11 @@ public partial class MainWindowViewModel : ViewModelBase
     partial void OnExtensionChanged(string value)
     {
         RefreshPasswordNameModeOptions();
+
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
 
         // GPT-5, 2026-08-06：7z 已由官方 7zz 完整支持；这里只提示该格式不具备 RAR 专属恢复记录和快速打开能力。
         if (value.Trim().TrimStart('.').Equals("7z", StringComparison.OrdinalIgnoreCase))
@@ -1249,6 +1414,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnDeleteSourceAfterChanged(bool value)
     {
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
+
         if (value && MoveSourceAfter)
         {
             MoveSourceAfter = false;
@@ -1257,6 +1427,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnMoveSourceAfterChanged(bool value)
     {
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
+
         if (value && DeleteSourceAfter)
         {
             DeleteSourceAfter = false;
@@ -1265,6 +1440,11 @@ public partial class MainWindowViewModel : ViewModelBase
 
     partial void OnSaveFilePathChanged(string value)
     {
+        if (_isSwitchingOperationTab)
+        {
+            return;
+        }
+
         if (!string.IsNullOrEmpty(value))
         {
             Task.Run(async () =>

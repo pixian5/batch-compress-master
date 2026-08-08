@@ -111,6 +111,13 @@ internal static class Program
                     $"解压一级标签不得为空: {language}");
                 Assert(!string.IsNullOrWhiteSpace(localization.Strings.LogsTab),
                     $"日志一级标签不得为空: {language}");
+                Assert(!string.IsNullOrWhiteSpace(localization.Strings.DecompressionOptions),
+                    $"解压选项标题不得为空: {language}");
+                Assert(!string.IsNullOrWhiteSpace(localization.Strings.DecompressFolderMode),
+                    $"解压目录来源标题不得为空: {language}");
+                Assert(!string.IsNullOrWhiteSpace(localization.Strings.AfterCompression) &&
+                       !string.IsNullOrWhiteSpace(localization.Strings.AfterDecompression),
+                    $"压缩与解压后处理标题不得为空: {language}");
             }
         }
         finally

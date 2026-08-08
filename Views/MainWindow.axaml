@@ -31,12 +31,20 @@
 
             <!-- 一级导航：操作页共用同一套状态，日志页集中显示四类运行记录。 -->
             <Border Background="#F4F6F8" BorderBrush="#D8DEE4" BorderThickness="1" Padding="4" CornerRadius="6">
-                <TabControl SelectedIndex="{Binding ActiveTab}" Background="Transparent" BorderThickness="0"
-                            HorizontalContentAlignment="Stretch">
-                    <TabItem Header="{Binding L.CompressionTab}" Padding="24,9" FontWeight="SemiBold" />
-                    <TabItem Header="{Binding L.DecompressionTab}" Padding="24,9" FontWeight="SemiBold" />
-                    <TabItem Header="{Binding L.LogsTab}" Padding="24,9" FontWeight="SemiBold" />
-                </TabControl>
+                <Grid ColumnDefinitions="*,Auto,8,Auto">
+                    <TabControl Grid.Column="0" SelectedIndex="{Binding ActiveTab}" Background="Transparent" BorderThickness="0"
+                                HorizontalContentAlignment="Stretch">
+                        <TabItem Header="{Binding L.CompressionTab}" Padding="24,9" FontWeight="SemiBold" />
+                        <TabItem Header="{Binding L.DecompressionTab}" Padding="24,9" FontWeight="SemiBold" />
+                        <TabItem Header="{Binding L.LogsTab}" Padding="24,9" FontWeight="SemiBold" />
+                    </TabControl>
+                    <TextBlock Grid.Column="1" Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
+                    <ComboBox Grid.Column="3" ItemsSource="{Binding AvailableLanguages}"
+                              SelectedValue="{Binding SelectedLanguage}"
+                              SelectedValueBinding="{Binding Key}"
+                              DisplayMemberBinding="{Binding Value}"
+                              Width="120" VerticalAlignment="Center" ToolTip.Tip="切换界面显示语言"/>
+                </Grid>
             </Border>
 
             <!-- GPT-5, 2026-08-05：来源和输出路径分离，因为旧版 TXT 模式从 SaveFilePath 解析列表项。 -->
@@ -64,19 +72,11 @@
             </Border>
 
             <!-- GPT-5, 2026-08-05：压缩控件直接绑定 MainWindowViewModel，并在操作开始时快照。 -->
-            <Grid ColumnDefinitions="*" Margin="0,5" IsVisible="{Binding IsOperationTab}">
+            <Grid ColumnDefinitions="*" Margin="0,5" IsVisible="{Binding IsCompressionTab}">
                 <!-- Left Column: Compression Options -->
                 <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
                     <Expander.Header>
-                        <Grid ColumnDefinitions="*,Auto,5,Auto" HorizontalAlignment="Stretch">
-                            <TextBlock Grid.Column="0" Text="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Grid.Column="1" Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
-                            <ComboBox Grid.Column="3" ItemsSource="{Binding AvailableLanguages}"
-                                      SelectedValue="{Binding SelectedLanguage}"
-                                      SelectedValueBinding="{Binding Key}"
-                                      DisplayMemberBinding="{Binding Value}"
-                                      Width="120" ToolTip.Tip="切换界面显示语言"/>
-                        </Grid>
+                        <TextBlock Text="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
                     </Expander.Header>
                     <StackPanel Spacing="10">
 
@@ -159,7 +159,7 @@
                             <!-- Post-Processing Options -->
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
                                 <StackPanel Spacing="6">
-                                    <TextBlock Text="{Binding L.AfterProcessing}" FontWeight="Bold" FontSize="14"/>
+                                    <TextBlock Text="{Binding L.AfterCompression}" FontWeight="Bold" FontSize="14"/>
 
                                     <StackPanel Orientation="Horizontal" Spacing="12">
                                         <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="仅在操作成功后删除源文件，请谨慎使用"/>
@@ -172,6 +172,62 @@
                         </StackPanel>
                     </Expander>
                 </Grid>
+
+            <!-- 解压页仅显示解压实际会读取的参数，避免压缩专属设置造成误导。 -->
+            <Grid ColumnDefinitions="*" Margin="0,5" IsVisible="{Binding IsDecompressionTab}">
+                <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
+                    <Expander.Header>
+                        <TextBlock Text="{Binding L.DecompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
+                    </Expander.Header>
+
+                    <StackPanel Spacing="10">
+                        <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
+                            <StackPanel Spacing="6">
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <TextBlock Text="{Binding L.FileNameLabel}" VerticalAlignment="Center"/>
+                                    <TextBox Text="{Binding PasswordQueryFileName}" Width="200" ToolTip.Tip="输入归档文件名以生成或查询解压密码"/>
+                                    <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80" ToolTip.Tip="生成密码并复制当前候选密码"/>
+                                    <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" ToolTip.Tip="按归档文件名生成解压密码"/>
+                                    <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left"
+                                             PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" ToolTip.Tip="关闭随机密码后使用此解压密码"/>
+                                    <TextBlock Text="密码依据" VerticalAlignment="Center"/>
+                                    <ComboBox SelectedIndex="{Binding PasswordNameMode}" ItemsSource="{Binding PasswordNameModeOptions}" Width="120"/>
+                                </StackPanel>
+
+                                <StackPanel Spacing="2" IsVisible="{Binding PasswordQueryResult, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}">
+                                    <TextBlock Text="{Binding PasswordQueryResult}" FontWeight="Bold" Foreground="Green"/>
+                                    <TextBlock Text="{Binding L.CopiedToClipboard}" FontSize="10" Foreground="Gray"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+
+                        <Grid ColumnDefinitions="Auto,Auto,30,Auto,Auto,30,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,2">
+                            <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,6"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" Margin="0,0,0,6" ToolTip.Tip="用于目录扫描和未知归档格式的筛选"/>
+
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="已有文件：" VerticalAlignment="Center" Margin="0,0,10,6"/>
+                            <ComboBox Grid.Row="0" Grid.Column="4" SelectedIndex="{Binding ExistingFileMode}" ItemsSource="{Binding ExistingFileModeOptions}" Width="160" Margin="0,0,0,6"/>
+
+                            <CheckBox Grid.Row="0" Grid.Column="6" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,6" ToolTip.Tip="跳过已标记为完成解压的归档"/>
+
+                            <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="0,0,10,0"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxSizeGB}" Width="100" ToolTip.Tip="达到该归档总大小后停止继续解压"/>
+                        </Grid>
+
+                        <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
+                            <StackPanel Spacing="6">
+                                <TextBlock Text="{Binding L.AfterDecompression}" FontWeight="Bold" FontSize="14"/>
+                                <StackPanel Orientation="Horizontal" Spacing="12">
+                                    <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="解压成功后删除源归档及其分卷"/>
+                                    <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}" ToolTip.Tip="解压成功后移动源归档及其分卷"/>
+                                    <CheckBox Content="{Binding L.ShutdownAfterComplete}" IsChecked="{Binding ShutdownAfterComplete}"/>
+                                    <Button Content="取消关机" Command="{Binding CancelScheduledShutdownCommand}" IsVisible="{Binding IsShutdownScheduled}"/>
+                                </StackPanel>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </Expander>
+            </Grid>
 
             <!-- GPT-5, 2026-08-05：命令依据 IsOperating 保持启用/禁用，防止并发 WinRAR 批处理。 -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5" IsVisible="{Binding IsOperationTab}">
