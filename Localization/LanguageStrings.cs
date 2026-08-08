@@ -27,7 +27,7 @@ public class LanguageStrings : INotifyPropertyChanged
     }
     
     // 窗口标题。
-    public string WindowTitle { get; set; } = "批量压缩解压工具 - Avalonia Cross-Platform";
+    public string WindowTitle { get; set; } = "批量压缩解压工具";
     
     // 语言选择器。
     public string LanguageLabel { get; set; } = "语言：";

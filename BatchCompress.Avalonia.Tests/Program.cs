@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
 using BatchCompress.Avalonia.Core.Services;
+using BatchCompress.Avalonia.Localization;
 
 // GPT-5, 2026-08-05：用于命令构建、进程取消和路径回退的轻量可执行回归测试。
 // 不依赖 UI，因此可在 macOS、Windows 和 Linux 一致运行。
@@ -30,7 +31,8 @@ internal static class Program
             ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke),
             ("完整命令行解析", TestCommandLineParsing),
             ("命令行错误校验", TestCommandLineValidation),
-            ("TXT 清单与密码本诊断", TestTextFileImportModes)
+            ("TXT 清单与密码本诊断", TestTextFileImportModes),
+            ("本地化窗口标题", TestLocalizedWindowTitles)
         };
 
         // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
@@ -84,6 +86,30 @@ internal static class Program
         finally
         {
             Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    private static Task TestLocalizedWindowTitles()
+    {
+        var localization = LocalizationService.Instance;
+        var originalLanguage = localization.CurrentLanguage;
+        try
+        {
+            foreach (var language in LocalizationService.AvailableLanguages.Keys)
+            {
+                localization.CurrentLanguage = language;
+                var title = localization.Strings.WindowTitle;
+                Assert(!title.Contains("Avalonia", StringComparison.OrdinalIgnoreCase),
+                    $"窗口标题不得显示 UI 框架名称: {title}");
+                Assert(title.Contains("v", StringComparison.OrdinalIgnoreCase),
+                    $"窗口标题必须显示版本号: {title}");
+            }
+        }
+        finally
+        {
+            localization.CurrentLanguage = originalLanguage;
         }
 
         return Task.CompletedTask;

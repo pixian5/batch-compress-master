@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Reflection;
 using System.Runtime.CompilerServices;
 
 namespace BatchCompress.Avalonia.Localization;
@@ -16,6 +17,14 @@ public class LocalizationService : INotifyPropertyChanged
     
     private LanguageStrings _strings;
     private string _currentLanguage = "zh-CN";
+
+    private static string WithVersion(string title)
+    {
+        var version = typeof(LocalizationService).Assembly
+            .GetCustomAttribute<AssemblyInformationalVersionAttribute>()?
+            .InformationalVersion?.Split('+')[0];
+        return string.IsNullOrWhiteSpace(version) ? title : $"{title} v{version}";
+    }
     
     public event PropertyChangedEventHandler? PropertyChanged;
     
@@ -95,7 +104,7 @@ public class LocalizationService : INotifyPropertyChanged
         return new LanguageStrings
         {
             // 窗口标题。
-            WindowTitle = "批量压缩解压工具 - Avalonia Cross-Platform",
+            WindowTitle = WithVersion("批量压缩解压工具"),
             
             // 语言选择器。
             LanguageLabel = "语言：",
@@ -212,7 +221,7 @@ public class LocalizationService : INotifyPropertyChanged
         return new LanguageStrings
         {
             // 窗口标题。
-            WindowTitle = "批量壓縮解壓工具 - Avalonia Cross-Platform",
+            WindowTitle = WithVersion("批量壓縮解壓工具"),
             
             // 语言选择器。
             LanguageLabel = "語言：",
@@ -329,7 +338,7 @@ public class LocalizationService : INotifyPropertyChanged
         return new LanguageStrings
         {
             // 窗口标题。
-            WindowTitle = "Batch Compress Tool - Avalonia Cross-Platform",
+            WindowTitle = WithVersion("Batch Compress Tool"),
             
             // 语言选择器。
             LanguageLabel = "Language:",
@@ -446,7 +455,7 @@ public class LocalizationService : INotifyPropertyChanged
         return new LanguageStrings
         {
             // 窗口标题。
-            WindowTitle = "バッチ圧縮ツール - Avalonia Cross-Platform",
+            WindowTitle = WithVersion("バッチ圧縮ツール"),
             
             // 语言选择器。
             LanguageLabel = "言語：",
@@ -563,7 +572,7 @@ public class LocalizationService : INotifyPropertyChanged
         return new LanguageStrings
         {
             // 窗口标题。
-            WindowTitle = "Batch-Komprimierungstool - Avalonia Cross-Platform",
+            WindowTitle = WithVersion("Batch-Komprimierungstool"),
             
             // 语言选择器。
             LanguageLabel = "Sprache:",

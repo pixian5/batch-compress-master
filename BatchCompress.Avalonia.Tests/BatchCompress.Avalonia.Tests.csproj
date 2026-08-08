@@ -28,6 +28,8 @@
     <Compile Include="..\Core\Models\OperationModels.cs" Link="Core\Models\OperationModels.cs" />
     <Compile Include="..\Core\Models\ArchiveDefaults.cs" Link="Core\Models\ArchiveDefaults.cs" />
     <Compile Include="..\Core\Interfaces\ISystemIntegration.cs" Link="Core\Interfaces\ISystemIntegration.cs" />
+    <Compile Include="..\Localization\LanguageStrings.cs" Link="Localization\LanguageStrings.cs" />
+    <Compile Include="..\Localization\LocalizationService.cs" Link="Localization\LocalizationService.cs" />
   </ItemGroup>
 
   <ItemGroup>
