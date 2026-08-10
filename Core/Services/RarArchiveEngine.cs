@@ -61,6 +61,13 @@ public class RarArchiveEngine : IArchiveEngine
 
     private IEnumerable<string> GetCandidatePaths()
     {
+        // 允许部署者显式提供其自有授权的完整 RAR 可执行文件；该路径优先于所有平台默认位置。
+        var configuredPath = Environment.GetEnvironmentVariable("BATCHCOMPRESS_RAR_PATH");
+        if (!string.IsNullOrWhiteSpace(configuredPath))
+        {
+            yield return configuredPath;
+        }
+
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
             foreach (var p in GetWindowsCandidates())

@@ -8,7 +8,7 @@ app_path="/Applications/BatchCompress.Avalonia.app"
 icon_source="$repo_root/Assets/压缩.ico"
 icon_png="$repo_root/Assets/压缩.png"
 seven_zip_source="$repo_root/tools/7zip/macos"
-rar_source="$repo_root/tools/rarmacOS"
+rar_source="${BATCHCOMPRESS_RAR_DIR:-}"
 iconset_tmp="$(mktemp -d /tmp/batch-compress-iconset.XXXXXX)"
 iconset_dir="${iconset_tmp}.iconset"
 mv "$iconset_tmp" "$iconset_dir"
@@ -23,19 +23,21 @@ if [[ ! -x "$seven_zip_source/7zz" || ! -f "$seven_zip_source/License.txt" ]]; t
   print -u2 "missing official macOS 7-Zip files: $seven_zip_source"
   exit 1
 fi
-if [[ ! -x "$rar_source/rar" || ! -x "$rar_source/unrar" || ! -f "$rar_source/rarreg.key" ]]; then
-  print -u2 "missing official macOS RAR files: $rar_source"
-  exit 1
-fi
 
 # GPT-5, 2026-08-06：发布前拒绝误放入 Linux ELF 或错误架构的工具，避免应用安装后才暴露执行失败。
 if ! file "$seven_zip_source/7zz" | grep -q "Mach-O universal binary"; then
   print -u2 "invalid macOS 7zz binary: $seven_zip_source/7zz"
   exit 1
 fi
-if ! file "$rar_source/rar" | grep -q "Mach-O 64-bit executable arm64"; then
-  print -u2 "invalid macOS RAR binary: $rar_source/rar"
-  exit 1
+if [[ -n "$rar_source" ]]; then
+  if [[ ! -x "$rar_source/rar" || ! -x "$rar_source/unrar" ]]; then
+    print -u2 "BATCHCOMPRESS_RAR_DIR must contain executable rar and unrar: $rar_source"
+    exit 1
+  fi
+  if ! file "$rar_source/rar" | grep -q "Mach-O 64-bit executable arm64"; then
+    print -u2 "invalid macOS RAR binary: $rar_source/rar"
+    exit 1
+  fi
 fi
 
 # GPT-5, 2026-08-05：Avalonia 和 Finder 需要不同图标容器。保留 ICO 作为来源，
@@ -73,9 +75,11 @@ cp "$seven_zip_source/7zz" "$app_path/Contents/MacOS/tools/7zip/macos/7zz"
 cp "$seven_zip_source/License.txt" "$seven_zip_source/readme.txt" "$seven_zip_source/History.txt" \
   "$app_path/Contents/MacOS/tools/7zip/macos/"
 chmod +x "$app_path/Contents/MacOS/tools/7zip/macos/7zz"
-mkdir -p "$app_path/Contents/MacOS/tools/rarmacOS"
-cp -R "$rar_source"/* "$app_path/Contents/MacOS/tools/rarmacOS/"
-chmod +x "$app_path/Contents/MacOS/tools/rarmacOS/rar" "$app_path/Contents/MacOS/tools/rarmacOS/unrar"
+if [[ -n "$rar_source" ]]; then
+  mkdir -p "$app_path/Contents/MacOS/tools/rarmacOS"
+  cp "$rar_source/rar" "$rar_source/unrar" "$app_path/Contents/MacOS/tools/rarmacOS/"
+  chmod +x "$app_path/Contents/MacOS/tools/rarmacOS/rar" "$app_path/Contents/MacOS/tools/rarmacOS/unrar"
+fi
 touch "$app_path"
 codesign --force --deep --sign - "$app_path" >/dev/null
 

@@ -24,6 +24,7 @@ internal static class Program
             ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
             ("7z 压缩与解压参数", TestSevenZipArguments),
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
+            ("压缩格式别名规范化", TestCanonicalCompressionFormat),
             ("统一归档分卷解析", TestArchiveVolumeResolver),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
             ("压缩分卷大小统计", TestCompressedVolumeSizeProgress),
@@ -467,6 +468,36 @@ internal static class Program
         AssertThrows<NotSupportedException>(() =>
             router.CompressAsync("source", "archive.iso", new ArchiveOptions { ArchiveFormat = "iso" })
                 .GetAwaiter().GetResult());
+    }
+
+    private static async Task TestCanonicalCompressionFormat()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-alias-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source.txt");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(source, "source");
+        var engine = new RecordingArchiveEngine();
+        try
+        {
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchCompressAsync(
+                [source],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "out"),
+                    Extension = ".GZIP",
+                    ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new Progress<OperationProgressInfo>(),
+                CancellationToken.None);
+
+            AssertEqual("gz", engine.LastOptions?.ArchiveFormat);
+            Assert(engine.LastCompressionOutput?.EndsWith("source.txt.gz", StringComparison.Ordinal) == true,
+                "GUI 格式别名必须生成规范的 .gz 输出名");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
     }
 
     private static Task TestArchiveVolumeResolver()
@@ -1028,6 +1059,7 @@ internal static class Program
         public int CompressionCalls { get; private set; }
         public int ExtractionCalls { get; private set; }
         public ArchiveOptions? LastOptions { get; private set; }
+        public string? LastCompressionOutput { get; private set; }
 
         public bool IsAvailable() => true;
 
@@ -1039,6 +1071,7 @@ internal static class Program
         {
             CompressionCalls++;
             LastOptions = options;
+            LastCompressionOutput = output;
             return Task.FromResult(new ArchiveResult { Success = true });
         }
 

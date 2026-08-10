@@ -4,7 +4,7 @@
 
 1. 选择来源：目录、TXT 文件或拖入文件。
 2. 选择保存目录；为空时操作会被阻止并提示。
-3. 设置格式为 `rar`、`zip` 或 `7z`，再按需设置密码、分卷、校验和后处理。
+3. 设置创建格式为 `rar`、`7z`、`zip`、`tar`、`gz`、`bz2`、`xz` 或 `wim`，再按需设置密码、分卷、校验和后处理。
 4. 运行压缩，进度和原始归档程序输出显示在日志页。恢复记录、快速打开和注释只适用于 RAR。
 
 ## 批量解压
@@ -23,12 +23,12 @@
 - `compress` 创建归档，`extract` 解压；旧 `--compress`、`--decompress` 继续兼容。
 - `--source` 表示批处理目录，`--input` 表示精确项目并可重复，`--text-file` 表示解压密码清单。
 - 默认启用随机密码、固实、跳过已处理和附件；分别用 `--no-random-password`、`--no-solid`、`--no-skip-processed`、`--no-add-enclosures` 关闭。
-- `--password-file` 或 `--password-stdin` 可避免把密码直接写在命令参数中。
+- `--password-file` 或 `--password-stdin` 可避免把密码直接写在本工具的命令行中；RAR/7zz 子进程参数和原始日志仍会保留密码。
 - `--dry-run` 只列出任务；`--verbose` 显示完整归档程序输出；`--quiet` 只输出错误。
 
 ## 常见问题
 
-- 找不到 RAR：安装完整 RAR/WinRAR，而非仅 unrar；这只影响 RAR，ZIP/7z 仍可使用项目内官方 `7zz`。
+- 找不到 RAR：安装完整 RAR/WinRAR，而非仅 unrar，或设置 `BATCHCOMPRESS_RAR_PATH` 指向已获授权的 `rar`；这只影响 RAR，其它支持格式仍可使用项目内官方 `7zz`。
 - 找不到 7-Zip：检查应用或输出目录中的 `tools/7zip/<平台>/7zz`；macOS 应用内路径为 `Contents/MacOS/tools/7zip/macos/7zz`。
 - 7z 的“更新”解压策略：7-Zip 没有与 WinRAR 完全相同的更新开关，当前映射为自动重命名新解压文件，避免覆盖已有文件。
 - 关机失败：系统拒绝了关机命令或权限不足，任务结果不会因此回滚。

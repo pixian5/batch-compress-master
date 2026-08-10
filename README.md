@@ -2,7 +2,7 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.4.4`。
+当前版本：`0.4.6`。
 
 ## 功能
 
@@ -17,11 +17,12 @@
 
 ## 依赖与平台
 
-源码运行需要 .NET 10 SDK。RAR 需要 RAR/WinRAR，ZIP/7z 需要官方 7-Zip 命令行程序；macOS 应用包内置两者。
+源码运行需要 .NET 10 SDK。RAR 需要用户自行安装或在私有发布流程中注入完整 RAR/WinRAR；其它支持格式使用官方 7-Zip 命令行程序。公开仓库和默认应用包只携带 7zz，不携带任何第三方 RAR 二进制或注册文件。
 
-- Windows：安装 WinRAR。程序依次查找随程序发布的 `tools/WinRAR`、注册表、标准安装目录等位置。
-- macOS：项目内含官方 7-Zip 25.01 universal `7zz`；RAR 可安装到系统或放入 `tools/rarmacOS/rar`。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`。
-- Linux：项目内分别包含官方 7-Zip 25.01 x64、ARM64 `7zz`；RAR 可安装到系统或放入 `tools/rarLinux/rar`。
+- 所有平台：`BATCHCOMPRESS_RAR_PATH` 可指定一个完整的、用户已获授权的 `rar` 可执行文件，并优先于默认查找路径。
+- Windows：安装 WinRAR。程序随后检查注册表和标准安装目录。
+- macOS：项目内含官方 7-Zip 26.02 universal `7zz`；RAR 可安装到系统。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`；若要私有注入 RAR，设置 `BATCHCOMPRESS_RAR_DIR` 为同时含 `rar`、`unrar` 的目录。
+- Linux：项目内分别包含官方 7-Zip 25.01 x64、ARM64 `7zz`；RAR 可安装到系统。
 
 仅 `rar` 可用于创建 RAR 归档；`unrar` 不能完成压缩。
 
@@ -37,7 +38,7 @@ dotnet run --project BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.c
 命令行示例：
 
 ```bash
-# 精确压缩一个目录为 7z；密码从文件读取，不出现在进程参数中
+# 精确压缩一个目录为 7z；密码从文件读取，不必直接写在本工具命令行中
 dotnet run --project BatchCompress.Avalonia.csproj -- compress \
   --input ./data --output ./archives --format 7z \
   --password-file ./password.txt --test --verbose
@@ -53,6 +54,7 @@ dotnet run --project BatchCompress.Avalonia.csproj -- compress \
 ```
 
 使用 `--help` 查看所有选项。参数错误返回 `2`，任务失败返回 `1`，Ctrl+C 取消返回 `130`。完整语义见[命令行参考](文档/COMMAND_LINE.md)。
+归档子进程参数与原始日志会保留密码，日志不得作为可公开数据处理。
 
 macOS 打包、安装与启动：
 

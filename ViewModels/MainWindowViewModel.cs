@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using System.Windows.Input;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Avalonia.Threading;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
 using BatchCompress.Avalonia.Core.Services;
@@ -51,6 +52,20 @@ public partial class MainWindowViewModel : ViewModelBase
         public bool ShutdownAfterComplete { get; set; }
         public string PasswordQueryFileName { get; set; } = string.Empty;
         public string PasswordQueryResult { get; set; } = string.Empty;
+        public int CompressionLevel { get; set; } = 1;
+        public bool SolidArchive { get; set; } = true;
+        public bool EnableVolume { get; set; } = true;
+        public string VolumeSize { get; set; } = "20";
+        public int VolumeUnit { get; set; }
+        public int RecoveryRecordPercent { get; set; }
+        public bool LockArchive { get; set; }
+        public bool QuickOpen { get; set; }
+        public bool TestArchive { get; set; }
+        public bool EnableComment { get; set; } = true;
+        public string CommentFilePath { get; set; } = "注释.txt";
+        public string TempDirectory { get; set; } = string.Empty;
+        public bool AddEnclosures { get; set; } = true;
+        public string EnclosureList { get; set; } = string.Empty;
     }
 
     // 本地化支持。
@@ -439,7 +454,7 @@ public partial class MainWindowViewModel : ViewModelBase
                        "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
 
         // GPT-5, 2026-08-05：仅在剪贴板文本是现有目录时采用，绝不把任意复制文本作为路径。
-        Task.Run(async () =>
+        Dispatcher.UIThread.Post(async () =>
         {
             try
             {
@@ -1147,9 +1162,7 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task QueryPasswordAsync()
     {
-        await Task.Run(async () =>
-        {
-            var filename = PasswordQueryFileName + "." + Extension;
+        var filename = PasswordQueryFileName + "." + Extension;
             var passwordName = PasswordUtility.GetPasswordSourceName(
                 filename,
                 PasswordNameMode == (int)Core.Models.PasswordNameMode.BaseName
@@ -1175,9 +1188,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
             CommandLog += string.Join("\n", results) + "\n";
 
-            // 将最终候选密码复制到剪贴板。
-            await _systemIntegration.WriteClipboardTextAsync(finalPassword);
-        });
+        // 将最终候选密码复制到剪贴板。
+        await _systemIntegration.WriteClipboardTextAsync(finalPassword);
     }
 
     [RelayCommand]
@@ -1317,6 +1329,20 @@ public partial class MainWindowViewModel : ViewModelBase
             ShutdownAfterComplete = state.ShutdownAfterComplete;
             PasswordQueryFileName = state.PasswordQueryFileName;
             PasswordQueryResult = state.PasswordQueryResult;
+            CompressionLevel = state.CompressionLevel;
+            SolidArchive = state.SolidArchive;
+            EnableVolume = state.EnableVolume;
+            VolumeSize = state.VolumeSize;
+            VolumeUnit = state.VolumeUnit;
+            RecoveryRecordPercent = state.RecoveryRecordPercent;
+            LockArchive = state.LockArchive;
+            QuickOpen = state.QuickOpen;
+            TestArchive = state.TestArchive;
+            EnableComment = state.EnableComment;
+            CommentFilePath = state.CommentFilePath;
+            TempDirectory = state.TempDirectory;
+            AddEnclosures = state.AddEnclosures;
+            EnclosureList = state.EnclosureList;
         }
         finally
         {
@@ -1324,11 +1350,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(SourcePathLabel));
-        Task.Run(async () =>
-        {
-            await RefreshFileListAsync();
-            await UpdateTotalSizeAsync();
-        });
+        QueueRefresh(includeTotalSize: true);
     }
 
     private void SaveOperationTabState(OperationTabState state)
@@ -1350,6 +1372,20 @@ public partial class MainWindowViewModel : ViewModelBase
         state.ShutdownAfterComplete = ShutdownAfterComplete;
         state.PasswordQueryFileName = PasswordQueryFileName;
         state.PasswordQueryResult = PasswordQueryResult;
+        state.CompressionLevel = CompressionLevel;
+        state.SolidArchive = SolidArchive;
+        state.EnableVolume = EnableVolume;
+        state.VolumeSize = VolumeSize;
+        state.VolumeUnit = VolumeUnit;
+        state.RecoveryRecordPercent = RecoveryRecordPercent;
+        state.LockArchive = LockArchive;
+        state.QuickOpen = QuickOpen;
+        state.TestArchive = TestArchive;
+        state.EnableComment = EnableComment;
+        state.CommentFilePath = CommentFilePath;
+        state.TempDirectory = TempDirectory;
+        state.AddEnclosures = AddEnclosures;
+        state.EnclosureList = EnclosureList;
     }
 
     partial void OnSourceModeChanged(int value)
@@ -1360,7 +1396,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         // 来源模式改变后重新加载文件列表。
-        Task.Run(async () => await RefreshFileListAsync());
+        QueueRefresh(includeTotalSize: false);
     }
 
     partial void OnSourcePathChanged(string value)
@@ -1375,12 +1411,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // 当前页的 TXT 来源在路径改变后重新解析清单。
             if (SourceMode == 0)
             {
-                Task.Run(async () =>
-                {
-                    await Task.Delay(500); // 防抖，避免连续编辑路径时重复扫描。
-                    await RefreshFileListAsync();
-                    await UpdateTotalSizeAsync();
-                });
+                QueueRefresh(includeTotalSize: true, delay: true);
             }
         }
         else
@@ -1468,12 +1499,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (!string.IsNullOrEmpty(value))
         {
-            Task.Run(async () =>
-            {
-                await Task.Delay(500); // 防抖，避免连续编辑扩展名时重复计算。
-                await RefreshFileListAsync();
-                await UpdateTotalSizeAsync();
-            });
+            QueueRefresh(includeTotalSize: true, delay: true);
         }
         else
         {
@@ -1483,38 +1509,27 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private async Task UpdateTotalSizeAsync()
     {
-        await Task.Run(() =>
+        var targetPath = SaveFilePath;
+        var calculation = await Task.Run(() => CalculateDirectorySize(targetPath));
+        if (!string.Equals(SaveFilePath, targetPath, StringComparison.Ordinal))
         {
-            try
-            {
-                // 两种目录相关模式都以 SaveFilePath 作为统计来源。
-                string targetPath = SaveFilePath;
+            return;
+        }
 
-                if (!string.IsNullOrEmpty(targetPath) && Directory.Exists(targetPath))
-                {
-                    // 计算目录中所有候选文件的总大小。
-                    var size = CalculateDirectorySize(targetPath);
-                    TotalSizeGB = size / (1024.0 * 1024.0 * 1024.0); // 将字节换算为 GB。
-                }
-                else
-                {
-                    TotalSizeGB = 0;
-                }
-            }
-            catch (Exception ex)
-            {
-                CommandLog += $"Error calculating total size: {ex.Message}\n";
-                TotalSizeGB = 0;
-            }
-        });
+        TotalSizeGB = calculation.Size / (1024.0 * 1024.0 * 1024.0);
+        foreach (var error in calculation.Errors)
+        {
+            CommandLog += error + "\n";
+        }
     }
 
-    private long CalculateDirectorySize(string path)
+    private static (long Size, List<string> Errors) CalculateDirectorySize(string path)
     {
         if (!Directory.Exists(path))
-            return 0;
+            return (0, []);
 
         long size = 0;
+        var errors = new List<string>();
 
         try
         {
@@ -1533,15 +1548,32 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
                 catch (Exception ex)
                 {
-                    CommandLog += $"Error getting file size for {file}: {ex.Message}\n";
+                    errors.Add($"Error getting file size for {file}: {ex.Message}");
                 }
             }
         }
         catch (Exception ex)
         {
-            CommandLog += $"Error accessing directory {path}: {ex.Message}\n";
+            errors.Add($"Error accessing directory {path}: {ex.Message}");
         }
 
-        return size;
+        return (size, errors);
+    }
+
+    private void QueueRefresh(bool includeTotalSize, bool delay = false)
+    {
+        Dispatcher.UIThread.Post(async () =>
+        {
+            if (delay)
+            {
+                await Task.Delay(500);
+            }
+
+            await RefreshFileListAsync();
+            if (includeTotalSize)
+            {
+                await UpdateTotalSizeAsync();
+            }
+        });
     }
 }

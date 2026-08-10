@@ -131,6 +131,8 @@ check_not_contains scan-default-processed-extract "$GEN/scan-default-skip.stdout
 run_case scan-no-skip 0 "${APP[@]}" compress --source "$FIXTURE/来源目录" -o "$OUT/scan-no-skip" -e 7z --dry-run --no-skip-processed
 check_contains scan-no-skip-processed "$GEN/scan-no-skip.stdout" "待跳过【已压缩】"
 run_case scan-explicit-inputs 0 "${APP[@]}" compress --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/子目录" -o "$OUT/scan-inputs" -e 7z --dry-run
+run_case scan-equivalent-inputs 0 "${APP[@]}" compress --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/./普通文本.txt" -o "$OUT/scan-equivalent-inputs" -e 7z --dry-run
+check_contains scan-equivalent-inputs-deduplicated "$GEN/scan-equivalent-inputs.stdout" "Total: 1."
 run_case compression-list-as-inputs 0 "${APP[@]}" compress --input "$FIXTURE/来源目录/普通文本.txt" --input "$FIXTURE/来源目录/带空格 文件.txt" -o "$OUT/input-archives" -e 7z --no-random-password --test
 check_file input-archives-ordinary "$OUT/input-archives/普通文本.txt.7z"
 check_file input-archives-spaces "$OUT/input-archives/带空格 文件.txt.7z"

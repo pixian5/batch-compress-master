@@ -403,7 +403,7 @@ public class BatchOperationService
             }
 
             // 使用来源项目名称构造输出归档名称。
-            var outputFileName = name + "." + options.Extension;
+            var outputFileName = name + "." + normalizedFormat;
             var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, sourcePath);
             var outputPath = Path.Combine(outputDirectory, outputFileName);
 
@@ -445,7 +445,7 @@ public class BatchOperationService
             // GPT-5, 2026-08-05：每个来源项目只转换一次批处理默认值到更窄的引擎契约。
             var archiveOptions = new ArchiveOptions
             {
-                ArchiveFormat = options.Extension,
+                ArchiveFormat = normalizedFormat,
                 Password = password,
                 CompressionLevel = options.CompressionLevel,
                 SolidArchive = options.SolidArchive,
@@ -458,7 +458,7 @@ public class BatchOperationService
                 ExistingFileMode = options.ExistingFileMode,
                 RecoveryRecordPercent = options.RecoveryRecordPercent,
                 LockArchive = options.LockArchive,
-                RarStoreOnlyExtensions = options.Extension.Equals("rar", StringComparison.OrdinalIgnoreCase)
+                RarStoreOnlyExtensions = normalizedFormat.Equals("rar", StringComparison.OrdinalIgnoreCase)
                     ? options.RarStoreOnlyExtensions
                     : null,
                 VolumeSize = !string.IsNullOrEmpty(options.VolumeSize) ?

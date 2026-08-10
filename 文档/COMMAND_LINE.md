@@ -1,6 +1,6 @@
 # 命令行参考
 
-GPT-5，2026-08-06：命令行与 GUI 共用批处理服务和归档引擎，支持 RAR、ZIP、7z。RAR 使用 RAR，ZIP/7z 使用官方 7zz；参数解析错误不会启动图形界面。解析器由项目内部维护，不依赖 System.CommandLine 预览期 API。
+GPT-5，2026-08-10：命令行与 GUI 共用批处理服务和归档引擎。创建支持 RAR、7z、ZIP、TAR、GZIP、BZIP2、XZ、WIM；解压还支持格式目录中由 7zz 读取的只读格式。RAR 使用外部 RAR，其他格式使用官方 7zz；参数解析错误不会启动图形界面。解析器由项目内部维护，不依赖 System.CommandLine 预览期 API。
 
 ## 调用形式
 
@@ -28,7 +28,7 @@ macOS 应用包中的可执行文件：
 | `--input PATH` | 精确输入，可重复。压缩时目录本身作为一个归档来源。 |
 | `--text-file PATH` | 仅用于解压；文件名和密码交替排列。`--source` 可作为相对文件名基准目录。 |
 | `--output PATH` | 必填输出目录；正式执行时不存在则创建，dry-run 不创建。 |
-| `--format rar|zip|7z` | 创建格式或解压目录筛选格式，别名为 `--extension`、`-e`。 |
+| `--format EXT` | 创建可用 `rar`、`7z`、`zip`、`tar`、`gz`、`bz2`、`xz`、`wim`；解压可用格式目录中的任一可读后缀。别名为 `--extension`、`-e`。 |
 
 7z 数字分卷目录只把 `.7z.001` 作为任务入口；移动分卷前会检查 `【已解压】` 下的整组目标，发现冲突时保留整组源卷，不删除已有目标。移动或删除失败会单独计入 `PostProcessFailed`。
 

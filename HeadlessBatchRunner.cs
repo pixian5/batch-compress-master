@@ -288,6 +288,7 @@ public class HeadlessBatchRunner
         paths.AddRange(_options.InputPaths.Where(path => File.Exists(path) || Directory.Exists(path)));
         return paths
             .Where(path => !SystemMetadataFileFilter.ShouldSkip(path))
+            .Select(Path.GetFullPath)
             .Distinct(StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
