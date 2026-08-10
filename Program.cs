@@ -2,6 +2,8 @@
 using System;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Services;
 
@@ -58,6 +60,12 @@ sealed class Program
             return RunHeadlessAsync(options).GetAwaiter().GetResult();
         }
 
+        // macOS 的 Avalonia Native 渲染计时器依赖 CoreVideo 的 CVDisplayLink。
+        // 显示器刚唤醒、切换或应用从 Finder/登录项启动时，该 API 可能暂时返回
+        // kCVReturnInvalidArgument (-6661)。先等待显示链稳定，避免 Avalonia 在
+        // 窗口创建前直接抛出未处理异常；命令行模式不会经过这里。
+        WaitForMacOsDisplayLink();
+
         // GPT-5, 2026-08-05：GUI 模式拥有桌面生命周期，仅在最后一个窗口关闭后返回。
         BuildAvaloniaApp().StartWithClassicDesktopLifetime(applicationArgs);
         return 0;
@@ -69,7 +77,7 @@ sealed class Program
     private static async Task<int> RunHeadlessAsync(CommandLineOptions options)
     {
         using var logger = new FileLoggerService(options.LogFile);
-        
+
         try
         {
             var runner = new HeadlessBatchRunner(options, logger);
@@ -81,6 +89,60 @@ sealed class Program
             Console.Error.WriteLine($"Fatal error: {ex.Message}");
             return 1;
         }
+    }
+
+    private const string CoreVideoLibrary = "/System/Library/Frameworks/CoreVideo.framework/CoreVideo";
+
+    [DllImport(CoreVideoLibrary, ExactSpelling = true)]
+    private static extern int CVDisplayLinkCreateWithActiveCGDisplays(out IntPtr displayLink);
+
+    [DllImport(CoreVideoLibrary, ExactSpelling = true)]
+    private static extern void CVDisplayLinkRelease(IntPtr displayLink);
+
+    private static void WaitForMacOsDisplayLink()
+    {
+        if (!OperatingSystem.IsMacOS())
+        {
+            return;
+        }
+
+        var lastNotice = DateTime.UtcNow;
+        while (true)
+        {
+            if (HasDisplayLink())
+            {
+                // 连续两次成功且间隔一个短暂的运行循环窗口，覆盖显示器唤醒/切换竞态。
+                Thread.Sleep(100);
+                if (HasDisplayLink())
+                {
+                    return;
+                }
+            }
+
+            if (DateTime.UtcNow - lastNotice >= TimeSpan.FromSeconds(10))
+            {
+                Console.Error.WriteLine("等待 macOS 显示器就绪后启动图形界面...");
+                lastNotice = DateTime.UtcNow;
+            }
+
+            Thread.Sleep(500);
+        }
+    }
+
+    private static bool HasDisplayLink()
+    {
+        var result = CVDisplayLinkCreateWithActiveCGDisplays(out var displayLink);
+        if (result != 0)
+        {
+            return false;
+        }
+
+        if (displayLink != IntPtr.Zero)
+        {
+            CVDisplayLinkRelease(displayLink);
+        }
+
+        return true;
     }
 
     // GPT-5, 2026-08-05：保持构建器无副作用，因为 Avalonia 设计器也会在 Program.Main 之外调用它。
