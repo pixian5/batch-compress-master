@@ -9,7 +9,8 @@ FIXTURE="$ROOT/测试夹具/全功能测试"
 OUT="$FIXTURE/输出"
 TMP="$FIXTURE/临时"
 GEN="$FIXTURE/生成物"
-APP=(dotnet run --project "$ROOT/BatchCompress.Avalonia.csproj" --no-build --)
+# 全功能夹具固定运行已验证的 Release 产物，避免 --no-build 意外复用残留 Debug 输出。
+APP=(dotnet run --project "$ROOT/BatchCompress.Avalonia.csproj" --configuration Release --no-build --)
 
 PASS_COUNT=0
 FAIL_COUNT=0
