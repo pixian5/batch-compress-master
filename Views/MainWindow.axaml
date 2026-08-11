@@ -78,10 +78,7 @@
             <!-- GPT-5, 2026-08-05：压缩控件直接绑定 MainWindowViewModel，并在操作开始时快照。 -->
             <Grid ColumnDefinitions="*" Margin="0,5" IsVisible="{Binding IsCompressionTab}">
                 <!-- Left Column: Compression Options -->
-                <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
-                    <Expander.Header>
-                        <TextBlock Text="{Binding L.CompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                    </Expander.Header>
+                <StackPanel Grid.Column="0" Spacing="10" HorizontalAlignment="Stretch">
                     <StackPanel Spacing="10">
 
                             <Border BorderBrush="LightGray" BorderThickness="1" Padding="8,8,8,4" CornerRadius="5">
@@ -174,15 +171,12 @@
                                 </StackPanel>
                             </Border>
                         </StackPanel>
-                    </Expander>
+                    </StackPanel>
                 </Grid>
 
             <!-- 解压页仅显示解压实际会读取的参数，避免压缩专属设置造成误导。 -->
             <Grid ColumnDefinitions="*" Margin="0,5" IsVisible="{Binding IsDecompressionTab}">
-                <Expander Grid.Column="0" IsExpanded="True" HorizontalAlignment="Stretch">
-                    <Expander.Header>
-                        <TextBlock Text="{Binding L.DecompressionOptions}" FontWeight="Bold" FontSize="14" VerticalAlignment="Center"/>
-                    </Expander.Header>
+                <StackPanel Grid.Column="0" Spacing="10" HorizontalAlignment="Stretch">
 
                     <StackPanel Spacing="10">
                         <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
@@ -230,7 +224,7 @@
                             </StackPanel>
                         </Border>
                     </StackPanel>
-                </Expander>
+                </StackPanel>
             </Grid>
 
             <!-- GPT-5, 2026-08-05：命令依据 IsOperating 保持启用/禁用，防止并发 WinRAR 批处理。 -->
