@@ -49,7 +49,7 @@
                               HorizontalScrollBarVisibility="Disabled"
                               VerticalScrollBarVisibility="Visible"
                               IsVisible="{Binding IsOperationTab}">
-                    <StackPanel Spacing="10">
+                    <StackPanel Spacing="10" Margin="8,0,8,0">
 
             <!-- GPT-5, 2026-08-05：来源和输出路径分离，因为旧版 TXT 模式从 SaveFilePath 解析列表项。 -->
             <Border BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5" IsVisible="{Binding IsOperationTab}">
@@ -324,7 +324,7 @@
                                           HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                                 <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsReadOnly="False" BorderThickness="0" HorizontalAlignment="Stretch"
-                                         VerticalAlignment="Stretch" />
+                                         VerticalAlignment="Stretch" Margin="8,0,8,0" />
                             </ScrollViewer>
                         </TabItem>
 
@@ -334,7 +334,7 @@
                                           HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                                 <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsReadOnly="True" BorderThickness="0" Foreground="Green"
-                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,8,0" />
                             </ScrollViewer>
                         </TabItem>
 
@@ -344,7 +344,7 @@
                                           HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                                 <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsReadOnly="True" BorderThickness="0" Foreground="Red"
-                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" />
+                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,8,0" />
                             </ScrollViewer>
                         </TabItem>
 
@@ -355,7 +355,7 @@
                                           VerticalContentAlignment="Stretch">
                                 <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap"
                                          IsReadOnly="True" BorderThickness="0" HorizontalAlignment="Stretch"
-                                         VerticalAlignment="Stretch" />
+                                         VerticalAlignment="Stretch" Margin="8,0,8,0" />
                             </ScrollViewer>
                         </TabItem>
                     </TabControl>
