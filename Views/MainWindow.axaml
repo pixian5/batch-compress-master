@@ -23,7 +23,7 @@
         <vm:MainWindowViewModel/>
     </Design.DataContext>
 
-    <Grid RowDefinitions="Auto,*" Margin="10" RowSpacing="10">
+    <Grid RowDefinitions="Auto,*" Margin="16,10,16,10" RowSpacing="10">
 
             <!-- 一级导航：操作页共用同一套状态，日志页集中显示四类运行记录。 -->
             <Border Background="#F4F6F8" BorderBrush="#D8DEE4" BorderThickness="1" Padding="4" CornerRadius="6">
