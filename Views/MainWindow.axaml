@@ -320,8 +320,8 @@
                     </StackPanel>
                     <ScrollViewer Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                        <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap"
-                                 IsReadOnly="False" BorderThickness="0" HorizontalAlignment="Stretch"
+                        <TextBox x:Name="SourceFileListTextBox" Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap"
+                                 IsReadOnly="{Binding IsOperating}" BorderThickness="0" HorizontalAlignment="Stretch"
                                  VerticalAlignment="Stretch" Margin="8,0,8,0" />
                     </ScrollViewer>
             </Grid>

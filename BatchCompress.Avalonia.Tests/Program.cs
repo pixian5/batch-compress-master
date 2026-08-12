@@ -19,6 +19,7 @@ internal static class Program
             ("取消传播", TestCancellation),
             ("异步输出与参数边界", TestProcessOutputAndArgumentBoundaries),
             ("完整命令日志参数", TestCommandLogArguments),
+            ("当前来源路径进度", TestCurrentSourcePathProgress),
             ("空保存路径回退", TestOutputPathFallback),
             ("恢复记录与旧密码", TestRecoveryRecordAndLegacyPasswords),
             ("跨平台系统元数据过滤", TestSystemMetadataFiltering),
@@ -315,6 +316,36 @@ internal static class Program
         finally
         {
             if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static async Task TestCurrentSourcePathProgress()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-progress-path-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "same-name.txt");
+        Directory.CreateDirectory(root);
+        File.WriteAllText(source, "source");
+
+        try
+        {
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(new TestArchiveEngine(), new TestSystemIntegration()).BatchCompressAsync(
+                [source],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "out"),
+                    Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            Assert(snapshots.Any(snapshot => string.Equals(snapshot.CurrentSourcePath, source, StringComparison.Ordinal)),
+                "进度快照必须保留完整来源路径，以便 GUI 定位并高亮当前行");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
         }
     }
 

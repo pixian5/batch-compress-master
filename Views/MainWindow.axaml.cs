@@ -21,6 +21,7 @@ namespace BatchCompress.Avalonia.Views;
 public partial class MainWindow : Window
 {
     private ScrollViewer? _commandLogScrollViewer;
+    private TextBox? _sourceFileListTextBox;
     private double _lastNormalWidth;
     private double _lastNormalHeight;
     private int _lastNormalX;
@@ -304,6 +305,7 @@ public partial class MainWindow : Window
         UpdateZoomButtonText();
         // 查找命令日志滚动容器。
         _commandLogScrollViewer = this.FindControl<ScrollViewer>("CommandLogScrollViewer");
+        _sourceFileListTextBox = this.FindControl<TextBox>("SourceFileListTextBox");
         
         // 订阅 CommandLog 属性变化。
         if (DataContext is MainWindowViewModel viewModel)
@@ -342,6 +344,78 @@ public partial class MainWindow : Window
                     _commandLogScrollViewer.ScrollToEnd();
                 }, global::Avalonia.Threading.DispatcherPriority.Background);
             }
+        }
+
+        if (e.PropertyName == nameof(MainWindowViewModel.CurrentSourcePath) &&
+            sender is MainWindowViewModel viewModel)
+        {
+            if (string.IsNullOrWhiteSpace(viewModel.CurrentSourcePath))
+            {
+                ClearCurrentSourceHighlight();
+            }
+            else
+            {
+                HighlightCurrentSourceLine(viewModel.CurrentSourcePath, viewModel.CurrentFile);
+            }
+        }
+    }
+
+    private void ClearCurrentSourceHighlight()
+    {
+        if (_sourceFileListTextBox is null)
+        {
+            return;
+        }
+
+        global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            _sourceFileListTextBox.SelectionStart = 0;
+            _sourceFileListTextBox.SelectionEnd = 0;
+        }, global::Avalonia.Threading.DispatcherPriority.Background);
+    }
+
+    private void HighlightCurrentSourceLine(string sourcePath, string fileName)
+    {
+        if (_sourceFileListTextBox is null || string.IsNullOrWhiteSpace(sourcePath))
+        {
+            return;
+        }
+
+        global::Avalonia.Threading.Dispatcher.UIThread.Post(() =>
+        {
+            var text = _sourceFileListTextBox.Text ?? string.Empty;
+            var lineStart = 0;
+            var lineNumber = 0;
+            foreach (var line in text.Split('\n'))
+            {
+                var lineLength = line.TrimEnd('\r').Length;
+                var candidate = line.Trim();
+                if (PathsMatch(candidate, sourcePath))
+                {
+                    _sourceFileListTextBox.SelectionStart = lineStart;
+                    _sourceFileListTextBox.SelectionEnd = lineStart + lineLength;
+                    _sourceFileListTextBox.ScrollToLine(lineNumber);
+                    return;
+                }
+
+                lineStart += line.Length + 1;
+                lineNumber++;
+            }
+        }, global::Avalonia.Threading.DispatcherPriority.Background);
+    }
+
+    private static bool PathsMatch(string candidate, string sourcePath)
+    {
+        try
+        {
+            return string.Equals(
+                Path.GetFullPath(candidate),
+                Path.GetFullPath(sourcePath),
+                OperatingSystem.IsWindows() ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal);
+        }
+        catch
+        {
+            return string.Equals(candidate, sourcePath, StringComparison.Ordinal);
         }
     }
     

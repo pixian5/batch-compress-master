@@ -10,6 +10,8 @@ namespace BatchCompress.Avalonia.Core.Models;
 public class OperationProgressInfo
 {
     public string CurrentFile { get; set; } = string.Empty;
+    // GUI uses the full source path to locate the active row even when filenames repeat.
+    public string CurrentSourcePath { get; set; } = string.Empty;
     public int SuccessCount { get; set; }
     public int FailCount { get; set; }
     public int PostProcessFailCount { get; set; }

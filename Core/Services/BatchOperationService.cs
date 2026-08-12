@@ -392,6 +392,7 @@ public class BatchOperationService
 
             var name = Path.GetFileName(sourcePath);
             progressInfo.CurrentFile = name;
+            progressInfo.CurrentSourcePath = sourcePath;
             Log(LogLevel.Debug, $"Processing: {name}");
 
             // 按选项跳过已经完成压缩的项目。
@@ -748,6 +749,7 @@ public class BatchOperationService
 
             var archiveName = Path.GetFileName(archivePath);
             progressInfo.CurrentFile = archiveName;
+            progressInfo.CurrentSourcePath = archivePath;
             Log(LogLevel.Debug, $"Processing: {archiveName}");
 
             // 按选项跳过已经完成解压的归档。
@@ -953,6 +955,7 @@ public class BatchOperationService
         bool isError) => new()
         {
             CurrentFile = source.CurrentFile,
+            CurrentSourcePath = source.CurrentSourcePath,
             SuccessCount = source.SuccessCount,
             FailCount = source.FailCount,
             PostProcessFailCount = source.PostProcessFailCount,

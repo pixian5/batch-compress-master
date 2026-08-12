@@ -361,6 +361,9 @@ public partial class MainWindowViewModel : ViewModelBase
     private string _currentFile = "Ready";
 
     [ObservableProperty]
+    private string _currentSourcePath = string.Empty;
+
+    [ObservableProperty]
     private int _successCount = 0;
 
     [ObservableProperty]
@@ -812,6 +815,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var progress = new Progress<OperationProgressInfo>(info =>
             {
                 CurrentFile = info.CurrentFile;
+                CurrentSourcePath = info.CurrentSourcePath;
                 SuccessCount = info.SuccessCount;
                 FailCount = info.FailCount;
                 PostProcessFailCount = info.PostProcessFailCount;
@@ -884,6 +888,7 @@ public partial class MainWindowViewModel : ViewModelBase
         finally
         {
             IsOperating = false;
+            CurrentSourcePath = string.Empty;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
         }
@@ -977,6 +982,7 @@ public partial class MainWindowViewModel : ViewModelBase
             var progress = new Progress<OperationProgressInfo>(info =>
             {
                 CurrentFile = info.CurrentFile;
+                CurrentSourcePath = info.CurrentSourcePath;
                 SuccessCount = info.SuccessCount;
                 FailCount = info.FailCount;
                 PostProcessFailCount = info.PostProcessFailCount;
@@ -1049,6 +1055,7 @@ public partial class MainWindowViewModel : ViewModelBase
         finally
         {
             IsOperating = false;
+            CurrentSourcePath = string.Empty;
             _cancellationTokenSource?.Dispose();
             _cancellationTokenSource = null;
         }
