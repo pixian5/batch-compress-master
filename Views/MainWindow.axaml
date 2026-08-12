@@ -25,7 +25,7 @@
 
     <Grid RowDefinitions="Auto,*" Margin="16,10,16,10" RowSpacing="10">
 
-            <!-- 一级导航：操作页共用同一套状态，日志页集中显示四类运行记录。 -->
+            <!-- 一级导航：配置、开始和三类日志均为独立页面。 -->
             <Border Background="#F4F6F8" BorderBrush="#D8DEE4" BorderThickness="1" Padding="4" CornerRadius="6">
                 <Grid ColumnDefinitions="*,Auto,8,Auto">
                     <TabControl Grid.Column="0" SelectedIndex="{Binding ActiveTab}" Background="Transparent" BorderThickness="0"
@@ -33,6 +33,9 @@
                         <TabItem Header="{Binding L.CompressionTab}" Padding="24,9" FontWeight="SemiBold" />
                         <TabItem Header="{Binding L.DecompressionTab}" Padding="24,9" FontWeight="SemiBold" />
                         <TabItem Header="{Binding L.StartTab}" Padding="24,9" FontWeight="SemiBold" />
+                        <TabItem Header="{Binding SuccessLogTabHeader}" Padding="24,9" FontWeight="SemiBold" />
+                        <TabItem Header="{Binding FailLogTabHeader}" Padding="24,9" FontWeight="SemiBold" />
+                        <TabItem Header="{Binding CommandLogTabHeader}" Padding="24,9" FontWeight="SemiBold" />
                     </TabControl>
                     <TextBlock Grid.Column="1" Text="{Binding L.LanguageLabel}" VerticalAlignment="Center"/>
                     <ComboBox Grid.Column="3" ItemsSource="{Binding AvailableLanguages}"
@@ -230,7 +233,7 @@
                     </StackPanel>
                 </ScrollViewer>
 
-            <Grid IsVisible="{Binding IsLogsTab}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+            <Grid IsVisible="{Binding IsStartTab}" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                   RowDefinitions="Auto,*" RowSpacing="10">
                 <!-- GPT-5, 2026-08-05：开始页集中放置操作按钮、状态统计和日志。 -->
                 <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
@@ -306,61 +309,55 @@
                     </StackPanel>
                 </Border>
 
-            <!-- GPT-5, 2026-08-05：将可编辑来源输入与只读结果、命令诊断信息分离。 -->
+            <!-- 开始页保留可编辑的当前来源列表。 -->
             <Grid Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                   RowDefinitions="Auto,*" RowSpacing="6">
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="{Binding L.LogsTab}" FontWeight="Bold" FontSize="18" LineHeight="28"
+                        <TextBlock Text="{Binding SourceFileListTabHeader}" FontWeight="Bold" FontSize="18" LineHeight="28"
                                    MinHeight="32" VerticalAlignment="Center" />
-                        <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Height="32"
-                                ToolTip.Tip="清空所有列表和日志，快捷键 Ctrl+L" />
+                        <Button Content="清空源" Command="{Binding ClearSourceListCommand}" Height="32"
+                                ToolTip.Tip="清空当前操作的源文件列表" />
                     </StackPanel>
-                    <TabControl Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                VerticalContentAlignment="Stretch"
-                                BorderThickness="0">
-                        <!-- Source File List -->
-                        <TabItem Header="{Binding SourceFileListTabHeader}">
-                            <ScrollViewer HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                                <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap"
-                                         IsReadOnly="False" BorderThickness="0" HorizontalAlignment="Stretch"
-                                         VerticalAlignment="Stretch" Margin="8,0,8,0" />
-                            </ScrollViewer>
-                        </TabItem>
-
-                        <!-- Success Log -->
-                        <TabItem Header="{Binding SuccessLogTabHeader}">
-                            <ScrollViewer HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                                <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap"
-                                         IsReadOnly="True" BorderThickness="0" Foreground="Green"
-                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,8,0" />
-                            </ScrollViewer>
-                        </TabItem>
-
-                        <!-- Fail Log -->
-                        <TabItem Header="{Binding FailLogTabHeader}">
-                            <ScrollViewer HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
-                                          HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
-                                <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap"
-                                         IsReadOnly="True" BorderThickness="0" Foreground="Red"
-                                         HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,8,0" />
-                            </ScrollViewer>
-                        </TabItem>
-
-                        <!-- Command Log -->
-                        <TabItem Header="{Binding CommandLogTabHeader}">
-                            <ScrollViewer x:Name="CommandLogScrollViewer" HorizontalAlignment="Stretch"
-                                          VerticalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                                          VerticalContentAlignment="Stretch">
-                                <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True" TextWrapping="Wrap"
-                                         IsReadOnly="True" BorderThickness="0" HorizontalAlignment="Stretch"
-                                         VerticalAlignment="Stretch" Margin="8,0,8,0" />
-                            </ScrollViewer>
-                        </TabItem>
-                    </TabControl>
+                    <ScrollViewer Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
+                                  HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                        <TextBox Text="{Binding SourceFileList}" AcceptsReturn="True" TextWrapping="Wrap"
+                                 IsReadOnly="False" BorderThickness="0" HorizontalAlignment="Stretch"
+                                 VerticalAlignment="Stretch" Margin="8,0,8,0" />
+                    </ScrollViewer>
             </Grid>
 
+            </Grid>
+
+            <!-- 三类日志提升为顶部一级标签页。 -->
+            <Grid IsVisible="{Binding IsSuccessLogTab}" RowDefinitions="Auto,*" RowSpacing="6">
+                <Button Grid.Row="0" Content="清空成功" Command="{Binding ClearSuccessLogCommand}"
+                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="清空成功记录"/>
+                <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                    <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True"
+                             BorderThickness="0" Foreground="Green" HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch" Margin="8,0,8,0"/>
+                </ScrollViewer>
+            </Grid>
+
+            <Grid IsVisible="{Binding IsFailLogTab}" RowDefinitions="Auto,*" RowSpacing="6">
+                <Button Grid.Row="0" Content="清空失败" Command="{Binding ClearFailLogCommand}"
+                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="清空失败记录"/>
+                <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
+                    <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True"
+                             BorderThickness="0" Foreground="Red" HorizontalAlignment="Stretch"
+                             VerticalAlignment="Stretch" Margin="8,0,8,0"/>
+                </ScrollViewer>
+            </Grid>
+
+            <Grid IsVisible="{Binding IsCommandLogTab}" RowDefinitions="Auto,*" RowSpacing="6">
+                <Button Grid.Row="0" Content="清空命令" Command="{Binding ClearCommandLogCommand}"
+                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="清空命令日志"/>
+                <ScrollViewer x:Name="CommandLogScrollViewer" Grid.Row="1" HorizontalContentAlignment="Stretch"
+                              VerticalContentAlignment="Stretch">
+                    <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True"
+                             TextWrapping="Wrap" IsReadOnly="True" BorderThickness="0"
+                             HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Margin="8,0,8,0"/>
+                </ScrollViewer>
             </Grid>
         </Grid>
     </Grid>

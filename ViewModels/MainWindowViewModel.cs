@@ -125,28 +125,34 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _sourceMode = 1; // 0 = 当前页 TXT 来源，1 = 当前页目录来源
 
     /// <summary>
-    /// 顶部一级导航：0=压缩配置，1=解压配置，2=开始。
+    /// 顶部一级导航：0=压缩配置，1=解压配置，2=开始，3=成功记录，4=失败记录，5=命令日志。
     /// 开始页的两个操作按钮分别使用各自配置页保存的状态。
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCompressionTab))]
     [NotifyPropertyChangedFor(nameof(IsDecompressionTab))]
-    [NotifyPropertyChangedFor(nameof(IsLogsTab))]
+    [NotifyPropertyChangedFor(nameof(IsStartTab))]
+    [NotifyPropertyChangedFor(nameof(IsSuccessLogTab))]
+    [NotifyPropertyChangedFor(nameof(IsFailLogTab))]
+    [NotifyPropertyChangedFor(nameof(IsCommandLogTab))]
     [NotifyPropertyChangedFor(nameof(IsOperationTab))]
     [NotifyPropertyChangedFor(nameof(SourcePathLabel))]
     private int _activeTab;
 
     public bool IsCompressionTab => ActiveTab == 0;
     public bool IsDecompressionTab => ActiveTab == 1;
-    public bool IsLogsTab => ActiveTab == 2;
+    public bool IsStartTab => ActiveTab == 2;
+    public bool IsSuccessLogTab => ActiveTab == 3;
+    public bool IsFailLogTab => ActiveTab == 4;
+    public bool IsCommandLogTab => ActiveTab == 5;
     public bool IsOperationTab => IsCompressionTab || IsDecompressionTab;
-    public bool IsCompressionActionVisible => IsCompressionTab || IsLogsTab;
-    public bool IsDecompressionActionVisible => IsDecompressionTab || IsLogsTab;
+    public bool IsCompressionActionVisible => IsCompressionTab || IsStartTab;
+    public bool IsDecompressionActionVisible => IsDecompressionTab || IsStartTab;
 
     private int CurrentOperationTab => ActiveTab is 0 or 1 ? ActiveTab : _lastOperationTab;
 
     private bool IsCurrentOperationTab(int operationTab) =>
-        ActiveTab == operationTab || (IsLogsTab && _lastOperationTab == operationTab);
+        ActiveTab == operationTab || (IsStartTab && _lastOperationTab == operationTab);
 
     public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;
 
@@ -1322,7 +1328,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     private void ActivateOperationStateForStart(int operationTab)
     {
-        if (!IsLogsTab || operationTab is not (0 or 1) || _lastOperationTab == operationTab)
+        if (!IsStartTab || operationTab is not (0 or 1) || _lastOperationTab == operationTab)
         {
             return;
         }
