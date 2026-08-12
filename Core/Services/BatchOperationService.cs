@@ -790,7 +790,12 @@ public class BatchOperationService
             progressInfo.IsError = false;
             progress.Report(progressInfo);
 
+            var outputDirectoryExisted = Directory.Exists(
+                string.IsNullOrWhiteSpace(options.OutputPath)
+                    ? Path.GetDirectoryName(Path.GetFullPath(archivePath)) ?? Directory.GetCurrentDirectory()
+                    : Path.GetFullPath(options.OutputPath));
             var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, archivePath);
+            var outputSnapshot = SnapshotOutputDirectory(outputDirectory);
 
             // 调用归档引擎执行解压。
             var result = await _archiveEngine.ExtractAsync(archivePath, outputDirectory, archiveOptions, cancellationToken);
@@ -885,6 +890,7 @@ public class BatchOperationService
             }
             else
             {
+                CleanupFailedExtractionOutput(outputDirectory, outputSnapshot, outputDirectoryExisted);
                 Log(LogLevel.Error, $"Extraction failed: {archiveName} - {result.ErrorMessage}");
                 progressInfo.FailCount++;
                 progressInfo.Message = $"失败: {archiveName} - {result.ErrorMessage}";
@@ -911,6 +917,76 @@ public class BatchOperationService
         {
             Log(LogLevel.Information, "Shutdown requested after completion");
             await _systemIntegration.ShutdownAsync();
+        }
+    }
+
+    private static HashSet<string> SnapshotOutputDirectory(string outputDirectory)
+    {
+        var snapshot = new HashSet<string>(StringComparer.Ordinal);
+        if (!Directory.Exists(outputDirectory))
+        {
+            return snapshot;
+        }
+
+        foreach (var path in Directory.EnumerateFileSystemEntries(outputDirectory, "*", SearchOption.AllDirectories))
+        {
+            snapshot.Add(Path.GetRelativePath(outputDirectory, path));
+        }
+
+        return snapshot;
+    }
+
+    // 解压失败时回滚引擎已经写出的新文件，避免缺卷或密码错误留下看似成功的残片。
+    private void CleanupFailedExtractionOutput(
+        string outputDirectory,
+        IReadOnlySet<string> outputSnapshot,
+        bool outputDirectoryExisted)
+    {
+        if (!Directory.Exists(outputDirectory))
+        {
+            return;
+        }
+
+        try
+        {
+            var currentEntries = Directory
+                .EnumerateFileSystemEntries(outputDirectory, "*", SearchOption.AllDirectories)
+                .Select(path => new
+                {
+                    FullPath = path,
+                    RelativePath = Path.GetRelativePath(outputDirectory, path)
+                })
+                .Where(entry => !outputSnapshot.Contains(entry.RelativePath))
+                .OrderByDescending(entry => entry.RelativePath.Length)
+                .ToArray();
+
+            foreach (var entry in currentEntries)
+            {
+                try
+                {
+                    if (File.Exists(entry.FullPath))
+                    {
+                        File.Delete(entry.FullPath);
+                    }
+                    else if (Directory.Exists(entry.FullPath))
+                    {
+                        Directory.Delete(entry.FullPath, recursive: false);
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log(LogLevel.Warning, $"清理解压失败残留失败：{entry.FullPath}：{ex.Message}");
+                }
+            }
+
+            if (!outputDirectoryExisted && !Directory.EnumerateFileSystemEntries(outputDirectory).Any())
+            {
+                Directory.Delete(outputDirectory, recursive: false);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log(LogLevel.Warning, $"清理解压失败残留失败：{outputDirectory}：{ex.Message}");
         }
     }
 

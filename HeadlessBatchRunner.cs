@@ -75,7 +75,9 @@ public class HeadlessBatchRunner
             return 1;
         }
 
-        if (!Directory.Exists(_options.OutputPath))
+        // 解压目录由 BatchOperationService 按任务创建；这样完整性预检拦截的缺卷任务不会留下空目录。
+        // 压缩仍在运行器层提前创建，便于归档引擎和附件暂存使用统一输出根目录。
+        if (_options.Compress && !Directory.Exists(_options.OutputPath))
         {
             try
             {

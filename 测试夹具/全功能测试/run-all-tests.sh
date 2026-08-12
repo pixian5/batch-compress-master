@@ -106,6 +106,20 @@ check_sha() {
   [[ "$expected_hash" == "$actual_hash" ]] && record_result 1 "$name" || record_result 0 "$name" "sha256 differs"
 }
 
+run_missing_volume_case() {
+  local name="$1" format="$2" source_prefix="$3" first_name="$4" last_name="$5" missing_name="$6"
+  local input_dir="$GEN/incomplete-$name" output_dir="$OUT/extract-incomplete-$name"
+  rm -rf "$input_dir" "$output_dir"
+  mkdir -p "$input_dir"
+  local volume_name
+  for volume_name in "$source_prefix"*; do
+    [[ "${volume_name:t}" == "$missing_name" ]] && continue
+    cp "$volume_name" "$input_dir/"
+  done
+  run_case "extract-incomplete-$name" 1 "${APP[@]}" extract --source "$input_dir" -o "$output_dir" -e "$format" --no-random-password
+  check_absent "extract-incomplete-$name-no-output" "$output_dir"
+}
+
 # 入口、帮助和严格参数校验。
 run_case cli-help 0 "${APP[@]}" --help
 run_case cli-version 0 "${APP[@]}" --version
@@ -241,6 +255,27 @@ cp "$OUT/vol7z/大文件随机.bin.7z.003" "$GEN/incomplete-7z/"
 cp "$OUT/vol7z/大文件随机.bin.7z.004" "$GEN/incomplete-7z/"
 run_case extract-incomplete-volume 1 "${APP[@]}" extract --source "$GEN/incomplete-7z" -o "$OUT/extract-incomplete" -e 7z --no-random-password
 check_not_contains incomplete-no-output "$GEN/extract-incomplete.stdout" "成功"
+
+# 真实引擎极端分卷：分别删除首卷、中间卷、末卷。末卷缺失时 7zz 可能先写出残片，
+# 业务层必须回滚新增输出；三个引擎都必须返回非零且不留下部分文件。
+run_missing_volume_case 7z-first 7z "$OUT/vol7z/大文件随机.bin.7z." \
+  大文件随机.bin.7z.001 大文件随机.bin.7z.004 大文件随机.bin.7z.001
+run_missing_volume_case 7z-middle 7z "$OUT/vol7z/大文件随机.bin.7z." \
+  大文件随机.bin.7z.001 大文件随机.bin.7z.004 大文件随机.bin.7z.002
+run_missing_volume_case 7z-last 7z "$OUT/vol7z/大文件随机.bin.7z." \
+  大文件随机.bin.7z.001 大文件随机.bin.7z.004 大文件随机.bin.7z.004
+run_missing_volume_case zip-first zip "$OUT/volzip/大文件随机.bin.zip." \
+  大文件随机.bin.zip.001 大文件随机.bin.zip.004 大文件随机.bin.zip.001
+run_missing_volume_case zip-middle zip "$OUT/volzip/大文件随机.bin.zip." \
+  大文件随机.bin.zip.001 大文件随机.bin.zip.004 大文件随机.bin.zip.002
+run_missing_volume_case zip-last zip "$OUT/volzip/大文件随机.bin.zip." \
+  大文件随机.bin.zip.001 大文件随机.bin.zip.004 大文件随机.bin.zip.004
+run_missing_volume_case rar-first rar "$OUT/volrar/大文件随机.bin.part" \
+  大文件随机.bin.part1.rar 大文件随机.bin.part4.rar 大文件随机.bin.part1.rar
+run_missing_volume_case rar-middle rar "$OUT/volrar/大文件随机.bin.part" \
+  大文件随机.bin.part1.rar 大文件随机.bin.part4.rar 大文件随机.bin.part2.rar
+run_missing_volume_case rar-last rar "$OUT/volrar/大文件随机.bin.part" \
+  大文件随机.bin.part1.rar 大文件随机.bin.part4.rar 大文件随机.bin.part4.rar
 
 # 解压已有文件策略和后处理。
 run_case extract-existing-initial 0 "${APP[@]}" extract -i "$OUT/attachment-inline/空文件.txt.7z" -o "$OUT/extract-existing" -e 7z --no-random-password --existing overwrite

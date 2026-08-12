@@ -28,6 +28,7 @@ internal static class Program
             ("压缩格式别名规范化", TestCanonicalCompressionFormat),
             ("统一归档分卷解析", TestArchiveVolumeResolver),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
+            ("解压失败残留回滚", TestFailedExtractionRollback),
             ("压缩分卷大小统计", TestCompressedVolumeSizeProgress),
             ("解压目录扫描与首卷去重", TestArchiveFolderScanning),
             ("附件根目录与空目录", TestAttachmentRootInputs),
@@ -665,6 +666,47 @@ internal static class Program
         }
     }
 
+    private static async Task TestFailedExtractionRollback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-extraction-rollback-{Guid.NewGuid():N}");
+        var archive = Path.Combine(root, "broken.7z");
+        var existingOutput = Path.Combine(root, "existing-output");
+        var freshOutput = Path.Combine(root, "fresh-output");
+        Directory.CreateDirectory(existingOutput);
+        File.WriteAllText(archive, "archive placeholder");
+        File.WriteAllText(Path.Combine(existingOutput, "keep.txt"), "keep this file");
+        try
+        {
+            var engine = new PartialFailureArchiveEngine();
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = archive, FileSize = new FileInfo(archive).Length }],
+                new BatchOperationOptions { OutputPath = existingOutput, Extension = "7z" },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            AssertEqual(1, snapshots.Last().FailCount);
+            Assert(File.Exists(Path.Combine(existingOutput, "keep.txt")), "解压失败不得删除输出目录中原有文件");
+            Assert(!File.Exists(Path.Combine(existingOutput, "partial.bin")), "解压失败必须清理新增部分文件");
+            Assert(!Directory.Exists(Path.Combine(existingOutput, "partial")), "解压失败必须清理新增目录");
+
+            engine.Reset();
+            snapshots.Clear();
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = archive, FileSize = new FileInfo(archive).Length }],
+                new BatchOperationOptions { OutputPath = freshOutput, Extension = "7z" },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            AssertEqual(1, snapshots.Last().FailCount);
+            Assert(!Directory.Exists(freshOutput), "新建输出目录在解压失败后不得残留空目录");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private static async Task TestArchiveFolderScanning()
     {
         var root = Path.Combine(Path.GetTempPath(), $"batch-compress-folder-scan-{Guid.NewGuid():N}");
@@ -1164,5 +1206,33 @@ internal static class Program
             ArchiveOptions options,
             CancellationToken cancellationToken = default) =>
             Task.FromResult(new ArchiveResult { Success = true });
+    }
+
+    private sealed class PartialFailureArchiveEngine : IArchiveEngine
+    {
+        public bool IsAvailable() => true;
+
+        public Task<ArchiveResult> CompressAsync(
+            string input,
+            string output,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default) =>
+            Task.FromResult(new ArchiveResult { Success = true });
+
+        public Task<ArchiveResult> ExtractAsync(
+            string archivePath,
+            string outputDir,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.Combine(outputDir, "partial"));
+            File.WriteAllText(Path.Combine(outputDir, "partial.bin"), "incomplete");
+            File.WriteAllText(Path.Combine(outputDir, "partial", "nested.bin"), "incomplete");
+            return Task.FromResult(new ArchiveResult { Success = false, ErrorMessage = "missing volume" });
+        }
+
+        public void Reset()
+        {
+        }
     }
 }
