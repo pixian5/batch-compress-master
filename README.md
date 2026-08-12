@@ -2,7 +2,7 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.5.6`。
+当前版本：`0.5.7`。
 
 ## 功能
 
@@ -60,8 +60,10 @@ macOS 打包、安装与启动：
 
 ```bash
 scripts/package-macos.sh
-open -n /Applications/BatchCompress.Avalonia.app
+open /Applications/BatchCompress.Avalonia.app
 ```
+
+不要使用 `open -n` 启动应用。该参数会强制创建新实例，可能在 macOS Dock 的最近使用区域留下同一应用的重复记录。
 
 测试项目覆盖格式路由、密码参数、取消、失败退出码、恢复记录、旧密码、系统元数据过滤，以及官方 `7zz` 的真实带密码压缩与解压。
 
