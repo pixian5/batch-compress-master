@@ -32,6 +32,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly OperationTabState _compressionTabState = new();
     private readonly OperationTabState _decompressionTabState = new();
     private bool _isSwitchingOperationTab;
+    private int _lastOperationTab;
 
     private sealed class OperationTabState
     {
@@ -124,8 +125,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private int _sourceMode = 1; // 0 = 当前页 TXT 来源，1 = 当前页目录来源
 
     /// <summary>
-    /// 顶部一级导航：0=压缩，1=解压，2=日志。
-    /// 操作页共用来源、输出和选项状态，日志页集中展示现有日志子页。
+    /// 顶部一级导航：0=压缩配置，1=解压配置，2=开始。
+    /// 开始页使用最近访问的配置页作为当前操作上下文。
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCompressionTab))]
@@ -139,11 +140,18 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsDecompressionTab => ActiveTab == 1;
     public bool IsLogsTab => ActiveTab == 2;
     public bool IsOperationTab => IsCompressionTab || IsDecompressionTab;
+    public bool IsCompressionActionVisible => IsCompressionTab || (IsLogsTab && _lastOperationTab == 0);
+    public bool IsDecompressionActionVisible => IsDecompressionTab || (IsLogsTab && _lastOperationTab == 1);
+
+    private int CurrentOperationTab => ActiveTab is 0 or 1 ? ActiveTab : _lastOperationTab;
+
+    private bool IsCurrentOperationTab(int operationTab) =>
+        ActiveTab == operationTab || (IsLogsTab && _lastOperationTab == operationTab);
 
     public string BrowseSourceButtonText => SourceMode == 0 ? L.SelectTxt : L.SelectDirectory;
 
     public string SourcePathWatermark => SourceMode == 0 ? L.TxtPathWatermark : L.SavePathWatermark;
-    public string SourcePathLabel => IsCompressionTab
+    public string SourcePathLabel => CurrentOperationTab == 0
         ? SourceMode == 0 ? L.CompressionTxtMode : L.CompressFolderMode
         : SourceMode == 0 ? L.FromTxtMode : L.DecompressFolderMode;
 
@@ -200,7 +208,7 @@ public partial class MainWindowViewModel : ViewModelBase
         var currentVolumeUnit = VolumeUnit;
 
         // 当前操作页只展示与自身业务匹配的 TXT 和目录来源。
-        RefreshSourceModeOptions(ActiveTab, currentSourceMode);
+        RefreshSourceModeOptions(CurrentOperationTab, currentSourceMode);
 
         // 清空并重新填充压缩级别选项。
         CompressionLevelOptions.Clear();
@@ -594,12 +602,8 @@ public partial class MainWindowViewModel : ViewModelBase
     [RelayCommand]
     private async Task RefreshFileListAsync()
     {
-        var operationTab = ActiveTab;
+        var operationTab = CurrentOperationTab;
         var sourceMode = SourceMode;
-        if (operationTab is not (0 or 1))
-        {
-            return;
-        }
 
         if (sourceMode == 0)
         {
@@ -613,7 +617,7 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         // 刷新输出目录的已有大小统计。
-        if (ActiveTab == operationTab && SourceMode == sourceMode)
+        if (IsCurrentOperationTab(operationTab) && SourceMode == sourceMode)
         {
             UpdateOutputSize();
         }
@@ -640,7 +644,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 textPath, saveFilePath, extension);
         });
 
-        if (ActiveTab != operationTab || SourceMode != 0)
+        if (!IsCurrentOperationTab(operationTab) || SourceMode != 0)
         {
             return;
         }
@@ -728,7 +732,7 @@ public partial class MainWindowViewModel : ViewModelBase
                     saveFilePath, extension, skipAlreadyProcessed);
         });
 
-        if (ActiveTab == operationTab && SourceMode == 1)
+        if (IsCurrentOperationTab(operationTab) && SourceMode == 1)
         {
             SourceFileList = string.Join(Environment.NewLine, files);
         }
@@ -748,7 +752,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (IsOperating) return;
 
-        if (!IsCompressionTab)
+        if (!IsCompressionActionVisible)
         {
             CommandLog += "压缩命令只能从压缩页启动。\n";
             return;
@@ -883,7 +887,7 @@ public partial class MainWindowViewModel : ViewModelBase
     {
         if (IsOperating) return;
 
-        if (!IsDecompressionTab)
+        if (!IsDecompressionActionVisible)
         {
             CommandLog += "解压命令只能从解压页启动。\n";
             return;
@@ -1092,17 +1096,13 @@ public partial class MainWindowViewModel : ViewModelBase
     private void ClearSourceList()
     {
         SourceFileList = string.Empty;
-        if (ActiveTab == 0)
+        if (CurrentOperationTab == 0)
         {
             _compressionTabState.SourceFileList = string.Empty;
         }
-        else if (ActiveTab == 1)
-        {
-            _decompressionTabState.SourceFileList = string.Empty;
-        }
         else
         {
-            ClearAllSourceLists();
+            _decompressionTabState.SourceFileList = string.Empty;
         }
     }
 
@@ -1181,7 +1181,7 @@ public partial class MainWindowViewModel : ViewModelBase
             results.Add("旧版兼容密码:");
             results.AddRange(PasswordUtility.GetLegacyPasswordCandidates(filename));
 
-            var finalPassword = IsCompressionTab
+            var finalPassword = CurrentOperationTab == 0
                 ? PasswordUtility.GenerateCompressionPassword(passwordName)
                 : PasswordUtility.GenerateDecompressionPassword(passwordName);
             PasswordQueryResult = finalPassword;
@@ -1301,13 +1301,17 @@ public partial class MainWindowViewModel : ViewModelBase
         if (oldValue is 0 or 1)
         {
             SaveOperationTabState(oldValue == 0 ? _compressionTabState : _decompressionTabState);
+            SetLastOperationTab(oldValue);
         }
 
         if (newValue is not (0 or 1))
         {
+            RefreshSourceModeOptions(_lastOperationTab, SourceMode);
+            OnPropertyChanged(nameof(SourcePathLabel));
             return;
         }
 
+        SetLastOperationTab(newValue);
         _isSwitchingOperationTab = true;
         try
         {
@@ -1351,6 +1355,19 @@ public partial class MainWindowViewModel : ViewModelBase
 
         OnPropertyChanged(nameof(SourcePathLabel));
         QueueRefresh(includeTotalSize: true);
+    }
+
+    private void SetLastOperationTab(int operationTab)
+    {
+        if (operationTab is not (0 or 1) || _lastOperationTab == operationTab)
+        {
+            return;
+        }
+
+        _lastOperationTab = operationTab;
+        OnPropertyChanged(nameof(IsCompressionActionVisible));
+        OnPropertyChanged(nameof(IsDecompressionActionVisible));
+        OnPropertyChanged(nameof(SourcePathLabel));
     }
 
     private void SaveOperationTabState(OperationTabState state)
