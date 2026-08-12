@@ -235,75 +235,74 @@
                 <!-- GPT-5, 2026-08-05：开始页集中放置操作按钮、状态统计和日志。 -->
                 <Border Grid.Row="0" BorderBrush="Gray" BorderThickness="1" Padding="8" CornerRadius="5">
                     <StackPanel Spacing="6">
-                        <StackPanel Orientation="Horizontal" Spacing="10">
+                        <WrapPanel>
                             <Button Content="{Binding L.Compress}" Command="{Binding CompressCommand}" Width="100" Height="36" CornerRadius="18"
                                     IsEnabled="{Binding !IsOperating}" Background="#28a745" Foreground="White"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前压缩配置批量创建归档"
-                                    IsVisible="{Binding IsCompressionActionVisible}"/>
+                                    IsVisible="{Binding IsCompressionActionVisible}" Margin="0,0,10,8"/>
                             <Button Content="{Binding L.Decompress}" Command="{Binding DecompressCommand}" Width="100" Height="36" CornerRadius="18"
                                     IsEnabled="{Binding !IsOperating}" Background="#007bff" Foreground="White"
                                     HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前解压配置批量解压归档"
-                                    IsVisible="{Binding IsDecompressionActionVisible}"/>
+                                    IsVisible="{Binding IsDecompressionActionVisible}" Margin="0,0,10,8"/>
                             <Button Content="{Binding L.Cancel}" Command="{Binding CancelOperationCommand}" Width="100" Height="36" CornerRadius="18"
                                     IsEnabled="{Binding IsOperating}" Background="#dc3545" Foreground="White"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="请求取消正在执行的任务"/>
-                            <Separator Width="1" Height="24" Background="LightGray" Margin="5,0"/>
-                            <Button Content="{Binding L.RefreshList}" Command="{Binding RefreshFileListCommand}" Width="90" Height="32" ToolTip.Tip="重新扫描当前配置的来源文件，快捷键 F5"/>
-                            <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Width="90" Height="32" ToolTip.Tip="清空所有列表和日志，快捷键 Ctrl+L"/>
-                            <Button Content="清空源" Command="{Binding ClearSourceListCommand}" Width="76" Height="32" ToolTip.Tip="清空源文件列表"/>
-                            <Button Content="清空成功" Command="{Binding ClearSuccessLogCommand}" Width="76" Height="32" ToolTip.Tip="清空成功日志"/>
-                            <Button Content="清空失败" Command="{Binding ClearFailLogCommand}" Width="76" Height="32" ToolTip.Tip="清空失败日志"/>
-                            <Button Content="清空命令" Command="{Binding ClearCommandLogCommand}" Width="76" Height="32" ToolTip.Tip="清空命令日志"/>
-                            <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开输出目录"/>
-                            <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开源目录"/>
-                            <Button Content="帮助" Command="{Binding ShowHelpCommand}" Width="70" Height="32" ToolTip.Tip="查看快捷键和功能说明"/>
-                            <Button x:Name="ZoomButton" Content="{Binding L.ZoomIn}" Click="ZoomButton_Click" Width="70" Height="32" ToolTip.Tip="在普通窗口和最大化窗口之间切换"/>
-                            <Button Content="隐藏到托盘" Command="{Binding HideWindowCommand}" Width="100" Height="32" ToolTip.Tip="隐藏窗口，程序继续在后台运行"/>
-                        </StackPanel>
+                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="请求取消正在执行的任务" Margin="0,0,18,8"/>
+                            <Button Content="{Binding L.RefreshList}" Command="{Binding RefreshFileListCommand}" Width="90" Height="32" ToolTip.Tip="重新扫描当前配置的来源文件，快捷键 F5" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Width="90" Height="32" ToolTip.Tip="清空所有列表和日志，快捷键 Ctrl+L" Margin="0,2,10,8"/>
+                            <Button Content="清空源" Command="{Binding ClearSourceListCommand}" Width="76" Height="32" ToolTip.Tip="清空源文件列表" Margin="0,2,10,8"/>
+                            <Button Content="清空成功" Command="{Binding ClearSuccessLogCommand}" Width="76" Height="32" ToolTip.Tip="清空成功日志" Margin="0,2,10,8"/>
+                            <Button Content="清空失败" Command="{Binding ClearFailLogCommand}" Width="76" Height="32" ToolTip.Tip="清空失败日志" Margin="0,2,10,8"/>
+                            <Button Content="清空命令" Command="{Binding ClearCommandLogCommand}" Width="76" Height="32" ToolTip.Tip="清空命令日志" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开输出目录" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开源目录" Margin="0,2,10,8"/>
+                            <Button Content="帮助" Command="{Binding ShowHelpCommand}" Width="70" Height="32" ToolTip.Tip="查看快捷键和功能说明" Margin="0,2,10,8"/>
+                            <Button x:Name="ZoomButton" Content="{Binding L.ZoomIn}" Click="ZoomButton_Click" Width="70" Height="32" ToolTip.Tip="在普通窗口和最大化窗口之间切换" Margin="0,2,10,8"/>
+                            <Button Content="隐藏到托盘" Command="{Binding HideWindowCommand}" Width="100" Height="32" ToolTip.Tip="隐藏窗口，程序继续在后台运行" Margin="0,2,0,8"/>
+                        </WrapPanel>
 
                         <!-- Status Display -->
-                        <StackPanel Orientation="Horizontal" Margin="0,5,0,0" Spacing="15">
-                            <StackPanel>
+                        <WrapPanel Margin="0,5,0,0">
+                            <StackPanel MinWidth="160" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.CurrentFile}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding CurrentFile}" TextWrapping="Wrap"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="70" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.Success}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding SuccessCount}" Foreground="Green" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="70" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.Failure}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding FailCount}" Foreground="Red" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="70" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.Ignored}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding IgnoreCount}" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="125" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.ProcessedSize}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding ProcessedSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="125" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.TotalFileSize}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding TotalSizeGB, StringFormat={}{0:F2}GB}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="110" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.ElapsedTime}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding ElapsedTime, StringFormat={}{0:hh\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="110" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.RemainingTime}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding RemainingTime, StringFormat={}{0:hh\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="110" Margin="0,0,15,8">
                                 <TextBlock Text="{Binding L.ProcessingSpeed}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding ProcessingSpeedDisplay}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
-                            <StackPanel>
+                            <StackPanel MinWidth="125" Margin="0,0,0,8">
                                 <TextBlock Text="{Binding L.EstimatedCompletion}" FontWeight="Bold"/>
                                 <TextBlock Text="{Binding EstimatedCompletionTime, StringFormat={}{0:HH\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
-                        </StackPanel>
+                        </WrapPanel>
                     </StackPanel>
                 </Border>
 

@@ -126,7 +126,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
     /// <summary>
     /// 顶部一级导航：0=压缩配置，1=解压配置，2=开始。
-    /// 开始页使用最近访问的配置页作为当前操作上下文。
+    /// 开始页的两个操作按钮分别使用各自配置页保存的状态。
     /// </summary>
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsCompressionTab))]
@@ -140,8 +140,8 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsDecompressionTab => ActiveTab == 1;
     public bool IsLogsTab => ActiveTab == 2;
     public bool IsOperationTab => IsCompressionTab || IsDecompressionTab;
-    public bool IsCompressionActionVisible => IsCompressionTab || (IsLogsTab && _lastOperationTab == 0);
-    public bool IsDecompressionActionVisible => IsDecompressionTab || (IsLogsTab && _lastOperationTab == 1);
+    public bool IsCompressionActionVisible => IsCompressionTab || IsLogsTab;
+    public bool IsDecompressionActionVisible => IsDecompressionTab || IsLogsTab;
 
     private int CurrentOperationTab => ActiveTab is 0 or 1 ? ActiveTab : _lastOperationTab;
 
@@ -754,9 +754,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (!IsCompressionActionVisible)
         {
-            CommandLog += "压缩命令只能从压缩页启动。\n";
+            CommandLog += "压缩命令只能从压缩配置页或开始页启动。\n";
             return;
         }
+        ActivateOperationStateForStart(0);
 
         if (ExistingFileMode == 1 && LockArchive)
         {
@@ -889,9 +890,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (!IsDecompressionActionVisible)
         {
-            CommandLog += "解压命令只能从解压页启动。\n";
+            CommandLog += "解压命令只能从解压配置页或开始页启动。\n";
             return;
         }
+        ActivateOperationStateForStart(1);
 
         try
         {
@@ -1312,11 +1314,32 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         SetLastOperationTab(newValue);
+        LoadOperationTabState(newValue);
+
+        OnPropertyChanged(nameof(SourcePathLabel));
+        QueueRefresh(includeTotalSize: true);
+    }
+
+    private void ActivateOperationStateForStart(int operationTab)
+    {
+        if (!IsLogsTab || operationTab is not (0 or 1) || _lastOperationTab == operationTab)
+        {
+            return;
+        }
+
+        SaveOperationTabState(_lastOperationTab == 0 ? _compressionTabState : _decompressionTabState);
+        SetLastOperationTab(operationTab);
+        LoadOperationTabState(operationTab);
+        OnPropertyChanged(nameof(SourcePathLabel));
+    }
+
+    private void LoadOperationTabState(int operationTab)
+    {
+        var state = operationTab == 0 ? _compressionTabState : _decompressionTabState;
         _isSwitchingOperationTab = true;
         try
         {
-            var state = newValue == 0 ? _compressionTabState : _decompressionTabState;
-            RefreshSourceModeOptions(newValue, state.SourceMode);
+            RefreshSourceModeOptions(operationTab, state.SourceMode);
             SourcePath = state.SourcePath;
             SaveFilePath = state.SaveFilePath;
             OutputPath = state.OutputPath;
@@ -1352,9 +1375,6 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             _isSwitchingOperationTab = false;
         }
-
-        OnPropertyChanged(nameof(SourcePathLabel));
-        QueueRefresh(includeTotalSize: true);
     }
 
     private void SetLastOperationTab(int operationTab)
