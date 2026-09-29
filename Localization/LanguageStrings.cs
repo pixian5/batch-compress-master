@@ -199,7 +199,16 @@ public class LanguageStrings : INotifyPropertyChanged
     public string ExtractionStarted { get; set; } = "[开始解压] {0}";
     public string ItemSucceeded { get; set; } = "成功: {0}";
     public string ItemFailed { get; set; } = "失败: {0} - {1}";
-    public string ItemSucceededWithPostProcessFailure { get; set; } = "成功但后处理失败: {0}";
+    public string ItemSucceededWithPostProcessFailure { get; set; } = "成功但后处理失败: {0}（原因：{1}）";
+    // 后处理失败原因（删除/移动/目标冲突）：既并入失败记录消息，也写入诊断日志。
+    public string PostProcessDeleteSourceFailed { get; set; } = "删除源失败：{0}：{1}";
+    public string PostProcessMoveSourceFailed { get; set; } = "移动{0}失败：{1}：{2}";
+    public string PostProcessHandleArchiveFailed { get; set; } = "处理解压归档失败：{0}：{1}";
+    public string PostProcessMoveTargetExists { get; set; } = "{0}目标已存在，已保留双方文件：{1}";
+    public string PostProcessMoveFailed { get; set; } = "移动{0}失败：{1} -> {2}：{3}";
+    public string PostProcessArchiveTargetExists { get; set; } = "解压归档目标已存在，已保留整组源卷：{0}";
+    public string PostProcessItemCompressionSource { get; set; } = "压缩源";
+    public string PostProcessItemDecompressionArchive { get; set; } = "解压归档";
     public string SizeLimitReached { get; set; } = "已达到大小上限";
     public string CannotResolveArchive { get; set; } = "无法解析: {0} - {1}";
     public string CaseAmbiguitySkipped { get; set; } = "文件名大小写存在歧义，已跳过: {0}";
@@ -210,4 +219,97 @@ public class LanguageStrings : INotifyPropertyChanged
     // 归档程序原始输出的日志前缀（后接 command/stdout/stderr 固定英文技术词）。
     public string CompressionCommandLabel { get; set; } = "压缩命令";
     public string ExtractionCommandLabel { get; set; } = "解压命令";
+
+    // GPT-5, 2026-09-30：界面文案本地化收口新增词条（提示、标签、按钮、帮助与托盘）。
+    // 来源与目标区域提示。
+    public string TooltipLanguageSwitch { get; set; } = "切换界面显示语言";
+    public string TooltipSourceMode { get; set; } = "选择从文本文件读取，或扫描源目录";
+    public string TooltipSaveFilePath { get; set; } = "选择或输入待处理文件所在目录";
+    public string TooltipBrowseSaveFile { get; set; } = "选择待处理文件目录";
+    public string TooltipTxtPath { get; set; } = "包含文件路径和密码的文本文件";
+    public string TooltipBrowseTxt { get; set; } = "选择文件列表或密码文本";
+    public string TooltipSameAsAbove { get; set; } = "将输出和临时目录设为源目录";
+    public string TooltipOutputPath { get; set; } = "压缩包或解压文件的输出目录";
+    public string TooltipBrowseOutput { get; set; } = "选择输出目录";
+
+    // 压缩选项区域提示与标签。
+    public string TooltipPasswordQueryFileName { get; set; } = "输入文件名以生成或查询兼容密码";
+    public string TooltipQueryPasswordCompression { get; set; } = "生成密码并复制当前压缩密码";
+    public string TooltipRandomPasswordCompression { get; set; } = "按文件名生成压缩密码";
+    public string TooltipCustomPasswordCompression { get; set; } = "关闭随机密码后使用此密码";
+    public string PasswordBasisLabel { get; set; } = "密码依据";
+    public string TooltipPasswordNameMode { get; set; } = "随机密码可按完整归档名或不含扩展名的文件名生成";
+    public string TooltipExtensionCompression { get; set; } = "压缩格式支持 rar、7z、zip、tar、gz、bz2、xz、wim；iso 等只读格式仅用于解压";
+    public string TooltipVerify { get; set; } = "压缩完成后使用对应归档程序校验结果";
+    public string TooltipCompressionLevel { get; set; } = "压缩率越高，处理时间通常越长";
+    public string TooltipSolid { get; set; } = "RAR 和 7z 可用，适合大量相似文件";
+    public string TooltipQuickOpen { get; set; } = "为 RAR 添加快速打开信息";
+    public string TooltipVolume { get; set; } = "按指定大小拆分归档";
+    public string TooltipEnableComment { get; set; } = "将文本文件内容写入归档注释";
+    public string TooltipSkipProcessedCompression { get; set; } = "跳过已经存在结果的文件";
+    public string TooltipTempDirectory { get; set; } = "归档程序操作时使用的临时目录";
+    public string RecoveryPercentLabel { get; set; } = "恢复记录 (%)";
+    public string TooltipRecoveryRecord { get; set; } = "RAR 恢复记录占比，范围 0 到 100";
+    public string TooltipRecoveryRecordScope { get; set; } = "仅 RAR 使用；ZIP 和 7z 会忽略该值";
+    public string TooltipMaxSizeCompression { get; set; } = "达到该总大小后停止继续处理";
+    public string LockArchive { get; set; } = "锁定归档";
+    public string TooltipLockArchive { get; set; } = "仅 RAR 使用；锁定后不能更新已有归档";
+    public string AttachmentDirectoryLabel { get; set; } = "附件目录（每行一个目录）";
+    public string TooltipAttachmentList { get; set; } = "压缩完成后附加到归档中的目录";
+    public string Browse { get; set; } = "浏览";
+    public string SelectAttachmentFolder { get; set; } = "选择附件目录";
+    public string TooltipDeleteSource { get; set; } = "仅在操作成功后删除源文件，请谨慎使用";
+    public string TooltipMoveSource { get; set; } = "仅在操作成功后移动源文件";
+    public string TooltipShutdown { get; set; } = "全部任务完成后请求系统在一分钟后关机";
+    public string CancelShutdown { get; set; } = "取消关机";
+    public string TooltipCancelShutdown { get; set; } = "取消当前已请求的系统关机";
+
+    // 解压选项区域提示与标签。
+    public string TooltipPasswordQueryFileNameDecompression { get; set; } = "输入归档文件名以生成或查询解压密码";
+    public string TooltipQueryPasswordDecompression { get; set; } = "生成密码并复制当前候选密码";
+    public string TooltipRandomPasswordDecompression { get; set; } = "按归档文件名生成解压密码";
+    public string TooltipCustomPasswordDecompression { get; set; } = "关闭随机密码后使用此解压密码";
+    public string TooltipExtensionDecompression { get; set; } = "用于目录扫描和未知归档格式的筛选";
+    public string ExistingFilesLabel { get; set; } = "已有文件：";
+    public string TooltipSkipProcessedDecompression { get; set; } = "跳过已标记为完成解压的归档";
+    public string TooltipMaxSizeDecompression { get; set; } = "达到该归档总大小后停止继续解压";
+    public string TooltipDeleteSourceDecompression { get; set; } = "解压成功后删除源归档及其分卷";
+    public string TooltipMoveSourceDecompression { get; set; } = "解压成功后移动源归档及其分卷";
+
+    // 开始页按钮提示与文案。
+    public string TooltipStartCompression { get; set; } = "按当前压缩配置批量创建归档";
+    public string TooltipStartDecompression { get; set; } = "按当前解压配置批量解压归档";
+    public string TooltipCancelOperation { get; set; } = "请求取消正在执行的任务";
+    public string TooltipRefreshList { get; set; } = "重新扫描当前配置的来源文件，快捷键 F5";
+    public string TooltipClearLogs { get; set; } = "清空所有列表和日志，快捷键 Ctrl+L";
+    public string ClearSource { get; set; } = "清空源";
+    public string ClearSourceTooltip { get; set; } = "清空源文件列表";
+    public string ClearSuccess { get; set; } = "清空成功";
+    public string ClearSuccessTooltip { get; set; } = "清空成功记录";
+    public string ClearFail { get; set; } = "清空失败";
+    public string ClearFailTooltip { get; set; } = "清空失败记录";
+    public string ClearCommand { get; set; } = "清空命令";
+    public string ClearCommandTooltip { get; set; } = "清空命令日志";
+    public string TooltipOpenOutput { get; set; } = "在系统文件管理器中打开输出目录";
+    public string TooltipOpenSource { get; set; } = "在系统文件管理器中打开源目录";
+    public string Help { get; set; } = "帮助";
+    public string TooltipHelp { get; set; } = "查看快捷键和功能说明";
+    public string TooltipZoom { get; set; } = "在普通窗口和最大化窗口之间切换";
+    public string HideToTray { get; set; } = "隐藏到托盘";
+    public string TooltipHideToTray { get; set; } = "隐藏窗口，程序继续在后台运行";
+
+    // 帮助对话框与关机确认。
+    public string HelpBody { get; set; } = "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nRAR 使用 RAR，ZIP 和 7z 使用 7-Zip；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会真正退出程序；需要后台运行时请使用“隐藏到托盘”，再通过托盘菜单显示/隐藏或退出。";
+    public string ShutdownConfirmBody { get; set; } = "系统将在一分钟后关机，是否取消？";
+    public string KeepShutdown { get; set; } = "继续关机";
+    public string SelectCompressionList { get; set; } = "选择压缩路径清单";
+
+    // 密码依据下拉选项（{0} 为扩展名）。
+    public string PasswordNameModeFileNameWithExtension { get; set; } = "文件名.{0}";
+    public string PasswordNameModeFileName { get; set; } = "文件名";
+
+    // 托盘与状态栏菜单。
+    public string TrayShowHide { get; set; } = "显示/隐藏";
+    public string TrayExit { get; set; } = "退出";
+    public string TrayTooltip { get; set; } = "批量压缩解压工具";
 }

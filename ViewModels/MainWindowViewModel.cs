@@ -25,6 +25,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
     private readonly BatchOperationService _batchOperationService;
+    // GPT-5, 2026-09-30：GUI 的文件日志器（设计器模式下为 null），把服务层诊断写入用户数据目录 logs。
+    private readonly FileLoggerService? _fileLogger;
     private CancellationTokenSource? _cancellationTokenSource;
     private DateTime _lastProgressNotification = DateTime.MinValue;
     private int _lastNotifiedCompletedCount;
@@ -195,8 +197,9 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         PasswordNameModeOptions.Clear();
-        PasswordNameModeOptions.Add($"文件名.{normalizedExtension}");
-        PasswordNameModeOptions.Add("文件名");
+        // GPT-5, 2026-09-30：密码依据选项改用本地化词条，随界面语言刷新。
+        PasswordNameModeOptions.Add(string.Format(L.PasswordNameModeFileNameWithExtension, normalizedExtension));
+        PasswordNameModeOptions.Add(L.PasswordNameModeFileName);
         PasswordNameMode = currentPasswordNameMode >= 0 && currentPasswordNameMode < PasswordNameModeOptions.Count
             ? currentPasswordNameMode
             : 0;
@@ -438,12 +441,40 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private string _passwordQueryResult = string.Empty;
 
+    // GPT-5, 2026-09-30：GUI 日志写到与窗口设置相同的用户数据目录（macOS 由 ApplicationData 映射），
+    // 不写入应用包内部；日志是辅助能力，创建失败不能阻止窗口启动。
+    private static FileLoggerService? CreateGuiFileLogger()
+    {
+        try
+        {
+            var applicationData = Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData);
+            if (string.IsNullOrWhiteSpace(applicationData))
+            {
+                applicationData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+            }
+
+            var baseDirectory = string.IsNullOrWhiteSpace(applicationData) ? AppContext.BaseDirectory : applicationData;
+            var logPath = Path.Combine(
+                baseDirectory,
+                "BatchCompress.Avalonia",
+                "logs",
+                $"batchcompress_gui_{DateTime.Now.ToString("yyyyMMdd_HHmmss")}.log");
+            return new FileLoggerService(logPath);
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
     public MainWindowViewModel()
     {
         // GPT-5, 2026-08-06：按归档格式选择 WinRAR/RAR 或官方 7zz，界面不直接依赖具体命令行工具。
         _archiveEngine = new ArchiveEngineRouter();
         _systemIntegration = new SystemIntegrationService();
-        _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration);
+        // GPT-5, 2026-09-30：GUI 把文件日志器注入批处理服务，使后处理失败原因等诊断留痕；设计器模式不写日志。
+        _fileLogger = Design.IsDesignMode ? null : CreateGuiFileLogger();
+        _batchOperationService = new BatchOperationService(_archiveEngine, _systemIntegration, _fileLogger);
 
         // GPT-5, 2026-08-05：在绑定渲染前填充可观察选项集合，并在语言变化时刷新。
         RefreshAllDropdownOptions();

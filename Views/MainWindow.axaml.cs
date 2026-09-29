@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text.Json;
 using System.Collections.Generic;
@@ -487,7 +487,7 @@ public partial class MainWindow : Window
 
         var folders = await StorageProvider.OpenFolderPickerAsync(new FolderPickerOpenOptions
         {
-            Title = "选择附件目录",
+            Title = L.SelectAttachmentFolder,
             AllowMultiple = true
         });
 
@@ -516,11 +516,12 @@ public partial class MainWindow : Window
 
     private async Task ShowHelpAsync()
     {
-        await ShowMessageBoxAsync("帮助", "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nRAR 使用 RAR，ZIP 和 7z 使用 7-Zip；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会真正退出程序；需要后台运行时请使用“隐藏到托盘”，再通过托盘菜单显示/隐藏或退出。");
+        // GPT-5, 2026-09-30：帮助对话框标题与正文改用本地化词条。
+        await ShowMessageBoxAsync(L.Help, L.HelpBody);
     }
 
     private Task<bool> ConfirmShutdownCancellationAsync() =>
-        ShowOkCancelMessageBoxAsync("关机计划", "系统将在一分钟后关机，是否取消？", "取消关机", "继续关机");
+        ShowOkCancelMessageBoxAsync(L.ShutdownScheduledTitle, L.ShutdownConfirmBody, L.CancelShutdown, L.KeepShutdown);
     
     private async Task BrowseSourceAsync()
     {
@@ -587,7 +588,7 @@ public partial class MainWindow : Window
         {
             var fileOptions = new FilePickerOpenOptions
             {
-                Title = "选择压缩路径清单",
+                Title = L.SelectCompressionList,
                 AllowMultiple = false,
                 FileTypeFilter = new[]
                 {

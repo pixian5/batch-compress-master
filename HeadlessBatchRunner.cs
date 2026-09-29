@@ -27,7 +27,8 @@ public class HeadlessBatchRunner
         _logger = logger;
         // GPT-5, 2026-08-06：无界面模式与 GUI 共用同一格式路由，避免两种入口能力不一致。
         _archiveEngine = new ArchiveEngineRouter();
-        _batchOperationService = new BatchOperationService(_archiveEngine, new HeadlessSystemIntegration(_logger));
+        // GPT-5, 2026-09-30：把 CLI 的日志器同时注入批处理服务，使后处理失败原因等诊断进入日志文件，而不是无处可查。
+        _batchOperationService = new BatchOperationService(_archiveEngine, new HeadlessSystemIntegration(_logger), _logger);
     }
 
     /// <summary>

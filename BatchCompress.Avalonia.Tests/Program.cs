@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Text.RegularExpressions;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
 using BatchCompress.Avalonia.Core.Services;
@@ -40,7 +41,8 @@ internal static class Program
             ("TXT 清单与密码本诊断", TestTextFileImportModes),
             ("本地化窗口标题", TestLocalizedWindowTitles),
             ("英文与德语资源不含中文", TestLocalizedTextHasNoChinese),
-            ("服务消息跟随界面语言", TestServiceMessagesFollowLanguage)
+            ("服务消息跟随界面语言", TestServiceMessagesFollowLanguage),
+            ("界面本地化资源扫描", TestLocalizedUiResources)
         };
 
         // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
@@ -205,6 +207,113 @@ internal static class Program
         {
             localization.CurrentLanguage = originalLanguage;
         }
+    }
+
+    // GPT-5, 2026-09-30：守护界面本地化收口成果：
+    // 1) AXAML 中除 XML 注释与资源 URI 外不得残留中文硬编码；
+    // 2) 所有 {Binding L.Xxx} 引用的属性必须在 LanguageStrings 上真实存在；
+    // 3) 界面代码文件中的用户可见字符串不得含中文（Debug 诊断输出除外）。
+    private static Task TestLocalizedUiResources()
+    {
+        var repoRoot = FindRepositoryRoot();
+        var axamlFiles = new List<string>();
+        var viewsDirectory = Path.Combine(repoRoot, "Views");
+        if (Directory.Exists(viewsDirectory))
+        {
+            axamlFiles.AddRange(Directory.GetFiles(viewsDirectory, "*.axaml"));
+        }
+
+        var appAxaml = Path.Combine(repoRoot, "App.axaml");
+        if (File.Exists(appAxaml))
+        {
+            axamlFiles.Add(appAxaml);
+        }
+
+        Assert(axamlFiles.Count > 0, "未找到任何 AXAML 界面文件，扫描测试无法进行");
+
+        var declaredKeys = typeof(LanguageStrings).GetProperties().Select(property => property.Name).ToHashSet();
+        foreach (var file in axamlFiles)
+        {
+            var fileName = Path.GetFileName(file);
+            var content = File.ReadAllText(file);
+
+            // XML 注释允许中文说明，先整体移除再扫描。
+            var withoutComments = Regex.Replace(content, "<!--.*?-->", string.Empty, RegexOptions.Singleline);
+            // 资源 URI（如 /Assets/压缩.png）是文件名而非界面文案，一并剔除。
+            var withoutAssets = Regex.Replace(withoutComments, "\"[^\"]*(?:avares://|/Assets/)[^\"]*\"", string.Empty);
+            var leftoverChinese = Regex.Match(withoutAssets, "[\u4e00-\u9fff]+");
+            Assert(!leftoverChinese.Success, $"{fileName} 残留硬编码中文：{leftoverChinese.Value}");
+
+            foreach (Match binding in Regex.Matches(content, @"Binding L\.([A-Za-z0-9_]+)"))
+            {
+                var key = binding.Groups[1].Value;
+                Assert(declaredKeys.Contains(key), $"{fileName} 引用了不存在的本地化键: {key}");
+            }
+        }
+
+        foreach (var relativePath in new[] { Path.Combine("Views", "MainWindow.axaml.cs"), "App.axaml.cs" })
+        {
+            var path = Path.Combine(repoRoot, relativePath);
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var lineNumber = 0;
+            foreach (var line in File.ReadLines(path))
+            {
+                lineNumber++;
+                var code = StripLineComment(line);
+                if (code.Contains("Debug.WriteLine", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                foreach (Match literal in Regex.Matches(code, "\"(?:[^\"\\\\]|\\\\.)*\""))
+                {
+                    Assert(!Regex.IsMatch(literal.Value, "[\u4e00-\u9fff]"),
+                        $"{relativePath}:{lineNumber} 残留硬编码中文字符串：{literal.Value}");
+                }
+            }
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // 逐字符剥离行尾注释，避免把字符串字面量内部的 // 误判为注释起点。
+    private static string StripLineComment(string line)
+    {
+        var inString = false;
+        for (var index = 0; index < line.Length; index++)
+        {
+            if (line[index] == '"' && (index == 0 || line[index - 1] != '\\'))
+            {
+                inString = !inString;
+            }
+            else if (!inString && line[index] == '/' && index + 1 < line.Length && line[index + 1] == '/')
+            {
+                return line.Substring(0, index);
+            }
+        }
+
+        return line;
+    }
+
+    // 测试进程从 bin 目录向上查找主工程文件，以定位仓库根目录。
+    private static string FindRepositoryRoot()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory != null)
+        {
+            if (File.Exists(Path.Combine(directory.FullName, "BatchCompress.Avalonia.csproj")))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        throw new InvalidOperationException("未能定位仓库根目录（缺少 BatchCompress.Avalonia.csproj）");
     }
 
     private sealed class TestArchiveEngine : IArchiveEngine
@@ -904,6 +1013,8 @@ internal static class Program
             AssertEqual(1, final.SuccessCount);
             AssertEqual(0, final.FailCount);
             AssertEqual(1, final.PostProcessFailCount);
+            // GPT-5, 2026-09-30：失败记录必须包含具体原因（含目标路径），而不是只有“后处理失败”。
+            Assert(final.Message.Contains("【已压缩】"), "移动目标冲突原因必须进入失败记录消息");
             Assert(Directory.Exists(source), "移动目标冲突时必须保留源目录");
             Assert(File.Exists(Path.Combine(processed, "existing.txt")), "移动目标冲突时必须保留目标目录");
 
@@ -933,6 +1044,8 @@ internal static class Program
             AssertEqual(1, final.SuccessCount);
             AssertEqual(0, final.FailCount);
             AssertEqual(1, final.PostProcessFailCount);
+            // GPT-5, 2026-09-30：解压侧同样要求原因可见，且包含冲突分卷的具体路径。
+            Assert(final.Message.Contains("archive.7z.002"), "解压目标冲突原因必须进入失败记录消息");
             Assert(File.Exists(firstVolume) && File.Exists(secondVolume), "任一分卷目标冲突时必须保留整组源卷");
             Assert(!File.Exists(Path.Combine(extractedProcessed, "archive.7z.001")), "分卷冲突时不得移动部分分卷");
             AssertEqual("existing target", File.ReadAllText(conflictingSecondVolume));

@@ -513,6 +513,8 @@ public class BatchOperationService
                 }
 
                 var postProcessFailed = false;
+                // GPT-5, 2026-09-30：记录最近一次后处理失败原因，并入最终失败记录，避免“只显示失败、看不到原因”。
+                var postProcessReason = string.Empty;
 
                 // 成功后执行删除或移动等后处理。
                 if (options.DeleteSourceAfter)
@@ -531,7 +533,9 @@ public class BatchOperationService
                     }
                     catch (Exception ex)
                     {
-                        RecordPostProcessFailure(progressInfo, $"删除源失败：{sourcePath}：{ex.Message}");
+                        postProcessReason = RecordPostProcessFailure(
+                            progressInfo,
+                            string.Format(L.PostProcessDeleteSourceFailed, sourcePath, ex.Message));
                         postProcessFailed = true;
                     }
                 }
@@ -548,18 +552,29 @@ public class BatchOperationService
                         var targetPath = Path.Combine(processedDir, name);
                         Log(LogLevel.Debug, $"Moving source to: {targetPath}");
 
-                        postProcessFailed = !TryMoveWithoutOverwrite(sourcePath, targetPath, progressInfo, "压缩源");
+                        if (!TryMoveWithoutOverwrite(
+                                sourcePath,
+                                targetPath,
+                                progressInfo,
+                                L.PostProcessItemCompressionSource,
+                                out var moveReason))
+                        {
+                            postProcessReason = moveReason;
+                            postProcessFailed = true;
+                        }
                     }
                     catch (Exception ex)
                     {
-                        RecordPostProcessFailure(progressInfo, $"移动压缩源失败：{sourcePath}：{ex.Message}");
+                        postProcessReason = RecordPostProcessFailure(
+                            progressInfo,
+                            string.Format(L.PostProcessMoveSourceFailed, L.PostProcessItemCompressionSource, sourcePath, ex.Message));
                         postProcessFailed = true;
                     }
                 }
 
                 // 归档成功和后处理成功分别统计，避免“归档成功但移动失败”被显示为完全成功。
                 progressInfo.Message = postProcessFailed
-                    ? string.Format(L.ItemSucceededWithPostProcessFailure, name)
+                    ? string.Format(L.ItemSucceededWithPostProcessFailure, name, postProcessReason)
                     : string.Format(L.ItemSucceeded, name);
                 progressInfo.IsError = postProcessFailed;
             }
@@ -820,6 +835,8 @@ public class BatchOperationService
                 progressInfo.ProcessedSizeGB = processedSizeGB;
 
                 var postProcessFailed = false;
+                // GPT-5, 2026-09-30：与压缩侧一致，记录最近一次后处理失败原因并进入失败记录。
+                var postProcessReason = string.Empty;
 
                 // 成功后按选项删除或移动源归档。
                 if (options.DeleteSourceAfter || options.MoveSourceAfter)
@@ -839,9 +856,9 @@ public class BatchOperationService
                             .FirstOrDefault(target => File.Exists(target) || Directory.Exists(target));
                         if (conflictingTarget != null)
                         {
-                            RecordPostProcessFailure(
+                            postProcessReason = RecordPostProcessFailure(
                                 progressInfo,
-                                $"解压归档目标已存在，已保留整组源卷：{conflictingTarget}");
+                                string.Format(L.PostProcessArchiveTargetExists, conflictingTarget));
                             moveBlockedByConflict = true;
                             postProcessFailed = true;
                         }
@@ -873,15 +890,23 @@ public class BatchOperationService
                                 var targetPath = Path.Combine(processedDir, Path.GetFileName(volumeFile));
                                 Log(LogLevel.Debug, $"Moving archive to: {targetPath}");
 
-                                if (!TryMoveWithoutOverwrite(volumeFile, targetPath, progressInfo, "解压归档"))
+                                if (!TryMoveWithoutOverwrite(
+                                        volumeFile,
+                                        targetPath,
+                                        progressInfo,
+                                        L.PostProcessItemDecompressionArchive,
+                                        out var volumeMoveReason))
                                 {
                                     postProcessFailed = true;
+                                    postProcessReason = volumeMoveReason;
                                 }
                             }
                         }
                         catch (Exception ex)
                         {
-                            RecordPostProcessFailure(progressInfo, $"处理解压归档失败：{volumeFile}：{ex.Message}");
+                            postProcessReason = RecordPostProcessFailure(
+                                progressInfo,
+                                string.Format(L.PostProcessHandleArchiveFailed, volumeFile, ex.Message));
                             postProcessFailed = true;
                         }
                     }
@@ -889,7 +914,7 @@ public class BatchOperationService
 
                 // 归档成功和后处理成功分别统计，避免后处理失败被隐藏。
                 progressInfo.Message = postProcessFailed
-                    ? string.Format(L.ItemSucceededWithPostProcessFailure, archiveName)
+                    ? string.Format(L.ItemSucceededWithPostProcessFailure, archiveName, postProcessReason)
                     : string.Format(L.ItemSucceeded, archiveName);
                 progressInfo.IsError = postProcessFailed;
             }
@@ -1057,15 +1082,19 @@ public class BatchOperationService
         };
 
     // GPT-5, 2026-08-07：移动属于可选后处理，目标冲突时必须保留原目标和源文件，禁止先删除目标。
+    // GPT-5, 2026-09-30：失败原因通过 failureReason 回传，供调用方并入失败记录消息。
     private bool TryMoveWithoutOverwrite(
         string sourcePath,
         string targetPath,
         OperationProgressInfo progressInfo,
-        string itemType)
+        string itemType,
+        out string failureReason)
     {
         if (File.Exists(targetPath) || Directory.Exists(targetPath))
         {
-            RecordPostProcessFailure(progressInfo, $"{itemType}目标已存在，已保留双方文件：{targetPath}");
+            failureReason = RecordPostProcessFailure(
+                progressInfo,
+                string.Format(L.PostProcessMoveTargetExists, itemType, targetPath));
             return false;
         }
 
@@ -1084,19 +1113,24 @@ public class BatchOperationService
                 throw new FileNotFoundException("源文件或目录不存在", sourcePath);
             }
 
+            failureReason = string.Empty;
             return true;
         }
         catch (Exception ex)
         {
-            RecordPostProcessFailure(progressInfo, $"移动{itemType}失败：{sourcePath} -> {targetPath}：{ex.Message}");
+            failureReason = RecordPostProcessFailure(
+                progressInfo,
+                string.Format(L.PostProcessMoveFailed, itemType, sourcePath, targetPath, ex.Message));
             return false;
         }
     }
 
-    private void RecordPostProcessFailure(OperationProgressInfo progressInfo, string message)
+    // GPT-5, 2026-09-30：后处理失败既计入统计、写入诊断日志，也把原因回传给调用方并入失败记录消息。
+    private string RecordPostProcessFailure(OperationProgressInfo progressInfo, string message)
     {
         progressInfo.PostProcessFailCount++;
         Log(LogLevel.Warning, message);
+        return message;
     }
 
     private static string BuildIncompleteVolumeMessage(ArchiveVolumeResolveResult resolved)

@@ -42,7 +42,7 @@
                               SelectedValue="{Binding SelectedLanguage}"
                               SelectedValueBinding="{Binding Key}"
                               DisplayMemberBinding="{Binding Value}"
-                              Width="120" VerticalAlignment="Center" ToolTip.Tip="切换界面显示语言"/>
+                              Width="120" VerticalAlignment="Center" ToolTip.Tip="{Binding L.TooltipLanguageSwitch}"/>
                 </Grid>
             </Border>
 
@@ -62,18 +62,18 @@
                     <!-- Source and Destination Section -->
                     <Grid ColumnDefinitions="280,60,*,10,100,Auto" RowDefinitions="Auto,5,Auto,5,Auto">
                         <!-- Row 0: Source Mode and Save Path -->
-                        <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" ItemsSource="{Binding SourceModeOptions}" HorizontalAlignment="Stretch" ToolTip.Tip="选择从文本文件读取，或扫描源目录"/>
-                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" PlaceholderText="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="选择或输入待处理文件所在目录"/>
-                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right" ToolTip.Tip="选择待处理文件目录"/>
+                        <ComboBox Grid.Row="0" Grid.Column="0" SelectedIndex="{Binding SourceMode}" ItemsSource="{Binding SourceModeOptions}" HorizontalAlignment="Stretch" ToolTip.Tip="{Binding L.TooltipSourceMode}"/>
+                        <TextBox Grid.Row="0" Grid.Column="2" Text="{Binding SaveFilePath}" PlaceholderText="{Binding L.SavePathWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="{Binding L.TooltipSaveFilePath}"/>
+                        <Button Grid.Row="0" Grid.Column="4" Command="{Binding BrowseSaveFileCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right" ToolTip.Tip="{Binding L.TooltipBrowseSaveFile}"/>
 
                         <!-- Row 2: TXT File Path -->
-                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" PlaceholderText="{Binding L.TxtPathWatermark}" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="包含文件路径和密码的文本文件"/>
-                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="{Binding L.SelectTxt}" HorizontalAlignment="Right" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="选择文件列表或密码文本"/>
+                        <TextBox Grid.Row="2" Grid.Column="2" Text="{Binding SourcePath}" PlaceholderText="{Binding L.TxtPathWatermark}" HorizontalAlignment="Stretch" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="{Binding L.TooltipTxtPath}"/>
+                        <Button Grid.Row="2" Grid.Column="4" Command="{Binding BrowseSourceCommand}" Width="80" Content="{Binding L.SelectTxt}" HorizontalAlignment="Right" IsVisible="{Binding IsFromTxtMode}" ToolTip.Tip="{Binding L.TooltipBrowseTxt}"/>
 
                         <!-- Row 4: Output Path -->
-                        <Button Grid.Row="4" Grid.Column="0" Content="{Binding L.SameAsAbove}" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Left" ToolTip.Tip="将输出和临时目录设为源目录"/>
-                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" PlaceholderText="{Binding L.DestinationWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="压缩包或解压文件的输出目录"/>
-                        <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right" ToolTip.Tip="选择输出目录"/>
+                        <Button Grid.Row="4" Grid.Column="0" Content="{Binding L.SameAsAbove}" Command="{Binding SetOutputSameAsSourceCommand}" Width="60" HorizontalAlignment="Left" ToolTip.Tip="{Binding L.TooltipSameAsAbove}"/>
+                        <TextBox Grid.Row="4" Grid.Column="2" Text="{Binding OutputPath}" PlaceholderText="{Binding L.DestinationWatermark}" HorizontalAlignment="Stretch" ToolTip.Tip="{Binding L.TooltipOutputPath}"/>
+                        <Button Grid.Row="4" Grid.Column="4" Command="{Binding BrowseOutputCommand}" Width="80" Content="{Binding L.SelectDirectory}" HorizontalAlignment="Right" ToolTip.Tip="{Binding L.TooltipBrowseOutput}"/>
                     </Grid>
                 </StackPanel>
             </Border>
@@ -89,13 +89,13 @@
                                     <!-- GPT-5, 2026-08-07：密码查询和随机密码设置共用一行，避免相关选项被拆散。 -->
                                     <StackPanel Orientation="Horizontal" Spacing="8">
                                         <TextBlock Text="{Binding L.FileNameLabel}" VerticalAlignment="Center"/>
-                                        <TextBox Text="{Binding PasswordQueryFileName}" Width="200" ToolTip.Tip="输入文件名以生成或查询兼容密码"/>
-                                        <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80" ToolTip.Tip="生成密码并复制当前压缩密码"/>
-                                        <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="按文件名生成压缩密码"/>
+                                        <TextBox Text="{Binding PasswordQueryFileName}" Width="200" ToolTip.Tip="{Binding L.TooltipPasswordQueryFileName}"/>
+                                        <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80" ToolTip.Tip="{Binding L.TooltipQueryPasswordCompression}"/>
+                                        <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="{Binding L.TooltipRandomPasswordCompression}"/>
                                         <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left"
-                                                 PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="关闭随机密码后使用此密码"/>
-                                        <TextBlock Text="密码依据" VerticalAlignment="Center"/>
-                                        <ComboBox SelectedIndex="{Binding PasswordNameMode}" ItemsSource="{Binding PasswordNameModeOptions}" Width="120" ToolTip.Tip="随机密码可按完整归档名或不含扩展名的文件名生成"/>
+                                                 PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" Margin="0,0,0,0" ToolTip.Tip="{Binding L.TooltipCustomPasswordCompression}"/>
+                                        <TextBlock Text="{Binding L.PasswordBasisLabel}" VerticalAlignment="Center"/>
+                                        <ComboBox SelectedIndex="{Binding PasswordNameMode}" ItemsSource="{Binding PasswordNameModeOptions}" Width="120" ToolTip.Tip="{Binding L.TooltipPasswordNameMode}"/>
                                     </StackPanel>
 
                                     <!-- 查询结果区域 -->
@@ -109,19 +109,19 @@
                             <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto,Auto" Margin="0,2">
                                 <!-- Row 0 -->
                                 <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩格式支持 rar、7z、zip、tar、gz、bz2、xz、wim；iso 等只读格式仅用于解压"/>
-                                <CheckBox Grid.Row="0" Grid.Column="2" Content="{Binding L.Verify}" IsChecked="{Binding TestArchive}" Margin="20,0,0,3" ToolTip.Tip="压缩完成后使用对应归档程序校验结果"/>
+                                <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipExtensionCompression}"/>
+                                <CheckBox Grid.Row="0" Grid.Column="2" Content="{Binding L.Verify}" IsChecked="{Binding TestArchive}" Margin="20,0,0,3" ToolTip.Tip="{Binding L.TooltipVerify}"/>
                                 <!-- 自定义密码文本框已移至随机密码复选框右侧 -->
 
                                 <!-- Row 1 -->
                                 <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.CompressionLevelLabel}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" ItemsSource="{Binding CompressionLevelOptions}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="压缩率越高，处理时间通常越长"/>
+                                <ComboBox Grid.Row="1" Grid.Column="1" SelectedIndex="{Binding CompressionLevel}" ItemsSource="{Binding CompressionLevelOptions}" Width="150" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipCompressionLevel}"/>
 
-                                <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3" ToolTip.Tip="RAR 和 7z 可用，适合大量相似文件"/>
-                                <CheckBox Grid.Row="1" Grid.Column="3" Content="{Binding L.QuickOpen}" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3" ToolTip.Tip="为 RAR 添加快速打开信息"/>
+                                <CheckBox Grid.Row="1" Grid.Column="2" Content="{Binding L.Solid}" IsChecked="{Binding SolidArchive}" Margin="20,0,10,3" ToolTip.Tip="{Binding L.TooltipSolid}"/>
+                                <CheckBox Grid.Row="1" Grid.Column="3" Content="{Binding L.QuickOpen}" IsChecked="{Binding QuickOpen}" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipQuickOpen}"/>
 
                                 <!-- Row 2 -->
-                                <CheckBox Grid.Row="2" Grid.Column="0" Content="{Binding L.Volume}" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3" ToolTip.Tip="按指定大小拆分归档"/>
+                                <CheckBox Grid.Row="2" Grid.Column="0" Content="{Binding L.Volume}" IsChecked="{Binding EnableVolume}" Margin="0,0,10,3" ToolTip.Tip="{Binding L.TooltipVolume}"/>
                                 <StackPanel Grid.Row="2" Grid.Column="1" Orientation="Horizontal" Spacing="5" Margin="0,0,0,3">
                                     <TextBox Text="{Binding VolumeSize}" Width="60" IsEnabled="{Binding EnableVolume}"/>
                                     <ComboBox SelectedIndex="{Binding VolumeUnit}" ItemsSource="{Binding VolumeUnitOptions}" Width="80" IsEnabled="{Binding EnableVolume}"/>
@@ -130,32 +130,32 @@
                                 <ComboBox Grid.Row="3" Grid.Column="2" SelectedIndex="{Binding ExistingFileMode}" ItemsSource="{Binding ExistingFileModeOptions}" Width="160" HorizontalAlignment="Left" Margin="20,0,0,3"/>
 
                                 <!-- Row 3 -->
-                                <CheckBox Grid.Row="3" Grid.Column="0" Content="{Binding L.EnableComment}" IsChecked="{Binding EnableComment}" Margin="0,0,10,3" ToolTip.Tip="将文本文件内容写入归档注释"/>
+                                <CheckBox Grid.Row="3" Grid.Column="0" Content="{Binding L.EnableComment}" IsChecked="{Binding EnableComment}" Margin="0,0,10,3" ToolTip.Tip="{Binding L.TooltipEnableComment}"/>
                                 <TextBox Grid.Row="3" Grid.Column="1" Text="{Binding CommentFilePath}" Width="300"
                                          IsEnabled="{Binding EnableComment}" HorizontalAlignment="Left" Margin="0,0,0,3"/>
 
-                                <CheckBox Grid.Row="3" Grid.Column="3" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3" ToolTip.Tip="跳过已经存在结果的文件"/>
+                                <CheckBox Grid.Row="3" Grid.Column="3" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="20,0,0,3" ToolTip.Tip="{Binding L.TooltipSkipProcessedCompression}"/>
 
                                 <!-- Row 4 -->
                                 <TextBlock Grid.Row="4" Grid.Column="0" Text="{Binding L.TempDirectory}" VerticalAlignment="Center" Margin="0,0,10,3"/>
-                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3" ToolTip.Tip="归档程序操作时使用的临时目录"/>
+                                <TextBox Grid.Row="4" Grid.Column="1" Grid.ColumnSpan="3" Text="{Binding TempDirectory}" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipTempDirectory}"/>
 
                                 <!-- GPT-5, 2026-08-06：恢复记录位于添加附件上方，并与右侧最大处理大小组成同一行。 -->
-                                <TextBlock Grid.Row="5" Grid.Column="0" Text="恢复记录 (%)" VerticalAlignment="Center" Margin="0,0,10,3" ToolTip.Tip="RAR 恢复记录占比，范围 0 到 100"/>
-                                <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding RecoveryRecordPercent}" Minimum="0" Maximum="100" Increment="1" Width="130" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="仅 RAR 使用；ZIP 和 7z 会忽略该值"/>
+                                <TextBlock Grid.Row="5" Grid.Column="0" Text="{Binding L.RecoveryPercentLabel}" VerticalAlignment="Center" Margin="0,0,10,3" ToolTip.Tip="{Binding L.TooltipRecoveryRecord}"/>
+                                <NumericUpDown Grid.Row="5" Grid.Column="1" Value="{Binding RecoveryRecordPercent}" Minimum="0" Maximum="100" Increment="1" Width="130" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipRecoveryRecordScope}"/>
                                 <TextBlock Grid.Row="5" Grid.Column="2" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="20,0,10,3"/>
-                                <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="达到该总大小后停止继续处理"/>
+                                <TextBox Grid.Row="5" Grid.Column="3" Text="{Binding MaxSizeGB}" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipMaxSizeCompression}"/>
 
                                 <!-- Row 6: Add Enclosures -->
                                 <CheckBox Grid.Row="6" Grid.Column="0" Content="{Binding L.AddAttachments}" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
-                                <CheckBox Grid.Row="6" Grid.Column="2" Content="锁定归档" IsChecked="{Binding LockArchive}" Margin="20,0,10,3" ToolTip.Tip="仅 RAR 使用；锁定后不能更新已有归档"/>
+                                <CheckBox Grid.Row="6" Grid.Column="2" Content="{Binding L.LockArchive}" IsChecked="{Binding LockArchive}" Margin="20,0,10,3" ToolTip.Tip="{Binding L.TooltipLockArchive}"/>
                             </Grid>
 
                             <!-- Enclosure List -->
                             <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,2">
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*" ColumnSpacing="8">
-                                    <TextBlock Grid.Column="0" Text="附件目录（每行一个目录）" VerticalAlignment="Center" ToolTip.Tip="压缩完成后附加到归档中的目录"/>
-                                    <Button Grid.Column="1" Content="浏览" Command="{Binding BrowseAttachmentCommand}" ToolTip.Tip="选择附件目录"/>
+                                    <TextBlock Grid.Column="0" Text="{Binding L.AttachmentDirectoryLabel}" VerticalAlignment="Center" ToolTip.Tip="{Binding L.TooltipAttachmentList}"/>
+                                    <Button Grid.Column="1" Content="{Binding L.Browse}" Command="{Binding BrowseAttachmentCommand}" ToolTip.Tip="{Binding L.SelectAttachmentFolder}"/>
                                     <TextBox Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding EnclosureList}" Height="100" AcceptsReturn="True" TextWrapping="Wrap"
                                              IsEnabled="{Binding AddEnclosures}"/>
                                 </Grid>
@@ -166,10 +166,10 @@
                                     <TextBlock Text="{Binding L.AfterCompression}" FontWeight="Bold" FontSize="14"/>
 
                                     <StackPanel Orientation="Horizontal" Spacing="12">
-                                        <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="仅在操作成功后删除源文件，请谨慎使用"/>
-                                        <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}" ToolTip.Tip="仅在操作成功后移动源文件"/>
-                                        <CheckBox Content="{Binding L.ShutdownAfterComplete}" IsChecked="{Binding ShutdownAfterComplete}" ToolTip.Tip="全部任务完成后请求系统在一分钟后关机"/>
-                                        <Button Content="取消关机" Command="{Binding CancelScheduledShutdownCommand}" IsVisible="{Binding IsShutdownScheduled}" ToolTip.Tip="取消当前已请求的系统关机"/>
+                                        <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="{Binding L.TooltipDeleteSource}"/>
+                                        <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}" ToolTip.Tip="{Binding L.TooltipMoveSource}"/>
+                                        <CheckBox Content="{Binding L.ShutdownAfterComplete}" IsChecked="{Binding ShutdownAfterComplete}" ToolTip.Tip="{Binding L.TooltipShutdown}"/>
+                                        <Button Content="{Binding L.CancelShutdown}" Command="{Binding CancelScheduledShutdownCommand}" IsVisible="{Binding IsShutdownScheduled}" ToolTip.Tip="{Binding L.TooltipCancelShutdown}"/>
                                     </StackPanel>
                                 </StackPanel>
                             </Border>
@@ -186,12 +186,12 @@
                             <StackPanel Spacing="6">
                                 <StackPanel Orientation="Horizontal" Spacing="8">
                                     <TextBlock Text="{Binding L.FileNameLabel}" VerticalAlignment="Center"/>
-                                    <TextBox Text="{Binding PasswordQueryFileName}" Width="200" ToolTip.Tip="输入归档文件名以生成或查询解压密码"/>
-                                    <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80" ToolTip.Tip="生成密码并复制当前候选密码"/>
-                                    <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" ToolTip.Tip="按归档文件名生成解压密码"/>
+                                    <TextBox Text="{Binding PasswordQueryFileName}" Width="200" ToolTip.Tip="{Binding L.TooltipPasswordQueryFileNameDecompression}"/>
+                                    <Button Content="{Binding L.QueryPassword}" Command="{Binding QueryPasswordCommand}" Width="80" ToolTip.Tip="{Binding L.TooltipQueryPasswordDecompression}"/>
+                                    <CheckBox Content="{Binding L.RandomPassword}" IsChecked="{Binding UseRandomPassword}" ToolTip.Tip="{Binding L.TooltipRandomPasswordDecompression}"/>
                                     <TextBox Text="{Binding CustomPassword}" Width="150" HorizontalAlignment="Left"
-                                             PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" ToolTip.Tip="关闭随机密码后使用此解压密码"/>
-                                    <TextBlock Text="密码依据" VerticalAlignment="Center"/>
+                                             PlaceholderText="{Binding L.CustomPasswordWatermark}" IsVisible="{Binding !UseRandomPassword}" ToolTip.Tip="{Binding L.TooltipCustomPasswordDecompression}"/>
+                                    <TextBlock Text="{Binding L.PasswordBasisLabel}" VerticalAlignment="Center"/>
                                     <ComboBox SelectedIndex="{Binding PasswordNameMode}" ItemsSource="{Binding PasswordNameModeOptions}" Width="120"/>
                                 </StackPanel>
 
@@ -204,25 +204,25 @@
 
                         <Grid ColumnDefinitions="Auto,Auto,30,Auto,Auto,30,Auto,Auto" RowDefinitions="Auto,Auto" Margin="0,2">
                             <TextBlock Grid.Row="0" Grid.Column="0" Text="{Binding L.ExtensionLabel}" VerticalAlignment="Center" Margin="0,0,10,6"/>
-                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" Margin="0,0,0,6" ToolTip.Tip="用于目录扫描和未知归档格式的筛选"/>
+                            <TextBox Grid.Row="0" Grid.Column="1" Text="{Binding Extension}" Width="100" Margin="0,0,0,6" ToolTip.Tip="{Binding L.TooltipExtensionDecompression}"/>
 
-                            <TextBlock Grid.Row="0" Grid.Column="3" Text="已有文件：" VerticalAlignment="Center" Margin="0,0,10,6"/>
+                            <TextBlock Grid.Row="0" Grid.Column="3" Text="{Binding L.ExistingFilesLabel}" VerticalAlignment="Center" Margin="0,0,10,6"/>
                             <ComboBox Grid.Row="0" Grid.Column="4" SelectedIndex="{Binding ExistingFileMode}" ItemsSource="{Binding ExistingFileModeOptions}" Width="160" Margin="0,0,0,6"/>
 
-                            <CheckBox Grid.Row="0" Grid.Column="6" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,6" ToolTip.Tip="跳过已标记为完成解压的归档"/>
+                            <CheckBox Grid.Row="0" Grid.Column="6" Content="{Binding L.SkipProcessed}" IsChecked="{Binding SkipAlreadyProcessed}" Margin="0,0,0,6" ToolTip.Tip="{Binding L.TooltipSkipProcessedDecompression}"/>
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="0,0,10,0"/>
-                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxSizeGB}" Width="100" ToolTip.Tip="达到该归档总大小后停止继续解压"/>
+                            <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxSizeGB}" Width="100" ToolTip.Tip="{Binding L.TooltipMaxSizeDecompression}"/>
                         </Grid>
 
                         <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">
                             <StackPanel Spacing="6">
                                 <TextBlock Text="{Binding L.AfterDecompression}" FontWeight="Bold" FontSize="14"/>
                                 <StackPanel Orientation="Horizontal" Spacing="12">
-                                    <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="解压成功后删除源归档及其分卷"/>
-                                    <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}" ToolTip.Tip="解压成功后移动源归档及其分卷"/>
+                                    <CheckBox Content="{Binding L.DeleteSource}" IsChecked="{Binding DeleteSourceAfter}" ToolTip.Tip="{Binding L.TooltipDeleteSourceDecompression}"/>
+                                    <CheckBox Content="{Binding L.MoveSource}" IsChecked="{Binding MoveSourceAfter}" ToolTip.Tip="{Binding L.TooltipMoveSourceDecompression}"/>
                                     <CheckBox Content="{Binding L.ShutdownAfterComplete}" IsChecked="{Binding ShutdownAfterComplete}"/>
-                                    <Button Content="取消关机" Command="{Binding CancelScheduledShutdownCommand}" IsVisible="{Binding IsShutdownScheduled}"/>
+                                    <Button Content="{Binding L.CancelShutdown}" Command="{Binding CancelScheduledShutdownCommand}" IsVisible="{Binding IsShutdownScheduled}"/>
                                 </StackPanel>
                             </StackPanel>
                         </Border>
@@ -241,26 +241,26 @@
                         <WrapPanel>
                             <Button Content="{Binding L.Compress}" Command="{Binding CompressCommand}" Width="100" Height="36" CornerRadius="18"
                                     IsEnabled="{Binding !IsOperating}" Background="#28a745" Foreground="White"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前压缩配置批量创建归档"
+                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="{Binding L.TooltipStartCompression}"
                                     IsVisible="{Binding IsCompressionActionVisible}" Margin="0,0,10,8"/>
                             <Button Content="{Binding L.Decompress}" Command="{Binding DecompressCommand}" Width="100" Height="36" CornerRadius="18"
                                     IsEnabled="{Binding !IsOperating}" Background="#007bff" Foreground="White"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="按当前解压配置批量解压归档"
+                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="{Binding L.TooltipStartDecompression}"
                                     IsVisible="{Binding IsDecompressionActionVisible}" Margin="0,0,10,8"/>
                             <Button Content="{Binding L.Cancel}" Command="{Binding CancelOperationCommand}" Width="100" Height="36" CornerRadius="18"
                                     IsEnabled="{Binding IsOperating}" Background="#dc3545" Foreground="White"
-                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="请求取消正在执行的任务" Margin="0,0,18,8"/>
-                            <Button Content="{Binding L.RefreshList}" Command="{Binding RefreshFileListCommand}" Width="90" Height="32" ToolTip.Tip="重新扫描当前配置的来源文件，快捷键 F5" Margin="0,2,10,8"/>
-                            <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Width="90" Height="32" ToolTip.Tip="清空所有列表和日志，快捷键 Ctrl+L" Margin="0,2,10,8"/>
-                            <Button Content="清空源" Command="{Binding ClearSourceListCommand}" Width="76" Height="32" ToolTip.Tip="清空源文件列表" Margin="0,2,10,8"/>
-                            <Button Content="清空成功" Command="{Binding ClearSuccessLogCommand}" Width="76" Height="32" ToolTip.Tip="清空成功日志" Margin="0,2,10,8"/>
-                            <Button Content="清空失败" Command="{Binding ClearFailLogCommand}" Width="76" Height="32" ToolTip.Tip="清空失败日志" Margin="0,2,10,8"/>
-                            <Button Content="清空命令" Command="{Binding ClearCommandLogCommand}" Width="76" Height="32" ToolTip.Tip="清空命令日志" Margin="0,2,10,8"/>
-                            <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开输出目录" Margin="0,2,10,8"/>
-                            <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32" ToolTip.Tip="在系统文件管理器中打开源目录" Margin="0,2,10,8"/>
-                            <Button Content="帮助" Command="{Binding ShowHelpCommand}" Width="70" Height="32" ToolTip.Tip="查看快捷键和功能说明" Margin="0,2,10,8"/>
-                            <Button x:Name="ZoomButton" Content="{Binding L.ZoomIn}" Click="ZoomButton_Click" Width="70" Height="32" ToolTip.Tip="在普通窗口和最大化窗口之间切换" Margin="0,2,10,8"/>
-                            <Button Content="隐藏到托盘" Command="{Binding HideWindowCommand}" Width="100" Height="32" ToolTip.Tip="隐藏窗口，程序继续在后台运行" Margin="0,2,0,8"/>
+                                    HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="{Binding L.TooltipCancelOperation}" Margin="0,0,18,8"/>
+                            <Button Content="{Binding L.RefreshList}" Command="{Binding RefreshFileListCommand}" Width="90" Height="32" ToolTip.Tip="{Binding L.TooltipRefreshList}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ClearLogs}" Command="{Binding ClearLogsCommand}" Width="90" Height="32" ToolTip.Tip="{Binding L.TooltipClearLogs}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ClearSource}" Command="{Binding ClearSourceListCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearSourceTooltip}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ClearSuccess}" Command="{Binding ClearSuccessLogCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearSuccessTooltip}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ClearFail}" Command="{Binding ClearFailLogCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearFailTooltip}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ClearCommand}" Command="{Binding ClearCommandLogCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearCommandTooltip}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32" ToolTip.Tip="{Binding L.TooltipOpenOutput}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32" ToolTip.Tip="{Binding L.TooltipOpenSource}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.Help}" Command="{Binding ShowHelpCommand}" Width="70" Height="32" ToolTip.Tip="{Binding L.TooltipHelp}" Margin="0,2,10,8"/>
+                            <Button x:Name="ZoomButton" Content="{Binding L.ZoomIn}" Click="ZoomButton_Click" Width="70" Height="32" ToolTip.Tip="{Binding L.TooltipZoom}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.HideToTray}" Command="{Binding HideWindowCommand}" Width="100" Height="32" ToolTip.Tip="{Binding L.TooltipHideToTray}" Margin="0,2,0,8"/>
                         </WrapPanel>
 
                         <!-- Status Display -->
@@ -315,8 +315,8 @@
                     <StackPanel Grid.Row="0" Orientation="Horizontal" Spacing="8">
                         <TextBlock Text="{Binding SourceFileListTabHeader}" FontWeight="Bold" FontSize="18" LineHeight="28"
                                    MinHeight="32" VerticalAlignment="Center" />
-                        <Button Content="清空源" Command="{Binding ClearSourceListCommand}" Height="32"
-                                ToolTip.Tip="清空当前操作的源文件列表" />
+                        <Button Content="{Binding L.ClearSource}" Command="{Binding ClearSourceListCommand}" Height="32"
+                                ToolTip.Tip="{Binding L.ClearSourceTooltip}" />
                     </StackPanel>
                     <ScrollViewer Grid.Row="1" HorizontalAlignment="Stretch" VerticalAlignment="Stretch"
                                   HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
@@ -330,8 +330,8 @@
 
             <!-- 三类日志提升为顶部一级标签页。 -->
             <Grid IsVisible="{Binding IsSuccessLogTab}" RowDefinitions="Auto,*" RowSpacing="6">
-                <Button Grid.Row="0" Content="清空成功" Command="{Binding ClearSuccessLogCommand}"
-                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="清空成功记录"/>
+                <Button Grid.Row="0" Content="{Binding L.ClearSuccess}" Command="{Binding ClearSuccessLogCommand}"
+                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="{Binding L.ClearSuccessTooltip}"/>
                 <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                     <TextBox Text="{Binding SuccessLog}" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True"
                              BorderThickness="0" Foreground="Green" HorizontalAlignment="Stretch"
@@ -340,8 +340,8 @@
             </Grid>
 
             <Grid IsVisible="{Binding IsFailLogTab}" RowDefinitions="Auto,*" RowSpacing="6">
-                <Button Grid.Row="0" Content="清空失败" Command="{Binding ClearFailLogCommand}"
-                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="清空失败记录"/>
+                <Button Grid.Row="0" Content="{Binding L.ClearFail}" Command="{Binding ClearFailLogCommand}"
+                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="{Binding L.ClearFailTooltip}"/>
                 <ScrollViewer Grid.Row="1" HorizontalContentAlignment="Stretch" VerticalContentAlignment="Stretch">
                     <TextBox Text="{Binding FailLog}" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True"
                              BorderThickness="0" Foreground="Red" HorizontalAlignment="Stretch"
@@ -350,8 +350,8 @@
             </Grid>
 
             <Grid IsVisible="{Binding IsCommandLogTab}" RowDefinitions="Auto,*" RowSpacing="6">
-                <Button Grid.Row="0" Content="清空命令" Command="{Binding ClearCommandLogCommand}"
-                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="清空命令日志"/>
+                <Button Grid.Row="0" Content="{Binding L.ClearCommand}" Command="{Binding ClearCommandLogCommand}"
+                        Width="90" Height="32" HorizontalAlignment="Left" ToolTip.Tip="{Binding L.ClearCommandTooltip}"/>
                 <ScrollViewer x:Name="CommandLogScrollViewer" Grid.Row="1" HorizontalContentAlignment="Stretch"
                               VerticalContentAlignment="Stretch">
                     <TextBox x:Name="CommandLogTextBox" Text="{Binding CommandLog}" AcceptsReturn="True"
