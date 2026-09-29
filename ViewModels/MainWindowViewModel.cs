@@ -677,30 +677,33 @@ public partial class MainWindowViewModel : ViewModelBase
     }
 
     // GPT-5, 2026-08-06：导入诊断写入命令日志，保留旧版的匹配统计和分卷提示，但不阻塞批处理。
+    // GPT-5, 2026-09-29：诊断文案改为读取本地化资源，跟随当前界面语言。
     private void AppendTextImportDiagnostics(TextFileImportResult result, bool passwordBook)
     {
-        var type = passwordBook ? "密码本" : "压缩路径清单";
+        var type = passwordBook ? L.PasswordBookLabel : L.CompressionListLabel;
         var count = passwordBook ? result.Entries.Count : result.Paths.Count;
         var sizeGB = result.MatchedBytes / (1024.0 * 1024.0 * 1024.0);
         var estimatedSeconds = result.MatchedBytes / (1024.0 * 1024.0) / 40.0;
-        CommandLog += $"[{type}] 请求={result.RequestedCount}，已匹配={count}，大小={sizeGB:F3} GB，预计约 {estimatedSeconds:F1} 秒\n";
+        CommandLog += string.Format(
+            L.TextImportSummary, type, result.RequestedCount, count,
+            sizeGB.ToString("F3"), estimatedSeconds.ToString("F1")) + "\n";
 
         if (result.MissingEntries.Count > 0)
         {
-            CommandLog += $"[{type}] 未找到 {result.MissingEntries.Count} 项:\n" +
+            CommandLog += string.Format(L.TextImportMissing, type, result.MissingEntries.Count) + "\n" +
                           string.Join(Environment.NewLine, result.MissingEntries) + Environment.NewLine;
         }
 
         if (result.IncompleteVolumes.Count > 0)
         {
-            CommandLog += $"[{type}] 分卷不完整 {result.IncompleteVolumes.Count} 项:\n" +
+            CommandLog += string.Format(L.TextImportIncompleteVolumes, type, result.IncompleteVolumes.Count) + "\n" +
                           string.Join(Environment.NewLine, result.IncompleteVolumes) + Environment.NewLine;
         }
 
         if (result.AmbiguousEntries.Count > 0 || result.DuplicateVolumeEntries.Count > 0)
         {
             var ambiguous = result.AmbiguousEntries.Concat(result.DuplicateVolumeEntries);
-            CommandLog += $"[{type}] 名称或编号存在歧义 {ambiguous.Count()} 项:\n" +
+            CommandLog += string.Format(L.TextImportAmbiguous, type, ambiguous.Count()) + "\n" +
                           string.Join(Environment.NewLine, ambiguous) + Environment.NewLine;
         }
 
@@ -711,13 +714,13 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (result.UnmatchedArchives.Count > 0)
         {
-            CommandLog += $"[密码本] 以下归档未在密码本找到，共 {result.UnmatchedArchives.Count} 个:\n" +
+            CommandLog += string.Format(L.PasswordBookUnmatched, result.UnmatchedArchives.Count) + "\n" +
                           string.Join(Environment.NewLine, result.UnmatchedArchives) + Environment.NewLine;
         }
 
         if (result.VolumeCandidates.Count > 0)
         {
-            CommandLog += $"[密码本] 以下归档疑似分卷，共 {result.VolumeCandidates.Count} 个:\n" +
+            CommandLog += string.Format(L.PasswordBookVolumeCandidates, result.VolumeCandidates.Count) + "\n" +
                           string.Join(Environment.NewLine, result.VolumeCandidates) + Environment.NewLine;
         }
     }
@@ -763,16 +766,16 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (!IsCompressionActionVisible)
         {
-            CommandLog += "压缩命令只能从压缩配置页或开始页启动。\n";
+            CommandLog += L.CompressionPageOnly + "\n";
             return;
         }
         ActivateOperationStateForStart(0);
 
         if (ExistingFileMode == 1 && LockArchive)
         {
-            const string message = "更新现有文件不能与锁定归档同时使用。请取消其中一个选项。";
-            CommandLog += $"[选项冲突] {message}\n";
-            _systemIntegration.ShowNotification("选项冲突", message);
+            var message = L.UpdateConflictsLockArchive;
+            CommandLog += $"[{L.OptionConflict}] {message}\n";
+            _systemIntegration.ShowNotification(L.OptionConflict, message);
             return;
         }
 
@@ -793,7 +796,7 @@ public partial class MainWindowViewModel : ViewModelBase
             // 列表为空时先尝试自动加载。
             if (sourcePaths.Count == 0)
             {
-                CommandLog += "列表中没有文件，正在自动加载...\n";
+                CommandLog += L.TryingToLoadAutomatically + "\n";
                 await RefreshFileListAsync();
 
                 // 自动加载后再次检查列表。
@@ -804,7 +807,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 if (sourcePaths.Count == 0)
                 {
-                    CommandLog += "仍然没有要压缩的文件\n";
+                    CommandLog += L.StillNoFiles + "\n";
                     return;
                 }
             }
@@ -847,11 +850,10 @@ public partial class MainWindowViewModel : ViewModelBase
                     EstimatedCompletionTime = DateTime.MinValue;
                 }
 
-                MaybeShowProgressNotification("压缩", info);
+                MaybeShowProgressNotification(L.Compress, info);
 
-                // GPT-5, 2026-08-06：底层归档输出只进入命令日志，避免 stdout/stderr 被重复计入成功或失败记录。
-                var isCommandOutput = info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]");
-                if (isCommandOutput)
+                // GPT-5, 2026-09-29：命令输出分类改用进度对象上的标记，不再匹配本地化后的消息前缀。
+                if (info.IsCommandOutput)
                 {
                     CommandLog += info.Message + "\n";
                 }
@@ -871,19 +873,23 @@ public partial class MainWindowViewModel : ViewModelBase
 
             await OfferShutdownCancellationAsync(options);
 
-            CommandLog += $"\n完成: 成功={SuccessCount}, 归档失败={FailCount}, 后处理失败={PostProcessFailCount}, " +
-                         $"忽略={IgnoreCount}, 未找到={NonExistCount}, 分卷不完整={IncompleteVolumeCount}, 歧义={AmbiguousArchiveCount}\n";
+            CommandLog += string.Format(L.OperationCompletionSummary,
+                SuccessCount, FailCount, PostProcessFailCount, IgnoreCount,
+                NonExistCount, IncompleteVolumeCount, AmbiguousArchiveCount) + "\n";
 
-            _systemIntegration.ShowNotification("压缩完成", $"成功: {SuccessCount}, 归档失败: {FailCount}, 后处理失败: {PostProcessFailCount}");
+            _systemIntegration.ShowNotification(L.CompressionComplete,
+                string.Format(L.OperationResultSummary, SuccessCount, FailCount, PostProcessFailCount));
         }
         catch (OperationCanceledException)
         {
-            CommandLog += "压缩已取消\n";
-            _systemIntegration.ShowNotification("压缩已取消", $"成功: {SuccessCount}, 失败: {FailCount}");
+            var cancelledTitle = string.Format(L.OperationCancelled, L.Compress);
+            CommandLog += cancelledTitle + "\n";
+            _systemIntegration.ShowNotification(cancelledTitle,
+                string.Format(L.SuccessFailMessage, SuccessCount, FailCount));
         }
         catch (Exception ex)
         {
-            CommandLog += $"Error: {ex.Message}\n";
+            CommandLog += string.Format(L.OperationError, ex.Message) + "\n";
         }
         finally
         {
@@ -901,7 +907,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
         if (!IsDecompressionActionVisible)
         {
-            CommandLog += "解压命令只能从解压配置页或开始页启动。\n";
+            CommandLog += L.DecompressionPageOnly + "\n";
             return;
         }
         ActivateOperationStateForStart(1);
@@ -920,13 +926,13 @@ public partial class MainWindowViewModel : ViewModelBase
             // 列表为空时先尝试自动加载。
             if (string.IsNullOrEmpty(SourceFileList.Trim()))
             {
-                CommandLog += "No files in list, trying to load automatically...\n";
+                CommandLog += L.TryingToLoadAutomatically + "\n";
                 await RefreshFileListAsync();
 
                 // 自动加载后仍为空时记录错误并返回。
                 if (string.IsNullOrEmpty(SourceFileList.Trim()))
                 {
-                    CommandLog += "Still no files to decompress\n";
+                    CommandLog += L.StillNoFiles + "\n";
                     return;
                 }
             }
@@ -973,7 +979,7 @@ public partial class MainWindowViewModel : ViewModelBase
 
             if (entries.Count == 0)
             {
-                CommandLog += "No files to decompress\n";
+                CommandLog += L.NoFilesToProcess + "\n";
                 return;
             }
 
@@ -1014,11 +1020,10 @@ public partial class MainWindowViewModel : ViewModelBase
                     EstimatedCompletionTime = DateTime.MinValue;
                 }
 
-                MaybeShowProgressNotification("解压", info);
+                MaybeShowProgressNotification(L.Decompress, info);
 
-                // GPT-5, 2026-08-06：解压进程的原始输出与压缩使用同一分类规则。
-                var isCommandOutput = info.Message.StartsWith("[压缩命令]") || info.Message.StartsWith("[解压命令]");
-                if (isCommandOutput)
+                // GPT-5, 2026-09-29：解压进程的原始输出与压缩使用同一分类标记。
+                if (info.IsCommandOutput)
                 {
                     CommandLog += info.Message + "\n";
                 }
@@ -1038,19 +1043,23 @@ public partial class MainWindowViewModel : ViewModelBase
 
             await OfferShutdownCancellationAsync(options);
 
-            CommandLog += $"\n完成: 成功={SuccessCount}, 归档失败={FailCount}, 后处理失败={PostProcessFailCount}, " +
-                         $"忽略={IgnoreCount}, 未找到={NonExistCount}, 分卷不完整={IncompleteVolumeCount}, 歧义={AmbiguousArchiveCount}\n";
+            CommandLog += string.Format(L.OperationCompletionSummary,
+                SuccessCount, FailCount, PostProcessFailCount, IgnoreCount,
+                NonExistCount, IncompleteVolumeCount, AmbiguousArchiveCount) + "\n";
 
-            _systemIntegration.ShowNotification("解压完成", $"成功: {SuccessCount}, 归档失败: {FailCount}, 后处理失败: {PostProcessFailCount}");
+            _systemIntegration.ShowNotification(L.DecompressionComplete,
+                string.Format(L.OperationResultSummary, SuccessCount, FailCount, PostProcessFailCount));
         }
         catch (OperationCanceledException)
         {
-            CommandLog += "解压已取消\n";
-            _systemIntegration.ShowNotification("解压已取消", $"成功: {SuccessCount}, 失败: {FailCount}");
+            var cancelledTitle = string.Format(L.OperationCancelled, L.Decompress);
+            CommandLog += cancelledTitle + "\n";
+            _systemIntegration.ShowNotification(cancelledTitle,
+                string.Format(L.SuccessFailMessage, SuccessCount, FailCount));
         }
         catch (Exception ex)
         {
-            CommandLog += $"Error: {ex.Message}\n";
+            CommandLog += string.Format(L.OperationError, ex.Message) + "\n";
         }
         finally
         {
@@ -1065,7 +1074,7 @@ public partial class MainWindowViewModel : ViewModelBase
     private void CancelOperation()
     {
         _cancellationTokenSource?.Cancel();
-        CommandLog += "Cancelling operation...\n";
+        CommandLog += L.CancellingOperation + "\n";
     }
 
     // GPT-5, 2026-08-07：批处理服务已向系统提交一分钟后的关机请求；GUI 随即提供确认框和持续可用的取消按钮。
@@ -1078,8 +1087,8 @@ public partial class MainWindowViewModel : ViewModelBase
         }
 
         IsShutdownScheduled = true;
-        CommandLog += "已请求系统在一分钟后关机，可使用“取消关机”撤销。\n";
-        _systemIntegration.ShowNotification("关机计划", "系统将在一分钟后关机。可以在应用中取消。");
+        CommandLog += L.ShutdownScheduledLog + "\n";
+        _systemIntegration.ShowNotification(L.ShutdownScheduledTitle, L.ShutdownScheduledBody);
 
         if (ConfirmShutdownCancellationRequested != null && await ConfirmShutdownCancellationRequested())
         {
@@ -1097,8 +1106,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
         await _systemIntegration.CancelShutdownAsync();
         IsShutdownScheduled = false;
-        CommandLog += "已请求取消关机。\n";
-        _systemIntegration.ShowNotification("已取消关机", "已向系统发送取消关机请求。");
+        CommandLog += L.ShutdownCancelledLog + "\n";
+        _systemIntegration.ShowNotification(L.ShutdownCancelledTitle, L.ShutdownCancelledBody);
     }
 
     [RelayCommand]
@@ -1186,14 +1195,14 @@ public partial class MainWindowViewModel : ViewModelBase
 
             // 生成多种历史兼容密码候选。
             var results = new List<string>();
-            results.Add($"归档名: {filename}");
-            results.Add($"密码依据: {passwordName}");
-            results.Add($"压缩密码: {PasswordUtility.GenerateCompressionPassword(passwordName)}");
-            results.Add($"解压密码: {PasswordUtility.GenerateDecompressionPassword(passwordName)}");
-            results.Add($"UTF8-8位: {PasswordUtility.MD5UTF878(filename)}");
-            results.Add($"UTF8-4位: {PasswordUtility.MD5UTF874(filename)}");
-            results.Add($"GB2312-4位: {PasswordUtility.MD5GB2312(filename)}");
-            results.Add("旧版兼容密码:");
+            results.Add(string.Format(L.PasswordQueryArchiveName, filename));
+            results.Add(string.Format(L.PasswordQueryBasis, passwordName));
+            results.Add(string.Format(L.PasswordQueryCompression, PasswordUtility.GenerateCompressionPassword(passwordName)));
+            results.Add(string.Format(L.PasswordQueryDecompression, PasswordUtility.GenerateDecompressionPassword(passwordName)));
+            results.Add(string.Format(L.PasswordQueryUtf8Full, PasswordUtility.MD5UTF878(filename)));
+            results.Add(string.Format(L.PasswordQueryUtf8Short, PasswordUtility.MD5UTF874(filename)));
+            results.Add(string.Format(L.PasswordQueryGb2312, PasswordUtility.MD5GB2312(filename)));
+            results.Add(L.PasswordQueryLegacyHeader);
             results.AddRange(PasswordUtility.GetLegacyPasswordCandidates(filename));
 
             var finalPassword = CurrentOperationTab == 0
@@ -1262,10 +1271,12 @@ public partial class MainWindowViewModel : ViewModelBase
         _lastProgressNotification = now;
         _lastNotifiedCompletedCount = completedCount;
         _lastNotifiedProcessedSizeGB = info.ProcessedSizeGB;
-        var remaining = RemainingTime > TimeSpan.Zero ? $"，剩余约 {RemainingTime:hh\\:mm\\:ss}" : string.Empty;
+        var remaining = RemainingTime > TimeSpan.Zero
+            ? string.Format(L.ProgressNotificationRemaining, RemainingTime.ToString(@"hh\:mm\:ss"))
+            : string.Empty;
         _systemIntegration.ShowNotification(
-            $"{operation}进行中",
-            $"已处理 {completedCount} 项，成功 {info.SuccessCount}，归档失败 {info.FailCount}，后处理失败 {info.PostProcessFailCount}，当前：{info.CurrentFile}{remaining}");
+            string.Format(L.ProgressNotificationTitle, operation),
+            string.Format(L.ProgressNotificationBody, completedCount, info.SuccessCount, info.FailCount, info.PostProcessFailCount, info.CurrentFile, remaining));
     }
 
     private BatchOperationOptions BuildBatchOperationOptions()
@@ -1500,7 +1511,7 @@ public partial class MainWindowViewModel : ViewModelBase
         // GPT-5, 2026-08-06：7z 已由官方 7zz 完整支持；这里只提示该格式不具备 RAR 专属恢复记录和快速打开能力。
         if (value.Trim().TrimStart('.').Equals("7z", StringComparison.OrdinalIgnoreCase))
         {
-            CommandLog += "7z 使用官方 7-Zip；恢复记录、快速打开和 RAR 注释选项不会应用。\n";
+            CommandLog += L.Warning7zFormat + "\n";
         }
     }
 
@@ -1510,7 +1521,7 @@ public partial class MainWindowViewModel : ViewModelBase
         if (value == 0 && SolidArchive)
         {
             SolidArchive = false;
-            CommandLog += "Solid archive disabled for Store mode\n";
+            CommandLog += L.SolidDisabledForStore + "\n";
         }
     }
 
@@ -1598,13 +1609,15 @@ public partial class MainWindowViewModel : ViewModelBase
                 }
                 catch (Exception ex)
                 {
-                    errors.Add($"Error getting file size for {file}: {ex.Message}");
+                    errors.Add(string.Format(
+                        LocalizationService.Instance.Strings.DirectorySizeFileError, file, ex.Message));
                 }
             }
         }
         catch (Exception ex)
         {
-            errors.Add($"Error accessing directory {path}: {ex.Message}");
+            errors.Add(string.Format(
+                LocalizationService.Instance.Strings.DirectorySizeAccessError, path, ex.Message));
         }
 
         return (size, errors);

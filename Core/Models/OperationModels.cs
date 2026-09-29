@@ -22,6 +22,9 @@ public class OperationProgressInfo
     public double ProcessedSizeGB { get; set; }
     public string Message { get; set; } = string.Empty;
     public bool IsError { get; set; }
+    // GPT-5, 2026-09-29：归档程序的原始命令/输出行使用该标记，界面据此把消息归入命令日志，
+    // 不再依赖对消息文本前缀做字符串匹配，从而允许前缀跟随界面语言本地化。
+    public bool IsCommandOutput { get; set; }
     public DateTime StartTime { get; set; }
     public TimeSpan Elapsed { get; set; }
 }

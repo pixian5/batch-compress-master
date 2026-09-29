@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
+using BatchCompress.Avalonia.Localization;
 using Microsoft.Extensions.Logging;
 
 namespace BatchCompress.Avalonia.Core.Services;
@@ -21,6 +22,10 @@ public class BatchOperationService
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
     private readonly ILogger? _logger;
+
+    // GPT-5, 2026-09-29：报告给界面与命令行的逐项状态消息跟随当前界面语言；
+    // 仅供 ILogger 诊断的内部消息不在此列（本地化资源不是界面层，服务可安全引用）。
+    private static LanguageStrings L => LocalizationService.Instance.Strings;
 
     public BatchOperationService(IArchiveEngine archiveEngine, ISystemIntegration systemIntegration, ILogger? logger = null)
     {
@@ -359,7 +364,7 @@ public class BatchOperationService
         if (!ArchiveFormatCatalog.TryGet(normalizedFormat, out var formatDefinition) ||
             !formatDefinition.CanCreate)
         {
-            var message = $"不支持创建 {options.Extension} 格式归档。当前支持：{ArchiveFormatCatalog.CreateFormatsText}。";
+            var message = string.Format(L.FormatCannotCreate, options.Extension, ArchiveFormatCatalog.CreateFormatsText);
             Log(LogLevel.Error, message);
             progressInfo.FailCount++;
             progressInfo.Message = message;
@@ -384,7 +389,7 @@ public class BatchOperationService
             {
                 Log(LogLevel.Warning, $"Source not found: {sourcePath}");
                 progressInfo.NonExistCount++;
-                progressInfo.Message = $"Not found: {sourcePath}";
+                progressInfo.Message = string.Format(L.ItemNotFound, sourcePath);
                 progressInfo.IsError = true;
                 progress.Report(progressInfo);
                 continue;
@@ -416,7 +421,7 @@ public class BatchOperationService
                 {
                     Log(LogLevel.Debug, $"Skipping existing output: {outputPath}");
                     progressInfo.IgnoreCount++;
-                    progressInfo.Message = $"[跳过] 已存在：{outputFileName}";
+                    progressInfo.Message = string.Format(L.SkipExistingOutput, outputFileName);
                     progressInfo.IsError = false;
                     progress.Report(progressInfo);
                     continue;
@@ -472,7 +477,7 @@ public class BatchOperationService
             archiveOptions.AdditionalInputs = attachmentInputs;
 
             Log(LogLevel.Information, $"Compression started: {name} -> {outputFileName}");
-            progressInfo.Message = $"[开始压缩] {name}";
+            progressInfo.Message = string.Format(L.CompressionStarted, name);
             progressInfo.IsError = false;
             progress.Report(progressInfo);
 
@@ -490,7 +495,7 @@ public class BatchOperationService
                     catch (Exception ex) { Log(LogLevel.Warning, $"清理附件暂存目录失败：{ex.Message}"); }
                 }
             }
-            ReportArchiveOutput("压缩命令", result, progressInfo, progress);
+            ReportArchiveOutput(L.CompressionCommandLabel, result, progressInfo, progress);
 
             if (result.Success)
             {
@@ -554,15 +559,15 @@ public class BatchOperationService
 
                 // 归档成功和后处理成功分别统计，避免“归档成功但移动失败”被显示为完全成功。
                 progressInfo.Message = postProcessFailed
-                    ? $"成功但后处理失败: {name}"
-                    : $"成功: {name}";
+                    ? string.Format(L.ItemSucceededWithPostProcessFailure, name)
+                    : string.Format(L.ItemSucceeded, name);
                 progressInfo.IsError = postProcessFailed;
             }
             else
             {
                 Log(LogLevel.Error, $"Compression failed: {name} - {result.ErrorMessage}");
                 progressInfo.FailCount++;
-                progressInfo.Message = $"失败: {name} - {result.ErrorMessage}";
+                progressInfo.Message = string.Format(L.ItemFailed, name, result.ErrorMessage);
                 progressInfo.IsError = true;
             }
 
@@ -573,7 +578,7 @@ public class BatchOperationService
             if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
             {
                 Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
-                progressInfo.Message = "Size limit reached";
+                progressInfo.Message = L.SizeLimitReached;
                 progress.Report(progressInfo);
                 break;
             }
@@ -690,7 +695,7 @@ public class BatchOperationService
             {
                 Log(LogLevel.Warning, $"无法解析归档：{entry.FilePath}：{ex.Message}");
                 progressInfo.NonExistCount++;
-                progressInfo.Message = $"无法解析: {entry.FilePath} - {ex.Message}";
+                progressInfo.Message = string.Format(L.CannotResolveArchive, entry.FilePath, ex.Message);
                 progressInfo.IsError = true;
                 progress.Report(progressInfo);
                 continue;
@@ -700,7 +705,7 @@ public class BatchOperationService
             {
                 progressInfo.AmbiguousArchiveCount++;
                 progressInfo.IgnoreCount++;
-                progressInfo.Message = $"文件名大小写存在歧义，已跳过: {entry.FilePath}";
+                progressInfo.Message = string.Format(L.CaseAmbiguitySkipped, entry.FilePath);
                 progressInfo.IsError = true;
                 Log(LogLevel.Warning, progressInfo.Message);
                 progress.Report(progressInfo);
@@ -711,7 +716,7 @@ public class BatchOperationService
             {
                 progressInfo.AmbiguousArchiveCount++;
                 progressInfo.IgnoreCount++;
-                progressInfo.Message = $"分卷编号重复，已跳过: {entry.FilePath}";
+                progressInfo.Message = string.Format(L.DuplicateVolumeSkipped, entry.FilePath);
                 progressInfo.IsError = true;
                 Log(LogLevel.Warning, progressInfo.Message);
                 progress.Report(progressInfo);
@@ -734,7 +739,7 @@ public class BatchOperationService
             {
                 Log(LogLevel.Warning, $"Archive not found: {entry.FilePath}");
                 progressInfo.NonExistCount++;
-                progressInfo.Message = $"Not found: {entry.FilePath}";
+                progressInfo.Message = string.Format(L.ItemNotFound, entry.FilePath);
                 progressInfo.IsError = true;
                 progress.Report(progressInfo);
                 continue;
@@ -786,7 +791,7 @@ public class BatchOperationService
             };
 
             Log(LogLevel.Information, $"Extraction started: {archiveName}");
-            progressInfo.Message = $"[开始解压] {archiveName}";
+            progressInfo.Message = string.Format(L.ExtractionStarted, archiveName);
             progressInfo.IsError = false;
             progress.Report(progressInfo);
 
@@ -799,7 +804,7 @@ public class BatchOperationService
 
             // 调用归档引擎执行解压。
             var result = await _archiveEngine.ExtractAsync(archivePath, outputDirectory, archiveOptions, cancellationToken);
-            ReportArchiveOutput("解压命令", result, progressInfo, progress);
+            ReportArchiveOutput(L.ExtractionCommandLabel, result, progressInfo, progress);
 
             if (result.Success)
             {
@@ -884,8 +889,8 @@ public class BatchOperationService
 
                 // 归档成功和后处理成功分别统计，避免后处理失败被隐藏。
                 progressInfo.Message = postProcessFailed
-                    ? $"成功但后处理失败: {archiveName}"
-                    : $"成功: {archiveName}";
+                    ? string.Format(L.ItemSucceededWithPostProcessFailure, archiveName)
+                    : string.Format(L.ItemSucceeded, archiveName);
                 progressInfo.IsError = postProcessFailed;
             }
             else
@@ -893,7 +898,7 @@ public class BatchOperationService
                 CleanupFailedExtractionOutput(outputDirectory, outputSnapshot, outputDirectoryExisted);
                 Log(LogLevel.Error, $"Extraction failed: {archiveName} - {result.ErrorMessage}");
                 progressInfo.FailCount++;
-                progressInfo.Message = $"失败: {archiveName} - {result.ErrorMessage}";
+                progressInfo.Message = string.Format(L.ItemFailed, archiveName, result.ErrorMessage);
                 progressInfo.IsError = true;
             }
 
@@ -904,7 +909,7 @@ public class BatchOperationService
             if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
             {
                 Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
-                progressInfo.Message = "Size limit reached";
+                progressInfo.Message = L.SizeLimitReached;
                 progress.Report(progressInfo);
                 break;
             }
@@ -1003,7 +1008,8 @@ public class BatchOperationService
             progress.Report(CloneProgress(
                 progressInfo,
                 $"[{prefix}] command{Environment.NewLine}{result.CommandLine}",
-                isError: false));
+                isError: false,
+                isCommandOutput: true));
         }
 
         if (!string.IsNullOrWhiteSpace(result.StandardOutput))
@@ -1011,7 +1017,8 @@ public class BatchOperationService
             progress.Report(CloneProgress(
                 progressInfo,
                 $"[{prefix}] stdout{Environment.NewLine}{result.StandardOutput.TrimEnd()}",
-                isError: false));
+                isError: false,
+                isCommandOutput: true));
         }
 
         if (!string.IsNullOrWhiteSpace(result.StandardError))
@@ -1019,7 +1026,8 @@ public class BatchOperationService
             progress.Report(CloneProgress(
                 progressInfo,
                 $"[{prefix}] stderr{Environment.NewLine}{result.StandardError.TrimEnd()}",
-                isError: !result.Success));
+                isError: !result.Success,
+                isCommandOutput: true));
         }
     }
 
@@ -1028,7 +1036,8 @@ public class BatchOperationService
     private static OperationProgressInfo CloneProgress(
         OperationProgressInfo source,
         string message,
-        bool isError) => new()
+        bool isError,
+        bool isCommandOutput = false) => new()
         {
             CurrentFile = source.CurrentFile,
             CurrentSourcePath = source.CurrentSourcePath,
@@ -1042,6 +1051,7 @@ public class BatchOperationService
             ProcessedSizeGB = source.ProcessedSizeGB,
             Message = message,
             IsError = isError,
+            IsCommandOutput = isCommandOutput,
             StartTime = source.StartTime,
             Elapsed = source.Elapsed
         };
@@ -1092,8 +1102,8 @@ public class BatchOperationService
     private static string BuildIncompleteVolumeMessage(ArchiveVolumeResolveResult resolved)
     {
         var reason = !resolved.HasRequiredFirstVolume
-            ? "缺少编号 1 的首卷"
-            : $"缺少分卷编号 {string.Join(", ", resolved.MissingNumbers)}";
-        return $"分卷不完整，已跳过：{resolved.RequestedPath}（{reason}）";
+            ? L.MissingFirstVolume
+            : string.Format(L.MissingVolumeNumbers, string.Join(", ", resolved.MissingNumbers));
+        return string.Format(L.IncompleteVolumesSkipped, resolved.RequestedPath, reason);
     }
 }

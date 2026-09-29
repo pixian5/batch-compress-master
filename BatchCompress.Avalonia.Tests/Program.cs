@@ -38,7 +38,9 @@ internal static class Program
             ("完整命令行解析", TestCommandLineParsing),
             ("命令行错误校验", TestCommandLineValidation),
             ("TXT 清单与密码本诊断", TestTextFileImportModes),
-            ("本地化窗口标题", TestLocalizedWindowTitles)
+            ("本地化窗口标题", TestLocalizedWindowTitles),
+            ("英文与德语资源不含中文", TestLocalizedTextHasNoChinese),
+            ("服务消息跟随界面语言", TestServiceMessagesFollowLanguage)
         };
 
         // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
@@ -134,6 +136,75 @@ internal static class Program
         }
 
         return Task.CompletedTask;
+    }
+
+    // GPT-5, 2026-09-29：英文与德语资源不得残留中文，避免“中文界面混英文、外语界面混中文”。
+    // 逐项反射全部字符串属性，新增词条若漏译会直接失败。
+    private static Task TestLocalizedTextHasNoChinese()
+    {
+        var localization = LocalizationService.Instance;
+        var originalLanguage = localization.CurrentLanguage;
+        try
+        {
+            foreach (var language in new[] { "en", "de" })
+            {
+                localization.CurrentLanguage = language;
+                var strings = localization.Strings;
+                foreach (var property in typeof(LanguageStrings).GetProperties())
+                {
+                    if (property.GetValue(strings) is not string value || value.Length == 0)
+                    {
+                        continue;
+                    }
+
+                    Assert(!value.Any(character => character >= '\u4e00' && character <= '\u9fff'),
+                        $"{language} 的 {property.Name} 不得包含中文：{value}");
+                }
+            }
+        }
+        finally
+        {
+            localization.CurrentLanguage = originalLanguage;
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GPT-5, 2026-09-29：服务层逐项状态消息必须跟随当前界面语言。
+    // 英文模式下用真实调用链验证消息取自英文资源，杜绝“英文界面混中文日志”。
+    private static async Task TestServiceMessagesFollowLanguage()
+    {
+        var localization = LocalizationService.Instance;
+        var originalLanguage = localization.CurrentLanguage;
+        var missingArchive = Path.Combine(Path.GetTempPath(), $"bc-locale-missing-{Guid.NewGuid():N}.7z");
+        try
+        {
+            localization.CurrentLanguage = "en";
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(new TestArchiveEngine(), new TestSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = missingArchive, FileSize = 0 }],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(Path.GetTempPath(), "bc-locale-out"),
+                    Extension = "7z"
+                },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            var messages = snapshots
+                .Select(snapshot => snapshot.Message)
+                .Where(message => !string.IsNullOrWhiteSpace(message))
+                .ToArray();
+            Assert(messages.Length > 0, "服务层必须报告状态消息");
+            Assert(messages.Any(message => message.Contains(localization.Strings.MissingFirstVolume, StringComparison.Ordinal)),
+                "英文模式的分卷不完整消息必须取自英文资源: " + string.Join(" | ", messages));
+            Assert(!messages.Any(message => message.Any(character => character >= '\u4e00' && character <= '\u9fff')),
+                "英文模式下不得出现中文消息: " + string.Join(" | ", messages));
+        }
+        finally
+        {
+            localization.CurrentLanguage = originalLanguage;
+        }
     }
 
     private sealed class TestArchiveEngine : IArchiveEngine
