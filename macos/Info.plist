@@ -17,9 +17,9 @@
 	<!-- GPT-5, 2026-09-29：以下两个版本字段只是本文件单独使用时的回退值；
              scripts/package-macos.sh 会用根目录 VERSION 覆盖并回读校验。 -->
         <key>CFBundleShortVersionString</key>
-        <string>0.6.4</string>
+        <string>0.6.5</string>
         <key>CFBundleVersion</key>
-        <string>0.6.4</string>
+        <string>0.6.5</string>
 	<key>LSMinimumSystemVersion</key>
 	<string>13.0</string>
 	<key>NSHighResolutionCapable</key>
