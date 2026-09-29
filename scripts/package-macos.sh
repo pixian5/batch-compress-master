@@ -14,6 +14,18 @@ iconset_dir="${iconset_tmp}.iconset"
 mv "$iconset_tmp" "$iconset_dir"
 trap 'rm -rf "$iconset_dir"' EXIT
 
+# GPT-5, 2026-09-29：版本号唯一来源是仓库根目录 VERSION；打包时写入 Info.plist，
+# 使 Finder、系统报告和程序内标题与 csproj、CLI --version 始终一致。
+if [[ ! -f "$repo_root/VERSION" ]]; then
+  print -u2 "missing version file: $repo_root/VERSION"
+  exit 1
+fi
+app_version="$(tr -d '[:space:]' < "$repo_root/VERSION")"
+if [[ -z "$app_version" ]]; then
+  print -u2 "empty version file: $repo_root/VERSION"
+  exit 1
+fi
+
 if [[ ! -f "$icon_source" ]]; then
   print -u2 "missing icon source: $icon_source"
   exit 1
@@ -68,6 +80,14 @@ cp "$publish_dir/BatchCompress.StatusBarHelper" "$app_path/Contents/MacOS/BatchC
 chmod +x "$app_path/Contents/MacOS/BatchCompress.Avalonia"
 chmod +x "$app_path/Contents/MacOS/BatchCompress.StatusBarHelper"
 cp "$repo_root/macos/Info.plist" "$app_path/Contents/Info.plist"
+# GPT-5, 2026-09-29：以 VERSION 覆盖 plist 内版本，并回读校验，避免安装出与源码不一致的版本。
+/usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString $app_version" "$app_path/Contents/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleVersion $app_version" "$app_path/Contents/Info.plist"
+installed_version="$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$app_path/Contents/Info.plist")"
+if [[ "$installed_version" != "$app_version" ]]; then
+  print -u2 "version injection failed: expected $app_version, got $installed_version"
+  exit 1
+fi
 cp "$repo_root/macos/压缩.icns" "$app_path/Contents/Resources/压缩.icns"
 # GPT-5, 2026-08-06：Finder 启动时 PATH 不可靠，因此将官方 7zz 及授权文件放入应用包固定相对路径。
 mkdir -p "$app_path/Contents/MacOS/tools/7zip/macos"
@@ -83,4 +103,4 @@ fi
 touch "$app_path"
 codesign --force --deep --sign - "$app_path" >/dev/null
 
-print "Installed: $app_path"
+print "Installed: $app_path (v$app_version)"

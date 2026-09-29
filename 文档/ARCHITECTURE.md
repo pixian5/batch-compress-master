@@ -50,7 +50,8 @@ Windows 与 Linux 使用 Avalonia 原生 `TrayIcon`。由于实测 macOS 上 Ava
 - 归档进程参数必须使用 `ArgumentList`，不得拼接 Shell 命令字符串；stdout/stderr 必须并行异步读取。
 - 活动源码新增或修改的注释使用中文，并以 `GPT-5, YYYY-MM-DD：` 标注复杂逻辑的维护日期和原因。
 - `desktop.ini`、`.DS_Store`、`Thumbs.db`、Linux 桌面元数据及回收站目录由统一过滤器跳过，不能进入归档任务。
-- `tools/7zip/` 中的官方 7zz 是项目运行资源，不应被 `.gitignore` 忽略。RAR/WinRAR 二进制、注册文件和私有授权资料不得提交；部署者可通过系统安装、`BATCHCOMPRESS_RAR_PATH` 或私有打包注入提供 RAR。
+- 版本号唯一来源为仓库根目录 `VERSION` 文件：csproj 读取它生成程序集信息，`scripts/package-macos.sh` 在打包时注入并回读校验 `Info.plist`。不得在其它文件中另行手写版本号。
+- `tools/7zip/` 中的官方 7zz 是项目运行资源，不应被 `.gitignore` 忽略。仓库内仍保留一份历史提交的 `tools/rarLinux/rar`，它不参与构建输出，且按 win.rar GmbH 许可协议第 3a、3b 条对外分发或打包需要书面许可（详见 [RAR 二进制许可风险说明](../docs/202609292351RAR二进制许可风险说明.md)）；除该已知遗留外，新增的 RAR/WinRAR 二进制、注册文件和私有授权资料不得提交。部署者应通过系统安装、`BATCHCOMPRESS_RAR_PATH` 或私有打包注入（`BATCHCOMPRESS_RAR_DIR`）提供 RAR。
 
 ## RAR 与 7z 后端边界
 

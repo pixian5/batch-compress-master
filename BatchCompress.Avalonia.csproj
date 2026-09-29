@@ -3,7 +3,9 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <Version>0.6.1</Version>
+    <!-- GPT-5, 2026-09-29：版本号唯一来源为仓库根目录 VERSION 文件；csproj、程序集信息、
+         CLI 版本查询与 macOS 打包脚本全部读取它，避免多处手写导致版本漂移。 -->
+    <Version>$([System.IO.File]::ReadAllText('$(MSBuildProjectDirectory)/VERSION').Trim())</Version>
     <Nullable>enable</Nullable>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <ApplicationIcon>Assets\压缩.ico</ApplicationIcon>

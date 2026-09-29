@@ -5,6 +5,7 @@
 ## 当前文档
 
 - [根 README](../README.md)：安装、运行、功能与测试入口。
+- [docs/ 目录](../docs)：按“年月日时分＋标题”命名的开发进度、下一步待实现与风险记录（如 RAR 二进制许可风险说明），与本文档目录并行使用。
 - [当前架构](ARCHITECTURE.md)：模块边界和运行机制。
 - [Avalonia 版本说明](AVALONIA_VERSION.md)：技术版本和打包方式。
 - [当前实现摘要](IMPLEMENTATION_SUMMARY.md)：已实现能力。
