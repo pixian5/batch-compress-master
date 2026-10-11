@@ -163,3 +163,15 @@ logs/
 
 # WorkBuddy 工作目录（项目记忆等，不入库）
 .workbuddy/
+node_modules/
+__pycache__/
+*.pyc
+.vscode/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+htmlcov/
+*.egg-info/
