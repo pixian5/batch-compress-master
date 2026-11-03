@@ -312,4 +312,37 @@ public class LanguageStrings : INotifyPropertyChanged
     public string TrayShowHide { get; set; } = "显示/隐藏";
     public string TrayExit { get; set; } = "退出";
     public string TrayTooltip { get; set; } = "批量压缩解压工具";
+
+    // GLM-5.3, 2026-11-04：批次 4——CLI 解析期错误文案（跟随 --language，占位 {0}/{1}）。
+    public string CliErrorUnknownOption { get; set; } = "未知参数: {0}";
+    public string CliErrorFlagBoolean { get; set; } = "{0} 只能使用 true 或 false。";
+    public string CliErrorMissingValue { get; set; } = "{0} 缺少参数值。";
+    public string CliErrorMustBeInteger { get; set; } = "{0} 必须是整数。";
+    public string CliErrorMustBeNumber { get; set; } = "{0} 必须是数字。";
+    public string CliErrorBothModes { get; set; } = "压缩和解压模式不能同时指定。";
+    public string CliErrorGuiWithMode { get; set; } = "--gui 不能与压缩或解压模式同时指定。";
+    public string CliErrorSpecifyMode { get; set; } = "请指定 compress、extract、--compress、--decompress 或 --gui。";
+    public string CliErrorOutputRequired { get; set; } = "无界面模式必须指定 --output。";
+    public string CliErrorSourceRequired { get; set; } = "必须通过 --source、--input 或 --text-file 提供至少一个来源。";
+    public string CliErrorTextFileExtractOnly { get; set; } = "--text-file 是解压密码清单，只能用于 extract 模式。";
+    public string CliErrorSinglePasswordSource { get; set; } = "--password、--password-file、--password-stdin 只能选择一种。";
+    public string CliErrorLevelRange { get; set; } = "--level 必须在 0 到 5 之间。";
+    public string CliErrorRecoveryRange { get; set; } = "--recovery 必须在 0 到 100 之间。";
+    public string CliErrorMaxSizeNegative { get; set; } = "--max-size 不能小于 0。";
+    public string CliErrorUnknownFormat { get; set; } = "--extension 不是已识别格式：{0}。可解压格式包括：{1}。";
+    public string CliErrorFormatNotCreatable { get; set; } = "--extension {0} 不支持创建；可创建格式包括：{1}。";
+    public string CliErrorFormatNotExtractable { get; set; } = "--extension {0} 不支持解压。";
+    public string CliErrorFormatNoPassword { get; set; } = "{0} 格式不支持密码加密，请移除密码参数。";
+    public string CliErrorExistingChoices { get; set; } = "--existing 仅支持 skip、update、overwrite。";
+    public string CliErrorPasswordNameChoices { get; set; } = "--password-name 仅支持 archive、base。";
+    public string CliErrorUpdateLockConflict { get; set; } = "--existing update 不能与 --lock 同时使用。";
+    public string CliErrorVolumeUnitChoices { get; set; } = "--volume-unit 仅支持 b、k、m、g、t。";
+    public string CliErrorVolumeSizePositive { get; set; } = "--volume-size 必须是大于 0 的数字。";
+    public string CliErrorDeleteMoveConflict { get; set; } = "--delete-source 和 --move-source 不能同时使用。";
+    public string CliErrorVerboseQuietConflict { get; set; } = "--verbose 和 --quiet 不能同时使用。";
+    public string CliErrorFileNotFound { get; set; } = "{0} 指定的文件不存在: {1}";
+    public string CliErrorLanguageChoices { get; set; } = "--language 仅支持 zh-CN、zh-TW、en、ja、de（接受 en-US、ja-JP、de-DE 等区域变体）: {0}";
+    public string CliErrorOutputFormatChoices { get; set; } = "--output-format 仅支持 text、json: {0}";
+    public string CliErrorPrefix { get; set; } = "参数错误: {0}";
+    public string CliErrorSeeHelp { get; set; } = "使用 --help 查看完整用法。";
 }

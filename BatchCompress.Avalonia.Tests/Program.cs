@@ -50,6 +50,8 @@ internal static class Program
             ("命令行错误校验", TestCommandLineValidation),
             ("CLI语言参数", TestCliLanguageOptions),
             ("CLI输出格式参数", TestCliOutputFormatOptions),
+            ("CLI错误文案本地化", TestCliErrorLocalization),
+            ("日志权限与轮转", TestLogFilePermissionsAndRotation),
             ("NDJSON结构化输出", TestNdjsonOutputWriter),
             ("NDJSON端到端", TestNdjsonEndToEnd),
             ("TXT 清单与密码本诊断", TestTextFileImportModes),
@@ -2172,6 +2174,132 @@ internal static class Program
 
     // GLM-5.3, 2026-11-04：批次 3——NDJSON 输出器单元行为：
     // 事件分类（progress/item/summary）、密码排除、计数呈现与非 ASCII 原样输出。
+    // GLM-5.3, 2026-11-04：批次 4——CLI 解析期错误文案完全本地化：
+    // 语言跟随命令行 --language/--lang（无论出现顺序）、四语抽检、zh-TW 繁体帮助、
+    // zh-CN 文案与历史硬编码逐字一致（既有中文断言测试不回归）。
+    private static Task TestCliErrorLocalization()
+    {
+        var localization = LocalizationService.Instance;
+        var originalLanguage = localization.CurrentLanguage;
+        var originalOut = Console.Out;
+        try
+        {
+            // zh-CN 回归：文案经词条输出但与历史硬编码逐字一致。
+            AssertCommandLineFails(
+                ["--compress", "--decompress", "-i", "/tmp/a", "-o", "/tmp/out"],
+                "不能同时指定");
+
+            // 英文：--lang 在出错参数之后也生效（解析开始即按预扫描语言切换词条）。
+            localization.CurrentLanguage = "zh-CN";
+            var levelError = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--level", "x", "--lang", "en"]);
+            Assert(!levelError.Success, "必须报错");
+            AssertEqual("en", localization.CurrentLanguage);
+            Assert(levelError.Errors.Contains("--level must be an integer."),
+                "英文错误必须逐字匹配: " + string.Join(" | ", levelError.Errors));
+
+            var outputError = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["compress", "--lang", "en", "-i", "/tmp/a"]);
+            Assert(outputError.Errors.Contains("Headless mode requires --output."),
+                "英文输出缺失错误必须逐字匹配: " + string.Join(" | ", outputError.Errors));
+            AssertEqual("Argument error: {0}", localization.Strings.CliErrorPrefix);
+
+            // 德文与日文抽检。
+            localization.CurrentLanguage = "zh-CN";
+            var german = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["compress", "--lang", "de", "-i", "/tmp/a"]);
+            Assert(german.Errors.Contains("Der Headless-Modus erfordert --output."),
+                "德文错误必须逐字匹配: " + string.Join(" | ", german.Errors));
+
+            localization.CurrentLanguage = "zh-CN";
+            var japanese = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["--whatever", "--lang", "ja"]);
+            Assert(japanese.Errors.Contains("不明なオプション: --whatever"),
+                "日文错误必须逐字匹配: " + string.Join(" | ", japanese.Errors));
+
+            // zh-TW 繁体帮助：正体术语且不含简体标题。
+            var helpOut = new System.IO.StringWriter();
+            Console.SetOut(helpOut);
+            BatchCompress.Avalonia.CommandLineHandler.ShowHelp("zh-TW");
+            var traditionalHelp = helpOut.ToString();
+            Assert(traditionalHelp.Contains("批次壓縮解壓工具") && traditionalHelp.Contains("--output-format"),
+                "繁体帮助必须完整且包含新参数");
+            Assert(!traditionalHelp.Contains("批量压缩解压工具") && !traditionalHelp.Contains("图形界面"),
+                "繁体帮助不得混入简体用语");
+        }
+        finally
+        {
+            localization.CurrentLanguage = originalLanguage;
+            Console.SetOut(originalOut);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 4——日志文件安全与体积治理：
+    // Unix 0600 权限、超阈值轮转为 .1、7 天过期清理（仅匹配 batchcompress_ 模式）。
+    private static Task TestLogFilePermissionsAndRotation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-log-hygiene-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 1) Unix 权限：新建日志必须为 0600（仅当前用户读写）。
+            var logPath = Path.Combine(root, "batchcompress_unit.log");
+            using (var logger = new FileLoggerService(logPath))
+            {
+                logger.LogOperation("TEST", "权限检查");
+            }
+
+            Assert(File.Exists(logPath), "日志文件必须创建");
+            if (!OperatingSystem.IsWindows())
+            {
+                var mode = File.GetUnixFileMode(logPath);
+                AssertEqual(UnixFileMode.UserRead | UnixFileMode.UserWrite, mode);
+            }
+
+            // 2) 轮转：小阈值 + 足量写入后当前文件轮转为 .1，新文件继续写入。
+            var rotatingPath = Path.Combine(root, "batchcompress_rotate.log");
+            using (var logger = new FileLoggerService(rotatingPath, rotationBytes: 512))
+            {
+                for (var i = 0; i < 200; i++)
+                {
+                    logger.LogOperation("TEST", $"轮转压力行 {i} 0123456789012345678901234567890123456789");
+                }
+            }
+
+            Assert(File.Exists(rotatingPath + ".1"), "超过阈值必须轮转出 .1 副本");
+            Assert(File.Exists(rotatingPath), "轮转后必须新建同名日志继续写入");
+            var rotatedSize = new FileInfo(rotatingPath + ".1").Length;
+            Assert(rotatedSize > 512, $"轮转副本应超过阈值: {rotatedSize}");
+            Assert(new FileInfo(rotatingPath).Length < rotatedSize, "新文件必须小于轮转副本");
+
+            // 3) 过期清理：7 天前的 batchcompress_*.log 与 .1 被删，无关命名不受影响。
+            var staleLog = Path.Combine(root, "batchcompress_20200101_000000.log");
+            var staleRotated = Path.Combine(root, "batchcompress_20200101_000000.log.1");
+            var unrelated = Path.Combine(root, "unrelated_old.log");
+            foreach (var file in new[] { staleLog, staleRotated, unrelated })
+            {
+                File.WriteAllText(file, "stale");
+                File.SetLastWriteTimeUtc(file, DateTime.UtcNow - TimeSpan.FromDays(8));
+            }
+
+            using (var logger = new FileLoggerService(Path.Combine(root, "batchcompress_fresh.log")))
+            {
+                logger.LogOperation("TEST", "触发清理");
+            }
+
+            Assert(!File.Exists(staleLog) && !File.Exists(staleRotated), "过期批处理日志必须被清理");
+            Assert(File.Exists(unrelated), "无关命名的旧文件不得被清理");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
     private static Task TestNdjsonOutputWriter()
     {
         using var output = new System.IO.StringWriter();

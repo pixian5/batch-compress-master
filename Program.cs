@@ -46,12 +46,15 @@ sealed class Program
         var parseOutcome = CommandLineHandler.ParseArguments(applicationArgs);
         if (!parseOutcome.Success)
         {
+            // GLM-5.3, 2026-11-04：批次 4——错误前缀与提示同样走 LocalizationService
+            //（解析失败路径的语言可能已由命令行 --lang 预扫描切换）。
+            var strings = LocalizationService.Instance.Strings;
             foreach (var error in parseOutcome.Errors)
             {
-                Console.Error.WriteLine($"参数错误: {error}");
+                Console.Error.WriteLine(string.Format(strings.CliErrorPrefix, error));
             }
 
-            Console.Error.WriteLine("使用 --help 查看完整用法。");
+            Console.Error.WriteLine(strings.CliErrorSeeHelp);
             return 2;
         }
 

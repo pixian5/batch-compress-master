@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using BatchCompress.Avalonia.Core.Models;
+using BatchCompress.Avalonia.Localization;
 
 namespace BatchCompress.Avalonia;
 
@@ -68,6 +69,10 @@ public sealed class CommandLineParseOutcome
 // 旧的 --compress/--decompress 仍可使用，compress/extract 动词会在解析前规范为相同开关。
 public static class CommandLineHandler
 {
+    // GLM-5.3, 2026-11-04：批次 4——解析期错误文案接入 LocalizationService，
+    // 跟随命令行中的 --language/--lang（无论其出现顺序，解析开始即按预扫描结果切换）。
+    private static LanguageStrings L => LocalizationService.Instance.Strings;
+
     private enum ValueKind
     {
         Flag,
@@ -170,6 +175,85 @@ public static class CommandLineHandler
           BatchCompress.Avalonia extract -i ./archive.7z -o ./out --password-stdin
         """;
 
+    // GLM-5.3, 2026-11-04：批次 4——zh-TW 標準正體中文幫助（術語與 zh-CN 版逐節對應）。
+    private const string TraditionalChineseHelpText =
+        """
+        批次壓縮解壓工具
+
+        用法:
+          BatchCompress.Avalonia [gui]
+          BatchCompress.Avalonia compress -i <路徑...> -o <輸出目錄> [選項]
+          BatchCompress.Avalonia extract -i <封存...> -o <輸出目錄> [選項]
+
+        模式:
+          compress, --compress, -c       執行無介面批次壓縮
+          extract, decompress, --decompress, -d
+                                        執行無介面批次解壓
+          gui, --gui, -g                 明確啟動圖形介面
+
+        來源與輸出:
+          --source, -s <目錄>            批次處理來源目錄，壓縮時處理其直接子項
+          --input, -i <路徑...>          明確輸入的檔案或目錄，可重複指定
+          --output, -o <目錄>            輸出目錄
+          --text-file, -t <檔案>         解壓檔名與逐項密碼 TXT 清單
+
+        壓縮參數:
+          --extension, --format, -e      建立：rar、7z、zip、tar、gz、bz2、xz、wim；解壓：7zz 可讀取格式
+          --level, -l <0..5>             壓縮層級
+          --solid / --no-solid           啟用或關閉固實壓縮
+          --volume-size, -v <數字>       分卷數值
+          --volume-unit <b|k|m|g|t>      分卷單位
+          --recovery <0..100>            RAR 復原記錄百分比
+          --quick-open                   加入 RAR 快速開啟資訊
+          --test                         建立後校驗封存
+          --comment <檔案>               RAR/ZIP 註解文字檔
+          --temp-dir <目錄>              封存程式暫存目錄
+
+        密碼:
+          --random-password, -r          依封存檔名產生相容隨機密碼，預設開啟
+          --no-random-password           關閉隨機密碼衍生
+          --password, -p <密碼>          直接提供自訂密碼
+          --password-file <檔案>         從檔案第一行讀取密碼
+          --password-stdin               從標準輸入第一行讀取密碼
+          --password-name <archive|base> 密碼依據：a.rar（預設）或 a
+
+        處理策略:
+          --existing <skip|update|overwrite>
+                                        既有檔案策略
+          --lock                         鎖定 RAR 封存（不能與 --existing update 同時使用）
+          --skip-processed / --no-skip-processed
+                                        啟用或關閉跳過已處理項目
+          --delete-source                成功後刪除來源檔案
+          --move-source                  成功後移動來源檔案
+          --max-size, --max-size-gb <GB> 最大處理總量，0 表示不限
+          --shutdown                     全部完成後請求關機
+          --add-enclosures / --no-add-enclosures
+                                        啟用或關閉附件目錄
+          --enclosure-list <檔案>        舊版相容：換行分隔的附件目錄
+          --enclosure <目錄...>          附件目錄，可重複指定
+
+        日誌:
+          --log-file <檔案>              日誌檔案路徑
+          --verbose                      輸出詳細進度
+          --quiet, -q                    僅向 stderr 輸出錯誤
+          --dry-run                      列出將處理的項目，不建立目錄或封存
+          --help, -h, -?, /?             顯示說明
+          --version                      顯示版本
+
+        語言與輸出:
+          --language, --lang <zh-CN|zh-TW|en|ja|de>
+                                        介面與服務層訊息語言（接受 en-US、ja-JP、de-DE
+                                        等區域變體，自動歸一），預設 zh-CN
+          --output-format <text|json>   stdout 輸出格式，預設 text；json 模式按
+                                        NDJSON 逐行輸出 progress/item/summary 事件，
+                                        命令與程序原始輸出（含密碼）不進入 JSON 流，
+                                        人類可讀提示改寫入 stderr
+
+        範例:
+          BatchCompress.Avalonia compress -i ./data -o ./out -e 7z --password-file ./password.txt
+          BatchCompress.Avalonia extract -i ./archive.7z -o ./out --password-stdin
+        """;
+
     // GLM-5.3, 2026-11-04：批次 3——英文帮助。--help 可与 --language/--lang 组合输出对应语言。
     private const string EnglishHelpText =
         """
@@ -258,6 +342,16 @@ public static class CommandLineHandler
     {
         ArgumentNullException.ThrowIfNull(args);
         var effectiveArgs = NormalizeVerb(args);
+
+        // GLM-5.3, 2026-11-04：批次 4——解析期错误文案跟随 --language/--lang：
+        // 即使语言参数出现在出错参数之后，报错也按该语言输出；
+        // Program.Main 在解析成功后仍会统一同步一次，GUI 场景不受影响。
+        var detectedLanguage = DetectLanguage(effectiveArgs);
+        if (detectedLanguage != null)
+        {
+            LocalizationService.Instance.CurrentLanguage = detectedLanguage;
+        }
+
         var state = new ParseState();
 
         for (var index = 0; index < effectiveArgs.Length; index++)
@@ -273,7 +367,7 @@ public static class CommandLineHandler
             if (!TryReadOptionToken(token, out var name, out var inlineValue) ||
                 !Definitions.TryGetValue(name, out var definition))
             {
-                state.Errors.Add($"未知参数: {token}");
+                state.Errors.Add(string.Format(L.CliErrorUnknownOption, token));
                 continue;
             }
 
@@ -347,12 +441,18 @@ public static class CommandLineHandler
 
     /// <summary>
     /// 按指定语言输出帮助。language 为 LocalizationService 语言键（zh-CN/zh-TW/en/ja/de），
-    /// 目前提供中英双语帮助文本（zh-TW 暂用简体文本），其余语言与未指定（null）默认中文。
+    /// 提供简体、繁体、英文三份帮助文本；ja/de 回退英文，未指定（null）默认简体中文。
+    /// GLM-5.3, 2026-11-04：批次 4 补齐 zh-TW 标准正体中文帮助。
     /// </summary>
     public static void ShowHelp(string? language)
     {
-        var useChinese = string.IsNullOrEmpty(language) || language is "zh-CN" or "zh-TW";
-        Console.Out.WriteLine(useChinese ? HelpText : EnglishHelpText);
+        var text = language switch
+        {
+            "zh-TW" => TraditionalChineseHelpText,
+            null or "zh-CN" => HelpText,
+            _ => EnglishHelpText
+        };
+        Console.Out.WriteLine(text);
     }
 
     /// <summary>
@@ -401,7 +501,7 @@ public static class CommandLineHandler
             return language;
         }
 
-        errors?.Add($"--language 仅支持 zh-CN、zh-TW、en、ja、de（接受 en-US、ja-JP、de-DE 等区域变体）: {value}");
+        errors?.Add(string.Format(L.CliErrorLanguageChoices, value));
         return value.Trim();
     }
 
@@ -439,7 +539,7 @@ public static class CommandLineHandler
             return normalized;
         }
 
-        errors?.Add($"--output-format 仅支持 text、json: {value}");
+        errors?.Add(string.Format(L.CliErrorOutputFormatChoices, value));
         return "text";
     }
 
@@ -577,7 +677,7 @@ public static class CommandLineHandler
             return false;
         }
 
-        errors.Add($"{token} 只能使用 true 或 false。");
+        errors.Add(string.Format(L.CliErrorFlagBoolean, token));
         return true;
     }
 
@@ -595,7 +695,7 @@ public static class CommandLineHandler
 
         if (index + 1 >= args.Length || args[index + 1] == "--")
         {
-            errors.Add($"{token} 缺少参数值。");
+            errors.Add(string.Format(L.CliErrorMissingValue, token));
             return null;
         }
 
@@ -629,7 +729,7 @@ public static class CommandLineHandler
 
         if (values.Count == 0)
         {
-            errors.Add($"{token} 缺少参数值。");
+            errors.Add(string.Format(L.CliErrorMissingValue, token));
         }
 
         return values;
@@ -798,7 +898,7 @@ public static class CommandLineHandler
             return parsed;
         }
 
-        errors.Add($"{optionName} 必须是整数。");
+        errors.Add(string.Format(L.CliErrorMustBeInteger, optionName));
         return fallback;
     }
 
@@ -809,7 +909,7 @@ public static class CommandLineHandler
             return parsed;
         }
 
-        errors.Add($"{optionName} 必须是数字。");
+        errors.Add(string.Format(L.CliErrorMustBeNumber, optionName));
         return fallback;
     }
 
@@ -827,18 +927,18 @@ public static class CommandLineHandler
     {
         if (options.Compress && options.Decompress)
         {
-            errors.Add("压缩和解压模式不能同时指定。");
+            errors.Add(L.CliErrorBothModes);
         }
 
         if (explicitGui && (options.Compress || options.Decompress))
         {
-            errors.Add("--gui 不能与压缩或解压模式同时指定。");
+            errors.Add(L.CliErrorGuiWithMode);
         }
 
         var isHeadless = options.Compress || options.Decompress;
         if (!isHeadless && !explicitGui && effectiveArgs.Length > 0)
         {
-            errors.Add("请指定 compress、extract、--compress、--decompress 或 --gui。");
+            errors.Add(L.CliErrorSpecifyMode);
         }
 
         if (!isHeadless)
@@ -849,92 +949,92 @@ public static class CommandLineHandler
         options.Gui = false;
         if (string.IsNullOrWhiteSpace(options.OutputPath))
         {
-            errors.Add("无界面模式必须指定 --output。");
+            errors.Add(L.CliErrorOutputRequired);
         }
 
         if (string.IsNullOrWhiteSpace(options.SourcePath) &&
             options.InputPaths.Length == 0 &&
             string.IsNullOrWhiteSpace(options.TextFile))
         {
-            errors.Add("必须通过 --source、--input 或 --text-file 提供至少一个来源。");
+            errors.Add(L.CliErrorSourceRequired);
         }
 
         if (options.Compress && !string.IsNullOrWhiteSpace(options.TextFile))
         {
-            errors.Add("--text-file 是解压密码清单，只能用于 extract 模式。");
+            errors.Add(L.CliErrorTextFileExtractOnly);
         }
 
         if (explicitPasswordSourceCount > 1)
         {
-            errors.Add("--password、--password-file、--password-stdin 只能选择一种。");
+            errors.Add(L.CliErrorSinglePasswordSource);
         }
 
         if (options.CompressionLevel is < 0 or > 5)
         {
-            errors.Add("--level 必须在 0 到 5 之间。");
+            errors.Add(L.CliErrorLevelRange);
         }
 
         if (options.RecoveryRecord is < 0 or > 100)
         {
-            errors.Add("--recovery 必须在 0 到 100 之间。");
+            errors.Add(L.CliErrorRecoveryRange);
         }
 
         if (options.MaxSizeGB < 0)
         {
-            errors.Add("--max-size 不能小于 0。");
+            errors.Add(L.CliErrorMaxSizeNegative);
         }
 
         if (!ArchiveFormatCatalog.TryGet(options.Extension, out var formatDefinition))
         {
-            errors.Add($"--extension 不是已识别格式：{options.Extension}。可解压格式包括：{ArchiveFormatCatalog.ExtractFormatsText}。");
+            errors.Add(string.Format(L.CliErrorUnknownFormat, options.Extension, ArchiveFormatCatalog.ExtractFormatsText));
         }
         else if (options.Compress && !formatDefinition.CanCreate)
         {
-            errors.Add($"--extension {options.Extension} 不支持创建；可创建格式包括：{ArchiveFormatCatalog.CreateFormatsText}。");
+            errors.Add(string.Format(L.CliErrorFormatNotCreatable, options.Extension, ArchiveFormatCatalog.CreateFormatsText));
         }
         else if (options.Decompress && !formatDefinition.CanExtract)
         {
-            errors.Add($"--extension {options.Extension} 不支持解压。");
+            errors.Add(string.Format(L.CliErrorFormatNotExtractable, options.Extension));
         }
 
         if (options.Compress && formatDefinition is not null &&
             explicitPasswordSourceCount > 0 && !formatDefinition.SupportsPassword)
         {
-            errors.Add($"{formatDefinition.Extension} 格式不支持密码加密，请移除密码参数。");
+            errors.Add(string.Format(L.CliErrorFormatNoPassword, formatDefinition.Extension));
         }
 
         if (options.ExistingFileMode is not ("skip" or "update" or "overwrite"))
         {
-            errors.Add("--existing 仅支持 skip、update、overwrite。");
+            errors.Add(L.CliErrorExistingChoices);
         }
         if (options.PasswordName is not ("archive" or "base"))
         {
-            errors.Add("--password-name 仅支持 archive、base。");
+            errors.Add(L.CliErrorPasswordNameChoices);
         }
         if (options.ExistingFileMode == "update" && options.LockArchive)
         {
-            errors.Add("--existing update 不能与 --lock 同时使用。");
+            errors.Add(L.CliErrorUpdateLockConflict);
         }
 
         if (options.VolumeUnit is not ("b" or "k" or "m" or "g" or "t"))
         {
-            errors.Add("--volume-unit 仅支持 b、k、m、g、t。");
+            errors.Add(L.CliErrorVolumeUnitChoices);
         }
 
         if (!string.IsNullOrWhiteSpace(options.VolumeSize) &&
             (!double.TryParse(options.VolumeSize, NumberStyles.Float, CultureInfo.InvariantCulture, out var volumeSize) || volumeSize <= 0))
         {
-            errors.Add("--volume-size 必须是大于 0 的数字。");
+            errors.Add(L.CliErrorVolumeSizePositive);
         }
 
         if (options.DeleteSource && options.MoveSource)
         {
-            errors.Add("--delete-source 和 --move-source 不能同时使用。");
+            errors.Add(L.CliErrorDeleteMoveConflict);
         }
 
         if (options.Verbose && options.Quiet)
         {
-            errors.Add("--verbose 和 --quiet 不能同时使用。");
+            errors.Add(L.CliErrorVerboseQuietConflict);
         }
 
         ValidateExistingFile(options.TextFile, "--text-file", errors);
@@ -946,7 +1046,7 @@ public static class CommandLineHandler
     {
         if (!string.IsNullOrWhiteSpace(path) && !File.Exists(path))
         {
-            errors.Add($"{optionName} 指定的文件不存在: {path}");
+            errors.Add(string.Format(L.CliErrorFileNotFound, optionName, path));
         }
     }
 
