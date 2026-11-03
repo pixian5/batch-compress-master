@@ -177,7 +177,21 @@ public static class ArchiveVolumeResolver
         VolumePattern pattern,
         bool hasCaseAmbiguity)
     {
-        var volumes = EnumerateVolumes(directory, pattern).ToArray();
+        // GLM-5.3, 2026-11-03：目录扫描物化一次后传入重载，供旧式主卷入口复用，
+        // 避免其"判断成员存在"与"构造结果"各扫一遍目录。
+        return BuildGroupResult(
+            requestedPath,
+            pattern,
+            EnumerateVolumes(directory, pattern).ToArray(),
+            hasCaseAmbiguity);
+    }
+
+    private static ArchiveVolumeResolveResult BuildGroupResult(
+        string requestedPath,
+        VolumePattern pattern,
+        ArchiveVolume[] volumes,
+        bool hasCaseAmbiguity)
+    {
         var duplicateNumbers = volumes.GroupBy(volume => volume.Number).Any(group => group.Count() > 1);
         var firstVolumes = volumes.Where(volume => volume.Number == 1).ToArray();
         var hasRequiredFirstVolume = firstVolumes.Length == 1;
@@ -230,13 +244,14 @@ public static class ArchiveVolumeResolver
         }
 
         var pattern = CreatePattern(kind.Value, baseName, actualName);
+        var volumes = EnumerateVolumes(directory, pattern).ToArray();
         // 只见到主卷、没有分卷成员（编号 ≥ 2）时保持单卷语义，不改变普通归档行为。
-        if (!EnumerateVolumes(directory, pattern).Any(volume => volume.Number >= 2))
+        if (!volumes.Any(volume => volume.Number >= 2))
         {
             return null;
         }
 
-        return BuildGroupResult(requestedPath, directory, pattern, hasCaseAmbiguity);
+        return BuildGroupResult(requestedPath, pattern, volumes, hasCaseAmbiguity);
     }
 
     /// <summary>

@@ -832,9 +832,20 @@ public class BatchOperationService
                 progressInfo.SuccessCount++;
 
                 // 以当前归档大小累计处理量。
-                var processedBytes = resolved.FilesForPostProcessing.Count > 0
-                    ? resolved.FilesForPostProcessing.Sum(path => new FileInfo(path).Length)
-                    : entry.FileSize;
+                // GLM-5.3, 2026-11-03：防御解压成功后、统计前分卷被外部删除（杀毒或用户操作）
+                // 的竞态；统计失败回退到列表大小，与压缩侧 CalculateArchiveOutputBytes 的防护对齐。
+                long processedBytes;
+                try
+                {
+                    processedBytes = resolved.FilesForPostProcessing.Count > 0
+                        ? resolved.FilesForPostProcessing.Sum(path => new FileInfo(path).Length)
+                        : entry.FileSize;
+                }
+                catch (Exception ex)
+                {
+                    Log(LogLevel.Warning, $"统计归档大小失败，回退到列表大小：{entry.FilePath}：{ex.Message}");
+                    processedBytes = entry.FileSize;
+                }
                 var sizeGB = processedBytes / (1024.0 * 1024.0 * 1024.0);
                 processedSizeGB += sizeGB;
                 progressInfo.ProcessedSizeGB = processedSizeGB;
