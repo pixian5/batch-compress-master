@@ -330,7 +330,12 @@ public class BatchOperationService
 
         try
         {
-            var files = Directory.GetFiles(directory, $"*.{extension}", SearchOption.TopDirectoryOnly);
+            // GLM-5.3, 2026-11-03：改用 ArchiveVolumeResolver.MatchesFormat 统计，修复两个漏计：
+            // 1) Unix 上 GetFiles 通配符按大小写敏感匹配，*.rar 漏掉大写 *.RAR；
+            // 2) 分卷文件名（base.7z.001、base.r00 等）不匹配 *.7z / *.rar 通配符。
+            var files = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => ArchiveVolumeResolver.MatchesFormat(path, extension))
+                .ToArray();
             long totalBytes = files.Sum(f => new FileInfo(f).Length);
             return totalBytes / (1024.0 * 1024.0 * 1024.0);
         }
@@ -1135,9 +1140,14 @@ public class BatchOperationService
 
     private static string BuildIncompleteVolumeMessage(ArchiveVolumeResolveResult resolved)
     {
+        // GLM-5.3, 2026-11-03：缺卷编号换算为实际文件名后缀（r01 / z02 / part3.rar），
+        // 旧式分卷的组内编号与文件名后缀有偏移，直接显示数字会误导排查。
         var reason = !resolved.HasRequiredFirstVolume
             ? L.MissingFirstVolume
-            : string.Format(L.MissingVolumeNumbers, string.Join(", ", resolved.MissingNumbers));
+            : string.Format(
+                L.MissingVolumeNumbers,
+                string.Join(", ", resolved.MissingNumbers.Select(
+                    number => ArchiveVolumeResolver.DescribeVolumeSuffix(resolved, number))));
         return string.Format(L.IncompleteVolumesSkipped, resolved.RequestedPath, reason);
     }
 }

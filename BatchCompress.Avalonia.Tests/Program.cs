@@ -28,6 +28,7 @@ internal static class Program
             ("7z 返回码与格式路由", TestSevenZipExitCodesAndRouting),
             ("压缩格式别名规范化", TestCanonicalCompressionFormat),
             ("统一归档分卷解析", TestArchiveVolumeResolver),
+            ("旧式分卷识别", TestOldStyleVolumeResolution),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
             ("解压失败残留回滚", TestFailedExtractionRollback),
             ("压缩分卷大小统计", TestCompressedVolumeSizeProgress),
@@ -779,6 +780,107 @@ internal static class Program
             var missing = ArchiveVolumeResolver.Resolve(Path.Combine(root, "missing.7z.003"));
             Assert(!missing.HasRequiredFirstVolume, "缺少 .001 时不能把 .002 当首卷");
             Assert(!missing.CanExtract, "缺首卷的分卷组不得进入引擎");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-03：旧式分卷（base.rar+base.r00…、base.zip+base.z01…）识别、
+    // 目录扫描折叠、输出清理与大小统计口径。
+    private static Task TestOldStyleVolumeResolution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-oldstyle-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 场景 1：完整 r00 组——从非主卷 .r00 解析应折叠到主卷 base.rar。
+            foreach (var name in new[] { "old.rar", "old.r00", "old.r01" })
+            {
+                File.WriteAllText(Path.Combine(root, name), name);
+            }
+
+            var complete = ArchiveVolumeResolver.Resolve(Path.Combine(root, "old.r00"));
+            AssertEqual(ArchiveVolumeKind.RarOldStyle, complete.VolumeKind);
+            AssertEqual(ArchiveKind.Rar, complete.ArchiveKind);
+            AssertEqual("old.rar", Path.GetFileName(complete.FirstVolumePath!));
+            AssertEqual(3, complete.Volumes.Count);
+            AssertEqual(1L, complete.Volumes[0].Number);
+            AssertEqual(2L, complete.Volumes[1].Number);
+            AssertEqual(3L, complete.Volumes[2].Number);
+            Assert(complete.CanExtract, "完整旧式 RAR 分卷组必须可解压");
+            Assert(ArchiveVolumeResolver.MatchesFormat(Path.Combine(root, "old.r00"), "rar"),
+                ".r00 必须按 rar 格式匹配");
+
+            // 场景 2：缺主卷——只剩 .r00/.r01 时不得把 .r00 当首卷。
+            File.WriteAllText(Path.Combine(root, "nomain.r00"), "x");
+            File.WriteAllText(Path.Combine(root, "nomain.r01"), "x");
+            var noMain = ArchiveVolumeResolver.Resolve(Path.Combine(root, "nomain.r01"));
+            Assert(!noMain.HasRequiredFirstVolume, "缺 base.rar 时不得把 .r00 当首卷");
+            Assert(!noMain.CanExtract, "缺主卷的旧式分卷组不得进入引擎");
+
+            // 场景 3：缺中间卷——.rar(1) + .r00(2) + .r02(4) 必须报缺 .r01（组内编号 3）。
+            File.WriteAllText(Path.Combine(root, "gap.rar"), "x");
+            File.WriteAllText(Path.Combine(root, "gap.r00"), "x");
+            File.WriteAllText(Path.Combine(root, "gap.r02"), "x");
+            var gap = ArchiveVolumeResolver.Resolve(Path.Combine(root, "gap.r02"));
+            Assert(!gap.IsSequenceContiguous, "旧式分卷缺中间卷必须被识别");
+            Assert(gap.MissingNumbers.Contains(3L), "缺 .r01 应报其组内编号 3 缺失");
+            AssertEqual("r01", ArchiveVolumeResolver.DescribeVolumeSuffix(gap, gap.MissingNumbers[0]));
+
+            // 场景 4：z01 组——ZIP 旧式分卷归入 zip 格式。
+            File.WriteAllText(Path.Combine(root, "zs.zip"), "x");
+            File.WriteAllText(Path.Combine(root, "zs.z01"), "x");
+            File.WriteAllText(Path.Combine(root, "zs.z02"), "x");
+            var zipOld = ArchiveVolumeResolver.Resolve(Path.Combine(root, "zs.z02"));
+            AssertEqual(ArchiveVolumeKind.ZipOldStyle, zipOld.VolumeKind);
+            AssertEqual(ArchiveKind.Zip, zipOld.ArchiveKind);
+            AssertEqual("zs.zip", Path.GetFileName(zipOld.FirstVolumePath!));
+            Assert(zipOld.CanExtract, "完整旧式 ZIP 分卷组必须可解压");
+
+            // 场景 5：大小写混合——大写 .R00 仍归组到主卷；两个大小写变体并存判为编号重复。
+            // macOS 默认文件系统大小写不敏感，case.r00 与 case.R00 是同一文件，重复编号断言只在
+            // 目录中确实存在两个条目时执行（Linux CI 会覆盖该分支）。
+            File.WriteAllText(Path.Combine(root, "case.rar"), "x");
+            File.WriteAllText(Path.Combine(root, "case.R00"), "x");
+            var upperCase = ArchiveVolumeResolver.Resolve(Path.Combine(root, "case.R00"));
+            AssertEqual(ArchiveVolumeKind.RarOldStyle, upperCase.VolumeKind);
+            AssertEqual("case.rar", Path.GetFileName(upperCase.FirstVolumePath!));
+
+            File.WriteAllText(Path.Combine(root, "case.r00"), "x");
+            var caseEntries = Directory.EnumerateFiles(root)
+                .Count(path => string.Equals(Path.GetFileName(path), "case.r00", StringComparison.OrdinalIgnoreCase));
+            if (caseEntries == 2)
+            {
+                var duplicated = ArchiveVolumeResolver.Resolve(Path.Combine(root, "case.r00"));
+                Assert(duplicated.HasDuplicateNumbers, "base.r00 与 base.R00 并存必须判为编号重复");
+            }
+
+            // 防误报：单数字扩展与普通扩展不得当作旧式分卷。
+            Assert(!ArchiveVolumeResolver.HasArchiveExtension("file.r1"), "file.r1 不是分卷");
+            AssertEqual("gz", ArchiveVolumeResolver.DetectArchiveExtension("data.gz"));
+
+            // 目录扫描：旧式分卷组折叠为单一主卷任务，成员不得各自成项。
+            var service = new BatchOperationService(new RecordingArchiveEngine(), new TestSystemIntegration());
+            var tasks = service.LoadArchivesFromFolder(root, "rar", skipProcessed: false);
+            Assert(tasks.Any(task => Path.GetFileName(task) == "old.rar"), "主卷必须作为任务入口");
+            Assert(!tasks.Any(task => Path.GetFileName(task) is "old.r00" or "old.r01"),
+                "完整分卷组成员不得作为独立任务");
+
+            // 覆盖输出清理：对 old.rar 的输出解析必须包含遗留旧式分卷。
+            var outputs = ArchiveVolumeResolver.ResolveOutputFiles(Path.Combine(root, "old.rar"));
+            Assert(outputs.Any(file => Path.GetFileName(file) == "old.r00"), "输出解析必须包含遗留 .r00 分卷");
+            Assert(outputs.Any(file => Path.GetFileName(file) == "old.r01"), "输出解析必须包含遗留 .r01 分卷");
+
+            // 大小统计口径：分卷（base.7z.001）与大写扩展（UP.RAR）都必须计入。
+            File.WriteAllText(Path.Combine(root, "sz.7z.001"), new string('a', 1024));
+            File.WriteAllText(Path.Combine(root, "sz.7z.002"), new string('a', 1024));
+            File.WriteAllText(Path.Combine(root, "UP.RAR"), new string('a', 2048));
+            Assert(service.CalculateTotalSizeGB(root, "7z") > 0, "分卷 sz.7z.001/002 必须计入 7z 输出大小");
+            Assert(service.CalculateTotalSizeGB(root, "rar") > 0, "大写 UP.RAR 必须计入 rar 输出大小");
         }
         finally
         {

@@ -22,6 +22,8 @@ public enum ArchiveKind
 
 /// <summary>
 /// 本程序明确支持的分卷命名形式。
+/// RarOldStyle / ZipOldStyle 为旧式分卷：主卷 base.rar / base.zip 之外，
+/// 后续卷命名为 base.r00…、base.z01…（编号至少两位）。
 /// </summary>
 public enum ArchiveVolumeKind
 {
@@ -29,7 +31,9 @@ public enum ArchiveVolumeKind
     RarPart,
     SevenZipNumeric,
     ZipNumeric,
-    SevenZipOtherNumeric
+    SevenZipOtherNumeric,
+    RarOldStyle,
+    ZipOldStyle
 }
 
 /// <summary>
@@ -83,6 +87,17 @@ public static class ArchiveVolumeResolver
 
     private static readonly Regex SevenZipOtherNumericRegex = new(
         $@"^(?<base>.+)\.(?<extension>{ArchiveFormatCatalog.GetSupportedExtensionPattern()})\.(?<number>\d+)$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    // GLM-5.3, 2026-11-03：旧式 RAR / ZIP 分卷（base.r00…、base.z01…）。编号至少两位，
+    // 避免把 file.r1、data.gz 之类普通扩展名误认成分卷；主卷 base.rar / base.zip 由
+    // VolumePattern.MainVolumeFileName 显式并入，不依赖该正则匹配。
+    private static readonly Regex RarOldStyleRegex = new(
+        @"^(?<base>.+)\.r(?<number>\d{2,})$",
+        RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
+
+    private static readonly Regex ZipOldStyleRegex = new(
+        @"^(?<base>.+)\.z(?<number>\d{2,})$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static ArchiveVolumeResolveResult Resolve(string path)
@@ -180,14 +195,44 @@ public static class ArchiveVolumeResolver
 
         if (Directory.Exists(directory))
         {
-            var pattern = CreatePatternFromSingleArchiveName(Path.GetFileName(fullPath));
-            if (pattern.Kind != ArchiveVolumeKind.None)
+            // GLM-5.3, 2026-11-03：rar / zip 输出同时枚举新式（base.partN.rar、base.zip.N）
+            // 与旧式（base.rNN、base.zNN）分卷组，覆盖或清理外部工具遗留的旧式分卷输出。
+            var name = Path.GetFileName(fullPath);
+            var patterns = CreateOutputPatterns(name);
+            foreach (var pattern in patterns)
             {
                 files.AddRange(EnumerateVolumes(directory, pattern).Select(volume => volume.Path));
             }
         }
 
         return files.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
+    }
+
+    /// <summary>
+    /// 为单个输出归档名生成需要枚举的分卷组：主组始终是新式命名；
+    /// rar / zip 额外附带旧式组，7z 等其它格式没有旧式命名，保持单组。
+    /// </summary>
+    private static IReadOnlyList<VolumePattern> CreateOutputPatterns(string name)
+    {
+        var primary = CreatePatternFromSingleArchiveName(name);
+        if (primary.Kind == ArchiveVolumeKind.None)
+        {
+            return [];
+        }
+
+        var baseName = Path.GetFileNameWithoutExtension(name);
+        if (baseName.Length == 0)
+        {
+            return [primary];
+        }
+
+        var extension = DetectArchiveExtension(name);
+        return extension switch
+        {
+            "rar" => [primary, CreatePattern(ArchiveVolumeKind.RarOldStyle, baseName, name)],
+            "zip" => [primary, CreatePattern(ArchiveVolumeKind.ZipOldStyle, baseName, name)],
+            _ => [primary]
+        };
     }
 
     public static ArchiveKind DetectArchiveKind(string path)
@@ -221,6 +266,20 @@ public static class ArchiveVolumeResolver
 
     public static bool HasArchiveExtension(string path) => DetectArchiveKind(path) != ArchiveKind.Unknown;
 
+    /// <summary>
+    /// GLM-5.3, 2026-11-03：把组内编号换算为用户可直接对照的文件名后缀描述。
+    /// 旧式分卷的组内编号与文件名后缀存在偏移（.r01 组内编号为 3），直接显示数字会误导，
+    /// 因此旧式返回实际后缀（如 r01 / z02），part 分卷返回 partN.rar，数字分卷维持原数字。
+    /// </summary>
+    public static string DescribeVolumeSuffix(ArchiveVolumeResolveResult resolved, long number) =>
+        resolved.VolumeKind switch
+        {
+            ArchiveVolumeKind.RarOldStyle => $"r{Math.Max(0, number - 2).ToString("D2", CultureInfo.InvariantCulture)}",
+            ArchiveVolumeKind.ZipOldStyle => $"z{Math.Max(1, number - 1).ToString("D2", CultureInfo.InvariantCulture)}",
+            ArchiveVolumeKind.RarPart => $"part{number.ToString(CultureInfo.InvariantCulture)}.rar",
+            _ => number.ToString(CultureInfo.InvariantCulture)
+        };
+
     public static bool MatchesFormat(string path, string extension)
     {
         var normalized = ArchiveFormatCatalog.Normalize(extension);
@@ -248,12 +307,27 @@ public static class ArchiveVolumeResolver
 
     private static IEnumerable<ArchiveVolume> EnumerateVolumes(string directory, VolumePattern pattern)
     {
-        return Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+        var files = Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly).ToArray();
+
+        var volumes = files
             .Select(path => (Path: path, Match: pattern.Matcher.Match(Path.GetFileName(path))))
             .Where(item => item.Match.Success)
             .Select(item => new ArchiveVolume(
                 item.Path,
-                long.Parse(item.Match.Groups["number"].Value, CultureInfo.InvariantCulture)))
+                long.Parse(item.Match.Groups["number"].Value, CultureInfo.InvariantCulture) + pattern.NumberOffset));
+
+        // GLM-5.3, 2026-11-03：旧式分卷的主卷（base.rar / base.zip）不匹配分卷正则，
+        // 按主卷文件名显式并入并固定编号为 1；大小写变体会产生重复编号 1，
+        // 由现有 HasDuplicateNumbers 检测自动判为歧义。
+        if (pattern.MainVolumeFileName is not null)
+        {
+            volumes = volumes.Concat(files
+                .Where(path => string.Equals(
+                    Path.GetFileName(path), pattern.MainVolumeFileName, StringComparison.OrdinalIgnoreCase))
+                .Select(path => new ArchiveVolume(path, 1)));
+        }
+
+        return volumes
             .OrderBy(volume => volume.Number)
             .ThenBy(volume => volume.Path, StringComparer.Ordinal)
             .ToArray();
@@ -309,7 +383,9 @@ public static class ArchiveVolumeResolver
                  {
                      (ArchiveVolumeKind.RarPart, RarPartRegex),
                      (ArchiveVolumeKind.SevenZipNumeric, SevenZipNumericRegex),
-                     (ArchiveVolumeKind.ZipNumeric, ZipNumericRegex)
+                     (ArchiveVolumeKind.ZipNumeric, ZipNumericRegex),
+                     (ArchiveVolumeKind.RarOldStyle, RarOldStyleRegex),
+                     (ArchiveVolumeKind.ZipOldStyle, ZipOldStyleRegex)
                  })
         {
             var match = regex.Match(name);
@@ -355,6 +431,8 @@ public static class ArchiveVolumeResolver
             ArchiveVolumeKind.RarPart => $@"^{escapedBase}\.part(?<number>\d+)\.rar$",
             ArchiveVolumeKind.SevenZipNumeric => $@"^{escapedBase}\.7z\.(?<number>\d+)$",
             ArchiveVolumeKind.ZipNumeric => $@"^{escapedBase}\.zip\.(?<number>\d+)$",
+            ArchiveVolumeKind.RarOldStyle => $@"^{escapedBase}\.r(?<number>\d{{2,}})$",
+            ArchiveVolumeKind.ZipOldStyle => $@"^{escapedBase}\.z(?<number>\d{{2,}})$",
             ArchiveVolumeKind.SevenZipOtherNumeric =>
                 $@"^{escapedBase}\.{Regex.Escape(extension ?? string.Empty)}\.(?<number>\d+)$",
             _ => "(?!)"
@@ -364,6 +442,8 @@ public static class ArchiveVolumeResolver
             ArchiveVolumeKind.RarPart => baseName + ".rar",
             ArchiveVolumeKind.SevenZipNumeric => baseName + ".7z",
             ArchiveVolumeKind.ZipNumeric => baseName + ".zip",
+            ArchiveVolumeKind.RarOldStyle => baseName + ".rar",
+            ArchiveVolumeKind.ZipOldStyle => baseName + ".zip",
             ArchiveVolumeKind.SevenZipOtherNumeric => baseName + "." + extension,
             _ => logicalName
         };
@@ -372,14 +452,33 @@ public static class ArchiveVolumeResolver
             ArchiveVolumeKind.RarPart => "rar",
             ArchiveVolumeKind.SevenZipNumeric => "7z",
             ArchiveVolumeKind.ZipNumeric => "zip",
+            ArchiveVolumeKind.RarOldStyle => "rar",
+            ArchiveVolumeKind.ZipOldStyle => "zip",
             ArchiveVolumeKind.SevenZipOtherNumeric => extension ?? string.Empty,
             _ => string.Empty
+        };
+        // GLM-5.3, 2026-11-03：旧式分卷的主卷文件名（base.rar / base.zip）不匹配分卷正则，
+        // 由 MainVolumeFileName 显式标记并固定编号 1（组入口即主卷）。
+        // 组内编号偏移按物理卷序设置：RAR 旧式 base.r00 是第 2 卷（0+2），ZIP 旧式 base.z01
+        // 是第 2 卷（1+1），使全部卷编号从主卷的 1 起连续，缺卷检测复用现有编号模型。
+        var mainVolumeFileName = kind switch
+        {
+            ArchiveVolumeKind.RarOldStyle or ArchiveVolumeKind.ZipOldStyle => archiveName,
+            _ => null
+        };
+        var numberOffset = kind switch
+        {
+            ArchiveVolumeKind.RarOldStyle => 2,
+            ArchiveVolumeKind.ZipOldStyle => 1,
+            _ => 0
         };
         return new VolumePattern(
             kind,
             archiveName,
             actualExtension,
-            new Regex(expression, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant));
+            new Regex(expression, RegexOptions.IgnoreCase | RegexOptions.CultureInvariant),
+            mainVolumeFileName,
+            numberOffset);
     }
 
     private static ArchiveKind KindForVolume(VolumePattern pattern) => pattern.Kind switch
@@ -387,6 +486,8 @@ public static class ArchiveVolumeResolver
         ArchiveVolumeKind.RarPart => ArchiveKind.Rar,
         ArchiveVolumeKind.SevenZipNumeric => ArchiveKind.SevenZip,
         ArchiveVolumeKind.ZipNumeric => ArchiveKind.Zip,
+        ArchiveVolumeKind.RarOldStyle => ArchiveKind.Rar,
+        ArchiveVolumeKind.ZipOldStyle => ArchiveKind.Zip,
         ArchiveVolumeKind.SevenZipOtherNumeric => ArchiveKind.Other,
         _ => ArchiveKind.Unknown
     };
@@ -395,7 +496,9 @@ public static class ArchiveVolumeResolver
         ArchiveVolumeKind Kind,
         string LogicalArchiveName,
         string Extension,
-        Regex Matcher)
+        Regex Matcher,
+        string? MainVolumeFileName = null,
+        long NumberOffset = 0)
     {
         public static VolumePattern None { get; } =
             new(ArchiveVolumeKind.None, string.Empty, string.Empty, new Regex("(?!)"));
