@@ -52,6 +52,8 @@ internal static class Program
             ("CLI输出格式参数", TestCliOutputFormatOptions),
             ("CLI错误文案本地化", TestCliErrorLocalization),
             ("日志权限与轮转", TestLogFilePermissionsAndRotation),
+            ("并发批量执行", TestConcurrentBatchExecution),
+            ("并发取消与大小上限", TestConcurrentCancellationAndLimit),
             ("NDJSON结构化输出", TestNdjsonOutputWriter),
             ("NDJSON端到端", TestNdjsonEndToEnd),
             ("TXT 清单与密码本诊断", TestTextFileImportModes),
@@ -2238,6 +2240,241 @@ internal static class Program
 
     // GLM-5.3, 2026-11-04：批次 4——日志文件安全与体积治理：
     // Unix 0600 权限、超阈值轮转为 .1、7 天过期清理（仅匹配 batchcompress_ 模式）。
+    // GLM-5.3, 2026-11-04：批次 5——受控并发执行：
+    // 真并发（峰值==并发度）、全部计数无丢失、串行路径不受并发选项影响。
+    private static async Task TestConcurrentBatchExecution()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-concurrent-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 压缩：5 个来源、并发 3——引擎在途峰值必须恰为 3，全部成功、计数无丢失。
+            var engine = new ConcurrentTrackingEngine();
+            var sources = new List<string>();
+            for (var i = 0; i < 5; i++)
+            {
+                var dir = Path.Combine(root, $"src{i}");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "a.txt"), "a");
+                sources.Add(dir);
+            }
+
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchCompressAsync(
+                sources,
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "out"),
+                    Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    MaxConcurrency = 3
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+
+            AssertEqual(5, engine.CompressionInputs.Count);
+            AssertEqual(3, engine.PeakInFlight);
+            AssertEqual(5, snapshots.Last().SuccessCount);
+            AssertEqual(0, snapshots.Last().FailCount);
+
+            // 解压：5 个归档、并发 3——同样断言峰值与计数。
+            engine = new ConcurrentTrackingEngine();
+            var archives = new List<FileEntry>();
+            for (var i = 0; i < 5; i++)
+            {
+                var archive = Path.Combine(root, $"arc{i}.7z");
+                File.WriteAllText(archive, "x");
+                archives.Add(new FileEntry { FilePath = archive, FileSize = 1 });
+            }
+
+            snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchDecompressAsync(
+                archives,
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "ex"),
+                    Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    MaxConcurrency = 3
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+
+            AssertEqual(5, engine.ExtractionInputs.Count);
+            AssertEqual(3, engine.PeakInFlight);
+            AssertEqual(5, snapshots.Last().SuccessCount);
+
+            // 串行路径回归：并发度 1 时峰值必须为 1（不进入并发分支）。
+            engine = new ConcurrentTrackingEngine();
+            snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchCompressAsync(
+                sources,
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "out"),
+                    Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    MaxConcurrency = 1
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, engine.PeakInFlight);
+            AssertEqual(5, snapshots.Last().SuccessCount);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：批次 5——并发下的取消传播与大小上限：
+    // 外部取消即时中止全部并发任务且绝不关机；达限只停排队任务、在途自然完成、
+    // SizeLimitReached 恰好一次、非取消结束关机恰好一次。
+    private static async Task TestConcurrentCancellationAndLimit()
+    {
+        var L = LocalizationService.Instance.Strings;
+        var root = Path.Combine(Path.GetTempPath(), $"bc-concurrent-limit-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 1) 并发执行中外部取消：所有已启动任务抛取消异常聚合传播、不触发关机。
+            var cancelEngine = new ScriptedArchiveEngine { CancelAfterMilliseconds = 400 };
+            var cancelSources = new List<string>();
+            for (var i = 0; i < 3; i++)
+            {
+                var dir = Path.Combine(root, $"cancel{i}");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "a.txt"), "a");
+                cancelSources.Add(dir);
+            }
+
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(50);
+            var cancelSystem = new RecordingSystemIntegration();
+            await AssertThrowsAsync<OperationCanceledException>(
+                new BatchOperationService(cancelEngine, cancelSystem).BatchCompressAsync(
+                    cancelSources,
+                    new BatchOperationOptions
+                    {
+                        OutputPath = Path.Combine(root, "cancel-out"),
+                        Extension = "7z",
+                        ExistingFileMode = ExistingFileMode.Overwrite,
+                        MaxConcurrency = 3,
+                        ShutdownAfterComplete = true
+                    },
+                    new SnapshotProgress([]), cts.Token));
+            AssertEqual(3, cancelEngine.CompressionInputs.Count);
+            AssertEqual(0, cancelSystem.ShutdownCalls);
+
+            // 2) 大小上限：4 个来源、并发 2、每项真实写出 1MB、上限 0.0005GB——
+            //    首个完成项即达限；两个初始槽位任务自然完成，剩余排队任务全部跳过。
+            var limitEngine = new ConcurrentTrackingEngine { DelayMilliseconds = 60, WriteRealOutput = true };
+            var limitSources = new List<string>();
+            for (var i = 0; i < 4; i++)
+            {
+                var dir = Path.Combine(root, $"limit{i}");
+                Directory.CreateDirectory(dir);
+                File.WriteAllText(Path.Combine(dir, "a.txt"), "a");
+                limitSources.Add(dir);
+            }
+
+            var snapshots = new List<OperationProgressInfo>();
+            var limitSystem = new RecordingSystemIntegration();
+            await new BatchOperationService(limitEngine, limitSystem).BatchCompressAsync(
+                limitSources,
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "limit-out"),
+                    Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite,
+                    MaxConcurrency = 2,
+                    MaxSizeGB = 0.0005,
+                    ShutdownAfterComplete = true
+                },
+                new CloningProgress(snapshots), CancellationToken.None);
+
+            AssertEqual(2, limitEngine.CompressionInputs.Count);
+            AssertEqual(2, snapshots.Last().SuccessCount);
+            AssertEqual(0, snapshots.Last().FailCount);
+            Assert(snapshots.Count(info => info.Message == L.SizeLimitReached) == 1,
+                "SizeLimitReached 必须恰好上报一次");
+            AssertEqual(1, limitSystem.ShutdownCalls);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：批次 5——并发测试用引擎：互斥记录在途数与峰值，
+    // 可配置延迟（保证初始槽位全部启动）与真实输出（驱动大小上限统计）。
+    private sealed class ConcurrentTrackingEngine : IArchiveEngine
+    {
+        private int _inFlight;
+        private int _peakInFlight;
+
+        public List<string> CompressionInputs { get; } = [];
+        public List<string> ExtractionInputs { get; } = [];
+        public int DelayMilliseconds { get; set; } = 80;
+        public bool WriteRealOutput { get; set; }
+        public int PeakInFlight => _peakInFlight;
+
+        public bool IsAvailable() => true;
+
+        public async Task<ArchiveResult> CompressAsync(
+            string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
+        {
+            CompressionInputs.Add(Path.GetFileName(input));
+            TrackEntered();
+            try
+            {
+                await Task.Delay(DelayMilliseconds, cancellationToken);
+                if (WriteRealOutput)
+                {
+                    Directory.CreateDirectory(Path.GetDirectoryName(output) ?? ".");
+                    File.WriteAllBytes(output, new byte[1024 * 1024]);
+                }
+
+                return new ArchiveResult { Success = true };
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }
+
+        public async Task<ArchiveResult> ExtractAsync(
+            string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default)
+        {
+            ExtractionInputs.Add(Path.GetFileName(archivePath));
+            TrackEntered();
+            try
+            {
+                await Task.Delay(DelayMilliseconds, cancellationToken);
+                return new ArchiveResult { Success = true };
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }
+
+        private void TrackEntered()
+        {
+            var current = Interlocked.Increment(ref _inFlight);
+            while (true)
+            {
+                var peak = _peakInFlight;
+                if (current <= peak)
+                {
+                    return;
+                }
+
+                if (Interlocked.CompareExchange(ref _peakInFlight, current, peak) == peak)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
     private static Task TestLogFilePermissionsAndRotation()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bc-log-hygiene-{Guid.NewGuid():N}");

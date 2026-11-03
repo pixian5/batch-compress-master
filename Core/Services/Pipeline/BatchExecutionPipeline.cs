@@ -16,6 +16,11 @@ namespace BatchCompress.Avalonia.Core.Services.Pipeline;
 /// 循环遍历、取消检查、进度上报、归档命令输出转发、PostProcessService 调用、
 /// 大小超限退出与完成关机。条目级差异全部由 <see cref="IBatchItemAdapter{TInput}"/> 提供，
 /// 迁移期间 17 项表征测试锁定消息文本、七类计数、关机时机与文件系统副作用零漂移。
+/// GLM-5.3, 2026-11-04：批次 5 新增受控并发——MaxConcurrency&gt;1 时引擎调用并行执行：
+/// 信号量限流；进度统计与上报全部经同一把锁保护并输出克隆快照（防撕裂读）；
+/// 大小上限经独立闸门令牌停止“未启动”任务（不杀死在途引擎）；
+/// 外部取消经联动令牌即时传播到全部并发引擎；关机仍只在非取消正常结束时触发恰好一次。
+/// MaxConcurrency&lt;=1 走原串行路径，行为与批次 2 表征完全一致。
 /// </summary>
 public sealed class BatchExecutionPipeline<TInput>
 {
@@ -49,8 +54,25 @@ public sealed class BatchExecutionPipeline<TInput>
     /// <summary>
     /// 逐项执行整个批次。取消令牌触发时抛出 OperationCanceledException，
     /// 绝不触发关机；只有非取消正常结束时才按选项请求系统关机。
+    /// MaxConcurrency&gt;1 且多于一个条目时进入并发路径，否则保持串行。
     /// </summary>
     public async Task RunAsync(
+        IReadOnlyList<TInput> inputs,
+        BatchOperationOptions options,
+        IProgress<OperationProgressInfo> progress,
+        CancellationToken cancellationToken)
+    {
+        if (options.MaxConcurrency > 1 && inputs.Count > 1)
+        {
+            await RunConcurrentAsync(inputs, options, progress, cancellationToken);
+            return;
+        }
+
+        await RunSequentialAsync(inputs, options, progress, cancellationToken);
+    }
+
+    // 串行路径：批次 2 阶段 1 的原始实现，逐字节保持（表征测试锁定）。
+    private async Task RunSequentialAsync(
         IReadOnlyList<TInput> inputs,
         BatchOperationOptions options,
         IProgress<OperationProgressInfo> progress,
@@ -147,6 +169,176 @@ public sealed class BatchExecutionPipeline<TInput>
         }
     }
 
+    // GLM-5.3, 2026-11-04：批次 5——受控并发执行路径。
+    // 线程安全硬约束的实现方式：
+    // 1) progressInfo 与 processedSizeGB 的全部读写都在同一把锁（gate）内完成，
+    //    进度上报统一输出 CloneProgress 克隆快照，杜绝并发下的丢失计数与撕裂读；
+    // 2) 适配器 PrepareAsync 契约为同步实现（Task.FromResult），其内部直接回写共享进度对象，
+    //    因此在锁内以 GetAwaiter().GetResult() 调用（已完成任务不阻塞）；
+    // 3) 引擎调用与后处理文件操作在锁外并发（真正的耗时段）；
+    // 4) gateCts（闸门令牌）：大小达限或外部取消时取消，使仍在信号量上排队的任务立即放弃；
+    //    engineCts（引擎令牌）：仅与外部取消联动——达限不杀死在途引擎，让其自然完成；
+    // 5) 排队任务退出走 return（正常完成），因此 Task.WhenAll 只在外部取消（引擎抛
+    //    OperationCanceledException）或真实异常时向上传播；关机判断点唯一，恰好触发一次。
+    private async Task RunConcurrentAsync(
+        IReadOnlyList<TInput> inputs,
+        BatchOperationOptions options,
+        IProgress<OperationProgressInfo> progress,
+        CancellationToken cancellationToken)
+    {
+        var progressInfo = new OperationProgressInfo
+        {
+            StartTime = DateTime.Now
+        };
+        var gate = new object();
+        double processedSizeGB = 0;
+        var limitReached = false;
+
+        using var engineCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var gateCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        using var semaphore = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
+
+        var tasks = new List<Task>(inputs.Count);
+        foreach (var input in inputs)
+        {
+            // 注意不用 Task.Run 的重载令牌：排队中止统一经 WaitAsync(gateCts) 的取消异常
+            // 在任务体内捕获并正常返回，避免产生“已取消任务”混合语义。
+            tasks.Add(Task.Run(async () =>
+            {
+                try
+                {
+                    await semaphore.WaitAsync(gateCts.Token);
+                }
+                catch (OperationCanceledException)
+                {
+                    // 达限或外部取消：尚未启动的任务直接放弃（与串行 break 后剩余项不计数一致）。
+                    return;
+                }
+
+                try
+                {
+                    if (limitReached || cancellationToken.IsCancellationRequested)
+                    {
+                        return;
+                    }
+
+                    // —— 准备段（锁内）：适配器回写共享进度对象必须互斥。 ——
+                    PreparedBatchItem? item;
+                    lock (gate)
+                    {
+                        item = _adapter.PrepareAsync(input, options, progressInfo, progress)
+                            .GetAwaiter().GetResult();
+                    }
+
+                    if (item == null)
+                    {
+                        return;
+                    }
+
+                    lock (gate)
+                    {
+                        Log(LogLevel.Information, item.StartedLogMessage);
+                        progressInfo.CurrentFile = item.DisplayName;
+                        progressInfo.CurrentSourcePath = item.CurrentSourcePath;
+                        progressInfo.Message = item.StartedMessage;
+                        progressInfo.IsError = false;
+                        progress.Report(CloneProgress(progressInfo));
+                    }
+
+                    // —— 执行段（锁外）：引擎并发是并行的意义所在。 ——
+                    var result = await _adapter.ExecuteAsync(item, engineCts.Token);
+                    lock (gate)
+                    {
+                        ReportArchiveOutput(item.CommandLabel, result, progressInfo, progress);
+                    }
+
+                    // —— 完成段：测量与后处理文件操作在锁外，统计与消息回写回锁内。 ——
+                    if (result.Success)
+                    {
+                        Log(LogLevel.Information, item.SucceededLogMessage);
+                        double sizeBefore;
+                        lock (gate)
+                        {
+                            sizeBefore = processedSizeGB;
+                        }
+
+                        var measuredBytes = _adapter.MeasuredBytes(item, sizeBefore);
+                        var postProcessFailures = _postProcessService.Apply(
+                            _adapter.BuildPostProcessRequest(item, options));
+
+                        lock (gate)
+                        {
+                            progressInfo.SuccessCount++;
+                            processedSizeGB += measuredBytes / BytesPerGB;
+                            progressInfo.ProcessedSizeGB = processedSizeGB;
+
+                            var postProcessFailed = postProcessFailures.Count > 0;
+                            var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
+                            foreach (var failure in postProcessFailures)
+                            {
+                                RecordPostProcessFailure(progressInfo, failure);
+                            }
+
+                            progressInfo.Message = postProcessFailed
+                                ? string.Format(L.ItemSucceededWithPostProcessFailure, item.DisplayName, postProcessReason)
+                                : string.Format(L.ItemSucceeded, item.DisplayName);
+                            progressInfo.IsError = postProcessFailed;
+                            progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
+                            progress.Report(CloneProgress(progressInfo));
+
+                            // 达到总大小上限：只阻止未启动任务，在途任务自然完成；
+                            // SizeLimitReached 只上报一次。
+                            if (!limitReached &&
+                                options.MaxSizeGB > 0 &&
+                                processedSizeGB >= options.MaxSizeGB)
+                            {
+                                limitReached = true;
+                                Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
+                                progressInfo.Message = L.SizeLimitReached;
+                                progress.Report(CloneProgress(progressInfo));
+                                gateCts.Cancel();
+                            }
+                        }
+                    }
+                    else
+                    {
+                        _adapter.OnExecutionFailed(item);
+                        Log(LogLevel.Error, item.BuildFailedLogMessage(result.ErrorMessage));
+                        lock (gate)
+                        {
+                            progressInfo.FailCount++;
+                            progressInfo.Message = string.Format(L.ItemFailed, item.DisplayName, result.ErrorMessage);
+                            progressInfo.IsError = true;
+                            progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
+                            progress.Report(CloneProgress(progressInfo));
+                        }
+                    }
+                }
+                finally
+                {
+                    semaphore.Release();
+                }
+            }));
+        }
+
+        // 外部取消时在途引擎抛 OperationCanceledException，WhenAll 聚合后向上传播；
+        // 达限场景的排队退出均为正常完成，不产生异常。
+        await Task.WhenAll(tasks);
+
+        Log(LogLevel.Information, _adapter.BuildBatchCompletedLogMessage(progressInfo));
+
+        // 用户要求时在所有并发任务结束后请求系统关机（取消传播时不会到达这里），恰好一次。
+        if (options.ShutdownAfterComplete)
+        {
+            if (_adapter.ShutdownRequestLogMessage is { Length: > 0 } shutdownLog)
+            {
+                Log(LogLevel.Information, shutdownLog);
+            }
+
+            await _systemIntegration.ShutdownAsync();
+        }
+    }
+
     // GPT-5, 2026-08-06：归档进程输出是用户要求保留的原始诊断证据。
     // 此处明确不调用脱敏、掩码或替换逻辑，即使 stdout/stderr 中包含密码也原样转发。
     private static void ReportArchiveOutput(
@@ -182,6 +374,11 @@ public sealed class BatchExecutionPipeline<TInput>
                 isCommandOutput: true));
         }
     }
+
+    // GLM-5.3, 2026-11-04：批次 5——并发路径的状态快照克隆：按当前消息与标记原样复制，
+    // 与串行路径共享同一实现，保证两条路径的快照字段口径完全一致。
+    private static OperationProgressInfo CloneProgress(OperationProgressInfo source) =>
+        CloneProgress(source, source.Message, source.IsError, source.IsCommandOutput);
 
     // GPT-5, 2026-08-06：IProgress 可能异步投递回调，因此命令输出必须使用独立快照，
     // 防止下一条状态消息改写同一个可变对象后导致 stdout/stderr 丢失。

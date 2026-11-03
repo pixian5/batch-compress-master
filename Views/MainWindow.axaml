@@ -149,6 +149,9 @@
                                 <!-- Row 6: Add Enclosures -->
                                 <CheckBox Grid.Row="6" Grid.Column="0" Content="{Binding L.AddAttachments}" IsChecked="{Binding AddEnclosures}" Margin="0,0,10,3"/>
                                 <CheckBox Grid.Row="6" Grid.Column="2" Content="{Binding L.LockArchive}" IsChecked="{Binding LockArchive}" Margin="20,0,10,3" ToolTip.Tip="{Binding L.TooltipLockArchive}"/>
+                                <!-- GLM-5.3, 2026-11-04：批次 5——受控并发度（1-16，默认 1 串行）。 -->
+                                <TextBlock Grid.Row="6" Grid.Column="3" Text="{Binding L.MaxConcurrencyLabel}" VerticalAlignment="Center" Margin="20,0,10,3" ToolTip.Tip="{Binding L.TooltipMaxConcurrency}"/>
+                                <NumericUpDown Grid.Row="6" Grid.Column="4" Value="{Binding MaxConcurrency}" Minimum="1" Maximum="16" Increment="1" Width="80" HorizontalAlignment="Left" Margin="0,0,0,3" ToolTip.Tip="{Binding L.TooltipMaxConcurrency}"/>
                             </Grid>
 
                             <!-- Enclosure List -->
@@ -213,6 +216,10 @@
 
                             <TextBlock Grid.Row="1" Grid.Column="0" Text="{Binding L.MaxSizeLabel}" VerticalAlignment="Center" Margin="0,0,10,0"/>
                             <TextBox Grid.Row="1" Grid.Column="1" Text="{Binding MaxSizeGB}" Width="100" ToolTip.Tip="{Binding L.TooltipMaxSizeDecompression}"/>
+
+                            <!-- GLM-5.3, 2026-11-04：批次 5——受控并发度（1-16，默认 1 串行）。 -->
+                            <TextBlock Grid.Row="1" Grid.Column="3" Text="{Binding L.MaxConcurrencyLabel}" VerticalAlignment="Center" Margin="0,0,10,0" ToolTip.Tip="{Binding L.TooltipMaxConcurrency}"/>
+                            <NumericUpDown Grid.Row="1" Grid.Column="4" Value="{Binding MaxConcurrency}" Minimum="1" Maximum="16" Increment="1" Width="80" ToolTip.Tip="{Binding L.TooltipMaxConcurrency}"/>
                         </Grid>
 
                         <Border BorderBrush="LightGray" BorderThickness="1" Padding="8" CornerRadius="5">

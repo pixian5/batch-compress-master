@@ -345,4 +345,7 @@ public class LanguageStrings : INotifyPropertyChanged
     public string CliErrorOutputFormatChoices { get; set; } = "--output-format 仅支持 text、json: {0}";
     public string CliErrorPrefix { get; set; } = "参数错误: {0}";
     public string CliErrorSeeHelp { get; set; } = "使用 --help 查看完整用法。";
+    public string CliErrorConcurrencyRange { get; set; } = "--concurrency 必须在 1 到 16 之间。";
+    public string MaxConcurrencyLabel { get; set; } = "并发数：";
+    public string TooltipMaxConcurrency { get; set; } = "同时执行的归档任务数（1-16）；1 为串行，较大值会同时运行多个压缩/解压进程。";
 }

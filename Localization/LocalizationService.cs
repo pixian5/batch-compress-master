@@ -395,6 +395,9 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorOutputFormatChoices = "--output-format 仅支持 text、json: {0}",
             CliErrorPrefix = "参数错误: {0}",
             CliErrorSeeHelp = "使用 --help 查看完整用法。",
+            CliErrorConcurrencyRange = "--concurrency 必须在 1 到 16 之间。",
+            MaxConcurrencyLabel = "并发数：",
+            TooltipMaxConcurrency = "同时执行的归档任务数（1-16）；1 为串行，较大值会同时运行多个压缩/解压进程。",
         };
     }
     
@@ -694,6 +697,9 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorOutputFormatChoices = "--output-format 僅支援 text、json: {0}",
             CliErrorPrefix = "參數錯誤: {0}",
             CliErrorSeeHelp = "使用 --help 查看完整用法。",
+            CliErrorConcurrencyRange = "--concurrency 必須在 1 到 16 之間。",
+            MaxConcurrencyLabel = "並行數：",
+            TooltipMaxConcurrency = "同時執行的封存任務數（1-16）；1 為串列，較大值會同時執行多個壓縮/解壓程序。",
         };
     }
     
@@ -993,6 +999,9 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorOutputFormatChoices = "--output-format only supports text and json: {0}",
             CliErrorPrefix = "Argument error: {0}",
             CliErrorSeeHelp = "Use --help to see full usage.",
+            CliErrorConcurrencyRange = "--concurrency must be between 1 and 16.",
+            MaxConcurrencyLabel = "Concurrency:",
+            TooltipMaxConcurrency = "Number of archive tasks to run at once (1-16); 1 is serial, larger values run multiple archiver processes.",
         };
     }
     
@@ -1292,6 +1301,9 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorOutputFormatChoices = "--output-format は text と json のみ対応です: {0}",
             CliErrorPrefix = "引数エラー: {0}",
             CliErrorSeeHelp = "完全な使用方法は --help を参照してください。",
+            CliErrorConcurrencyRange = "--concurrency は 1～16 の範囲で指定してください。",
+            MaxConcurrencyLabel = "並列数：",
+            TooltipMaxConcurrency = "同時に実行するアーカイブタスク数（1-16）。1 は逐次実行、大きい値は複数プロセスを並行実行します。",
         };
     }
     
@@ -1592,6 +1604,9 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorOutputFormatChoices = "--output-format unterstützt nur text und json: {0}",
             CliErrorPrefix = "Argumentfehler: {0}",
             CliErrorSeeHelp = "Vollständige Verwendung mit --help anzeigen.",
+            CliErrorConcurrencyRange = "--concurrency muss zwischen 1 und 16 liegen.",
+            MaxConcurrencyLabel = "Parallelität:",
+            TooltipMaxConcurrency = "Anzahl gleichzeitig laufender Archiv-Aufgaben (1-16); 1 ist seriell, größere Werte starten mehrere Prozesse.",
         };
     }
 }

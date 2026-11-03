@@ -49,6 +49,9 @@ public sealed class CommandLineOptions
     public bool Quiet { get; set; }
     public bool DryRun { get; set; }
 
+    // GLM-5.3, 2026-11-04：批次 5——受控并发度（默认 1 串行，1-16）。
+    public int MaxConcurrency { get; set; } = 1;
+
     // GLM-5.3, 2026-11-04：批次 3——CLI 界面语言与结构化输出格式。
     // Language 为 LocalizationService 的语言键（en-US 等区域变体在解析时归一为 en 等）；
     // OutputFormat 仅 text（人类可读）与 json（NDJSON 逐行事件流）。
@@ -148,6 +151,7 @@ public static class CommandLineHandler
           --move-source                  成功后移动源文件
           --max-size, --max-size-gb <GB> 最大处理总量，0 表示不限
           --shutdown                     全部完成后请求关机
+          --concurrency, -j <1..16>     并发执行任务数（默认 1 串行）
           --add-enclosures / --no-add-enclosures
                                         启用或关闭附件目录
           --enclosure-list <文件>        旧版兼容：换行分隔的附件目录
@@ -227,6 +231,7 @@ public static class CommandLineHandler
           --move-source                  成功後移動來源檔案
           --max-size, --max-size-gb <GB> 最大處理總量，0 表示不限
           --shutdown                     全部完成後請求關機
+          --concurrency, -j <1..16>     並行執行任務數（預設 1 串列）
           --add-enclosures / --no-add-enclosures
                                         啟用或關閉附件目錄
           --enclosure-list <檔案>        舊版相容：換行分隔的附件目錄
@@ -309,6 +314,7 @@ public static class CommandLineHandler
           --move-source                  Move sources after success
           --max-size, --max-size-gb <GB> Total size cap, 0 means unlimited
           --shutdown                     Request shutdown after completion
+          --concurrency, -j <1..16>     Concurrent tasks to run (default 1, serial)
           --add-enclosures / --no-add-enclosures
                                         Enable or disable enclosure directories
           --enclosure-list <file>        Legacy: newline separated enclosure list
@@ -591,6 +597,7 @@ public static class CommandLineHandler
         // 的历史别名，不能挪用为输出格式别名，输出格式仅使用 --output-format。
         Add(definitions, "--language", ValueKind.Single, "--language", "--lang");
         Add(definitions, "--output-format", ValueKind.Single, "--output-format");
+        Add(definitions, "--concurrency", ValueKind.Single, "--concurrency", "-j");
 
         return definitions;
     }
@@ -875,6 +882,9 @@ public static class CommandLineHandler
             case "--output-format":
                 state.Options.OutputFormat = NormalizeOutputFormat(value, state.Errors);
                 break;
+            case "--concurrency":
+                state.Options.MaxConcurrency = ParseInt(value, "--concurrency", state.Errors, 1);
+                break;
         }
     }
 
@@ -972,6 +982,12 @@ public static class CommandLineHandler
         if (options.CompressionLevel is < 0 or > 5)
         {
             errors.Add(L.CliErrorLevelRange);
+        }
+
+        // GLM-5.3, 2026-11-04：批次 5——并发度范围校验。
+        if (options.MaxConcurrency is < 1 or > 16)
+        {
+            errors.Add(L.CliErrorConcurrencyRange);
         }
 
         if (options.RecoveryRecord is < 0 or > 100)

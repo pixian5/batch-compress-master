@@ -58,6 +58,11 @@ public class BatchOperationOptions
     public bool ShutdownAfterComplete { get; set; }
     public PasswordNameMode PasswordNameMode { get; set; } = PasswordNameMode.ArchiveName;
 
+    // GLM-5.3, 2026-11-04：批次 5——受控并发度。默认 1 保持历史串行路径（绝对向后兼容）；
+    // 大于 1 时 BatchExecutionPipeline 以信号量限流并发执行条目（引擎调用并行，
+    // 进度统计经锁保护）。取值建议 1-16。
+    public int MaxConcurrency { get; set; } = 1;
+
     // 压缩选项。
     public Core.Interfaces.CompressionLevel CompressionLevel { get; set; }
     public bool SolidArchive { get; set; }

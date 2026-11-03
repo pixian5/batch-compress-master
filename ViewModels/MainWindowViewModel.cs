@@ -298,6 +298,11 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private int _compressionLevel = 1; // 0-5
 
+    // GLM-5.3, 2026-11-04：批次 5——受控并发度（1-16，默认 1 串行），
+    // 两个操作页签共享同一设置（机器级参数，不参与页签状态切换）。
+    [ObservableProperty]
+    private int _maxConcurrency = 1;
+
     [ObservableProperty]
     private bool _solidArchive = true;
 
@@ -1121,6 +1126,7 @@ public partial class MainWindowViewModel : ViewModelBase
             TempDirectory = !string.IsNullOrEmpty(TempDirectory) ? TempDirectory : OutputPath,
             ExistingFileMode = (Core.Interfaces.ExistingFileMode)clampedExistingFileMode,
             RecoveryRecordPercent = Math.Clamp(RecoveryRecordPercent, 0, 100),
+            MaxConcurrency = Math.Clamp(MaxConcurrency, 1, 16),
             LockArchive = LockArchive,
             AddEnclosures = AddEnclosures,
             EnclosureDirectories = AddEnclosures ?

@@ -409,6 +409,8 @@ public class HeadlessBatchRunner
             MoveSourceAfter = _options.MoveSource,
             SkipAlreadyProcessed = _options.SkipProcessed,
             MaxSizeGB = _options.MaxSizeGB,
+            // GLM-5.3, 2026-11-04：批次 5——CLI --concurrency/-j 透传到批处理管线。
+            MaxConcurrency = _options.MaxConcurrency,
             ShutdownAfterComplete = _options.ShutdownAfter,
             PasswordNameMode = _options.PasswordName == "base"
                 ? PasswordNameMode.BaseName
