@@ -45,7 +45,9 @@ internal static class Program
             ("界面本地化资源扫描", TestLocalizedUiResources)
         };
 
-        // GPT-5, 2026-08-05：首个失败即停止，为自动化保留明确的非零退出状态。
+        // GLM-5.3, 2026-11-03：跑完全部测试后统一输出失败汇总，CI 中一次可见所有失败项；
+        // 有任一失败仍返回 1，保持非零退出状态的自动化约定。
+        var failures = new List<string>();
         foreach (var test in tests)
         {
             try
@@ -56,10 +58,22 @@ internal static class Program
             catch (Exception ex)
             {
                 Console.Error.WriteLine($"FAIL {test.Name}: {ex.Message}");
-                return 1;
+                failures.Add(test.Name);
             }
         }
 
+        if (failures.Count > 0)
+        {
+            Console.Error.WriteLine();
+            Console.Error.WriteLine($"共 {tests.Length} 项测试，失败 {failures.Count} 项：");
+            foreach (var failure in failures)
+            {
+                Console.Error.WriteLine($"  - {failure}");
+            }
+            return 1;
+        }
+
+        Console.WriteLine($"全部 {tests.Length} 项测试通过。");
         return 0;
     }
 

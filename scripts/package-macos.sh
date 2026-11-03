@@ -4,7 +4,9 @@ set -euo pipefail
 # GPT-5, 2026-08-05：从脚本位置解析路径，使打包可在任意当前目录执行。
 repo_root="${0:A:h:h}"
 publish_dir="$repo_root/.artifacts/macos-publish"
-app_path="/Applications/BatchCompress.Avalonia.app"
+# GLM-5.3, 2026-11-03：支持用 BATCHCOMPRESS_APP_DIR 覆盖输出位置；默认仍安装到 /Applications，
+# CI 持续集成传入 .artifacts/ci 下的路径即可只构建应用包而不动本机已安装版本。
+app_path="${BATCHCOMPRESS_APP_DIR:-/Applications/BatchCompress.Avalonia.app}"
 icon_source="$repo_root/Assets/压缩.ico"
 icon_png="$repo_root/Assets/压缩.png"
 seven_zip_source="$repo_root/tools/7zip/macos"
@@ -73,6 +75,8 @@ dotnet publish "$repo_root/BatchCompress.Avalonia.csproj" -c Release -r osx-arm6
 # GPT-5, 2026-08-06：编译 macOS 原生状态栏回退，运行时不依赖 Swift 编译器。
 swiftc "$repo_root/macos/StatusBarHelper.swift" -o "$publish_dir/BatchCompress.StatusBarHelper"
 
+# 自定义输出路径的父目录可能不存在（如 CI 的 .artifacts/ci），先补齐再清理旧包。
+mkdir -p "${app_path:h}"
 rm -rf "$app_path"
 mkdir -p "$app_path/Contents/MacOS" "$app_path/Contents/Resources"
 cp "$publish_dir/BatchCompress.Avalonia" "$app_path/Contents/MacOS/BatchCompress.Avalonia"

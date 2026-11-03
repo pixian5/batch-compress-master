@@ -1,0 +1,67 @@
+# GLM-5.3, 2026-11-03：三平台持续集成门禁。
+# build-test 在 ubuntu/windows/macos 上构建并运行 30 项回归测试（真实 7zz 冒烟测试仅在 macOS 执行，其余平台自动跳过）；
+# macos-package 独立执行 macOS 应用包构建（输出到 .artifacts/ci，不安装到 /Applications），其失败不阻塞构建测试。
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build-test:
+    name: 构建与测试 (${{ matrix.os }})
+    # fail-fast 关闭：任一平台失败不打断其余平台，便于一次看到全部问题。
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 还原依赖
+        run: dotnet restore BatchCompress.Avalonia.sln --nologo
+
+      - name: 构建主程序（Release）
+        run: dotnet build BatchCompress.Avalonia.sln -c Release --no-restore --nologo
+
+      - name: 构建并运行测试控制台
+        # 测试项目不在解决方案内，单独构建运行；测试输出 PASS/SKIP/FAIL 与失败汇总，任一失败退出码为 1。
+        run: dotnet run -c Release --project BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.csproj --nologo
+
+  macos-package:
+    name: macOS 应用包构建
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 构建应用包（不安装到 /Applications）
+        run: |
+          BATCHCOMPRESS_APP_DIR="$PWD/.artifacts/ci/BatchCompress.Avalonia.app" zsh scripts/package-macos.sh
+
+      - name: 上传应用包产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: .artifacts/ci/BatchCompress.Avalonia.app
+          if-no-files-found: error
