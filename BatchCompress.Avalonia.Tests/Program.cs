@@ -29,6 +29,10 @@ internal static class Program
             ("压缩格式别名规范化", TestCanonicalCompressionFormat),
             ("统一归档分卷解析", TestArchiveVolumeResolver),
             ("旧式分卷识别", TestOldStyleVolumeResolution),
+            ("压缩循环表征", TestCompressionLoopCharacterization),
+            ("解压循环表征", TestDecompressionLoopCharacterization),
+            ("来源收集表征", TestSourceCollectionCharacterization),
+            ("大小写歧义跳过", TestCaseAmbiguitySkip),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
             ("解压失败残留回滚", TestFailedExtractionRollback),
             ("压缩分卷大小统计", TestCompressedVolumeSizeProgress),
@@ -912,6 +916,384 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    // GLM-5.3, 2026-11-03：批次 2 表征测试——压缩循环。锁定执行管线重构前的
+    // 消息文本、七类计数、关机时机与文件系统副作用，重构期间任何行为漂移都会在此暴露。
+    private static async Task TestCompressionLoopCharacterization()
+    {
+        var L = LocalizationService.Instance.Strings;
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-c-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 场景 1：不可创建格式计 1 条失败、返回格式消息、不进循环、也不触发关机。
+            var engine = new ScriptedArchiveEngine();
+            var system = new RecordingSystemIntegration();
+            var snapshots = new List<OperationProgressInfo>();
+            var service = new BatchOperationService(engine, system);
+            await service.BatchCompressAsync(
+                [root],
+                new BatchOperationOptions { OutputPath = root, Extension = "iso", ShutdownAfterComplete = true },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            var final = snapshots.Last();
+            AssertEqual(1, final.FailCount);
+            AssertEqual(0, final.SuccessCount);
+            AssertEqual(0, engine.CompressionInputs.Count);
+            AssertEqual(0, system.ShutdownCalls);
+            Assert(final.Message == string.Format(L.FormatCannotCreate, "iso", ArchiveFormatCatalog.CreateFormatsText),
+                "格式拒绝消息必须与词条完全一致");
+
+            // 场景 2：源不存在计 NotFound、消息含原始路径、引擎零调用。
+            var missing = Path.Combine(root, "missing-item");
+            snapshots.Clear();
+            await service.BatchCompressAsync(
+                [missing],
+                new BatchOperationOptions { OutputPath = root, Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            final = snapshots.Last();
+            AssertEqual(1, final.NonExistCount);
+            AssertEqual(0, engine.CompressionInputs.Count);
+            Assert(final.Message == string.Format(L.ItemNotFound, missing), "源不存在消息必须与词条一致");
+
+            // 场景 3：SkipAlreadyProcessed 对名称含【已压缩】的源静默跳过（计数增加但不产生任何进度报告）。
+            var doneSource = Path.Combine(root, "proj【已压缩】");
+            Directory.CreateDirectory(doneSource);
+            snapshots.Clear();
+            await service.BatchCompressAsync(
+                [doneSource],
+                new BatchOperationOptions
+                {
+                    OutputPath = root, Extension = "7z", SkipAlreadyProcessed = true,
+                    ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            Assert(snapshots.Count == 0, "跳过已处理项不得产生进度报告");
+            AssertEqual(0, engine.CompressionInputs.Count);
+            Directory.Delete(doneSource);
+
+            // 场景 4：Overwrite 删除已有输出，包括新式分卷与旧式 .r00 遗留（rar 双组枚举）。
+            var overwriteSource = Path.Combine(root, "ow-src");
+            var overwriteOutput = Path.Combine(root, "ow-out");
+            Directory.CreateDirectory(overwriteSource);
+            Directory.CreateDirectory(overwriteOutput);
+            File.WriteAllText(Path.Combine(overwriteSource, "a.txt"), "a");
+            File.WriteAllText(Path.Combine(overwriteOutput, "ow-src.rar"), "old");
+            File.WriteAllText(Path.Combine(overwriteOutput, "ow-src.part1.rar"), "old");
+            File.WriteAllText(Path.Combine(overwriteOutput, "ow-src.r00"), "old");
+            await service.BatchCompressAsync(
+                [overwriteSource],
+                new BatchOperationOptions { OutputPath = overwriteOutput, Extension = "rar", ExistingFileMode = ExistingFileMode.Overwrite },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, engine.CompressionInputs.Count);
+            AssertEqual(1, snapshots.Last().SuccessCount);
+            Assert(!File.Exists(Path.Combine(overwriteOutput, "ow-src.rar")), "覆盖模式必须删除旧主卷");
+            Assert(!File.Exists(Path.Combine(overwriteOutput, "ow-src.part1.rar")), "覆盖模式必须删除旧 part 分卷");
+            Assert(!File.Exists(Path.Combine(overwriteOutput, "ow-src.r00")), "覆盖模式必须删除旧式 .r00 遗留分卷");
+
+            // 场景 5：DeleteSourceAfter 成功时源被删、成功消息为 ItemSucceeded、无后处理失败。
+            snapshots.Clear();
+            var deleteSource = Path.Combine(root, "del-src");
+            Directory.CreateDirectory(deleteSource);
+            File.WriteAllText(Path.Combine(deleteSource, "a.txt"), "a");
+            await service.BatchCompressAsync(
+                [deleteSource],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "del-out"), Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite, DeleteSourceAfter = true
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            final = snapshots.Last();
+            AssertEqual(1, final.SuccessCount);
+            AssertEqual(0, final.PostProcessFailCount);
+            Assert(!Directory.Exists(deleteSource), "删除源后处理必须移除源目录");
+            Assert(final.Message == string.Format(L.ItemSucceeded, "del-src"), "纯成功消息必须与词条一致");
+
+            // 场景 6：MoveSourceAfter 成功时源移入【已压缩】目录。
+            var moveSource = Path.Combine(root, "mv-src");
+            Directory.CreateDirectory(moveSource);
+            File.WriteAllText(Path.Combine(moveSource, "a.txt"), "a");
+            await service.BatchCompressAsync(
+                [moveSource],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "mv-out"), Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite, MoveSourceAfter = true
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            Assert(!Directory.Exists(moveSource), "移动后源不得留在原位置");
+            Assert(Directory.Exists(Path.Combine(root, "【已压缩】", "mv-src")), "源必须移入【已压缩】目录");
+
+            // 场景 7：引擎失败计 FailCount 并输出 ItemFailed 消息（含名称与引擎错误）。
+            var failingEngine = new ScriptedArchiveEngine(input => true);
+            var failSource = Path.Combine(root, "fail-src");
+            Directory.CreateDirectory(failSource);
+            snapshots.Clear();
+            await new BatchOperationService(failingEngine, system).BatchCompressAsync(
+                [failSource],
+                new BatchOperationOptions { OutputPath = root, Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            final = snapshots.Last();
+            AssertEqual(1, final.FailCount);
+            Assert(final.Message == string.Format(L.ItemFailed, "fail-src", "scripted failure"),
+                "失败消息必须与词条一致并包含引擎错误");
+
+            // 场景 8：MaxSizeGB 达到后停止后续任务（真实 1MB 输出超过 0.0005GB 上限）。
+            var sizeEngine = new ScriptedArchiveEngine { WriteRealOutput = true };
+            var firstSource = Path.Combine(root, "size-a");
+            var secondSource = Path.Combine(root, "size-b");
+            Directory.CreateDirectory(firstSource);
+            Directory.CreateDirectory(secondSource);
+            snapshots.Clear();
+            await new BatchOperationService(sizeEngine, system).BatchCompressAsync(
+                [firstSource, secondSource],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "size-out"), Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite, MaxSizeGB = 0.0005
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, sizeEngine.CompressionInputs.Count);
+            AssertEqual(1, snapshots.Last().SuccessCount);
+            Assert(snapshots.Any(info => info.Message == L.SizeLimitReached), "达到大小上限必须报告 SizeLimitReached");
+
+            // 场景 9：全部任务结束后才请求关机（含跳过项的批次同样触发）。
+            var shutdownEngine = new ScriptedArchiveEngine();
+            var shutdownSource = Path.Combine(root, "sd-src");
+            Directory.CreateDirectory(shutdownSource);
+            var shutdownSystem = new RecordingSystemIntegration();
+            await new BatchOperationService(shutdownEngine, shutdownSystem).BatchCompressAsync(
+                [shutdownSource],
+                new BatchOperationOptions
+                {
+                    OutputPath = root, Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite,
+                    ShutdownAfterComplete = true
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, shutdownSystem.ShutdownCalls);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-03：批次 2 表征测试——解压循环。
+    private static async Task TestDecompressionLoopCharacterization()
+    {
+        var L = LocalizationService.Instance.Strings;
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-d-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var engine = new ScriptedArchiveEngine();
+            var system = new RecordingSystemIntegration();
+            var service = new BatchOperationService(engine, system);
+            var snapshots = new List<OperationProgressInfo>();
+
+            // 场景 1：分卷编号重复（.1 与 .001 并存）计歧义并跳过、引擎零调用。
+            File.WriteAllText(Path.Combine(root, "dup.7z.1"), "1");
+            File.WriteAllText(Path.Combine(root, "dup.7z.001"), "001");
+            await service.BatchDecompressAsync(
+                [new FileEntry { FilePath = Path.Combine(root, "dup.7z.001"), FileSize = 3 }],
+                new BatchOperationOptions { OutputPath = Path.Combine(root, "o1"), Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            var final = snapshots.Last();
+            AssertEqual(1, final.AmbiguousArchiveCount);
+            AssertEqual(1, final.IgnoreCount);
+            AssertEqual(0, engine.ExtractionInputs.Count);
+            Assert(final.Message == string.Format(L.DuplicateVolumeSkipped, Path.Combine(root, "dup.7z.001")),
+                "重复编号消息必须与词条一致");
+
+            // 场景 2：同一分卷组重复出现时第二个任务静默去重。
+            File.WriteAllText(Path.Combine(root, "same.7z.001"), "a");
+            File.WriteAllText(Path.Combine(root, "same.7z.002"), "b");
+            var sameEntry = new FileEntry { FilePath = Path.Combine(root, "same.7z.001"), FileSize = 1 };
+            snapshots.Clear();
+            await service.BatchDecompressAsync(
+                [sameEntry, sameEntry],
+                new BatchOperationOptions { OutputPath = Path.Combine(root, "o2"), Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            final = snapshots.Last();
+            AssertEqual(1, engine.ExtractionInputs.Count);
+            AssertEqual(1, final.IgnoreCount);
+
+            // 场景 3：SkipAlreadyProcessed 对名称含【已解压】的归档静默跳过。
+            var processedArchive = Path.Combine(root, "done【已解压】.7z");
+            File.WriteAllText(processedArchive, "x");
+            snapshots.Clear();
+            await service.BatchDecompressAsync(
+                [new FileEntry { FilePath = processedArchive, FileSize = 1 }],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "o3"), Extension = "7z", SkipAlreadyProcessed = true,
+                    ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            Assert(snapshots.Count == 0, "跳过已处理归档不得产生进度报告");
+            AssertEqual(1, engine.ExtractionInputs.Count);
+
+            // 场景 4：TXT 条目密码优先于全局 CustomPassword，条目为空时才回退。
+            var pwArchive = Path.Combine(root, "pw.7z");
+            File.WriteAllText(pwArchive, "x");
+            await service.BatchDecompressAsync(
+                [
+                    new FileEntry { FilePath = pwArchive, Password = "txt-pw", FileSize = 1 },
+                    new FileEntry { FilePath = processedArchive, Password = null, FileSize = 1 }
+                ],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "o4"), Extension = "7z",
+                    CustomPassword = "global-pw", ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual("txt-pw", engine.ExtractionOptions[1].Password);
+            AssertEqual("global-pw", engine.ExtractionOptions[2].Password);
+
+            // 场景 5：数字分卷传递归一化格式（.001 不当作格式）。
+            AssertEqual("7z", engine.ExtractionOptions[1].ArchiveFormat);
+
+            // 场景 6：DeleteSourceAfter 删除整组分卷。
+            var group = new[] { "grp.7z.001", "grp.7z.002", "grp.7z.003" };
+            foreach (var name in group)
+            {
+                File.WriteAllText(Path.Combine(root, name), name);
+            }
+
+            await service.BatchDecompressAsync(
+                [new FileEntry { FilePath = Path.Combine(root, group[0]), FileSize = 3 }],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "o6"), Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite, DeleteSourceAfter = true
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            foreach (var name in group)
+            {
+                Assert(!File.Exists(Path.Combine(root, name)), $"删除源必须移除整组成员：{name}");
+            }
+
+            // 场景 7：MaxSizeGB 达到后停止后续任务（第一组真实 3MB 超过 0.002GB）。
+            var sizeRoot = Path.Combine(root, "sizes");
+            Directory.CreateDirectory(sizeRoot);
+            foreach (var name in new[] { "s1.7z.001", "s1.7z.002", "s1.7z.003" })
+            {
+                File.WriteAllBytes(Path.Combine(sizeRoot, name), new byte[1024 * 1024]);
+            }
+
+            File.WriteAllBytes(Path.Combine(sizeRoot, "s2.7z"), new byte[1024 * 1024]);
+            var sizeEngine = new ScriptedArchiveEngine();
+            snapshots.Clear();
+            await new BatchOperationService(sizeEngine, system).BatchDecompressAsync(
+                [
+                    new FileEntry { FilePath = Path.Combine(sizeRoot, "s1.7z.001"), FileSize = 3 },
+                    new FileEntry { FilePath = Path.Combine(sizeRoot, "s2.7z"), FileSize = 1 }
+                ],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "o7"), Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite, MaxSizeGB = 0.002
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, sizeEngine.ExtractionInputs.Count);
+            Assert(snapshots.Any(info => info.Message == L.SizeLimitReached), "解压达到大小上限必须报告");
+
+            // 场景 8：全部解压任务结束后请求一次关机。
+            var shutdownEngine = new ScriptedArchiveEngine();
+            var shutdownSystem = new RecordingSystemIntegration();
+            var shutdownArchive = Path.Combine(root, "sd.7z");
+            File.WriteAllText(shutdownArchive, "x");
+            await new BatchOperationService(shutdownEngine, shutdownSystem).BatchDecompressAsync(
+                [new FileEntry { FilePath = shutdownArchive, FileSize = 1 }],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "o8"), Extension = "7z",
+                    ExistingFileMode = ExistingFileMode.Overwrite, ShutdownAfterComplete = true
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual(1, shutdownSystem.ShutdownCalls);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-03：批次 2 表征测试——来源目录扫描。
+    private static Task TestSourceCollectionCharacterization()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-s-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            foreach (var name in new[] { "keep", "done【已压缩】", "done【已解压】", ".tmp-partial" })
+            {
+                Directory.CreateDirectory(Path.Combine(root, name));
+            }
+
+            File.WriteAllText(Path.Combine(root, "desktop.ini"), "meta");
+            File.WriteAllText(Path.Combine(root, ".DS_Store"), "meta");
+
+            var service = new BatchOperationService(new ScriptedArchiveEngine(), new RecordingSystemIntegration());
+            var skipped = service.LoadCompressionSourcesFromFolder(root, skipProcessed: true)
+                .Select(Path.GetFileName)
+                .ToArray();
+            AssertEqual(1, skipped.Length);
+            AssertEqual("keep", skipped[0]);
+
+            var all = service.LoadCompressionSourcesFromFolder(root, skipProcessed: false)
+                .Select(Path.GetFileName)
+                .OrderBy(name => name, StringComparer.Ordinal)
+                .ToArray();
+            AssertEqual(3, all.Length);
+            Assert(!all.Contains("desktop.ini"), "系统元数据必须始终被过滤");
+            Assert(!all.Contains(".DS_Store"), "macOS 元数据必须始终被过滤");
+            Assert(!all.Contains(".tmp-partial"), ".tmp 前缀必须始终被过滤");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-03：大小写歧义只在区分大小写的文件系统（Linux CI）可构造，
+    // 其余平台输出 SKIP。锁定：歧义计 Ambiguous+Ignore、消息一致、引擎零调用。
+    private static async Task TestCaseAmbiguitySkip()
+    {
+        if (!OperatingSystem.IsLinux())
+        {
+            Console.WriteLine("SKIP 大小写歧义跳过: 需要区分大小写的文件系统");
+            return;
+        }
+
+        var L = LocalizationService.Instance.Strings;
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-a-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            File.WriteAllText(Path.Combine(root, "v.7z"), "one");
+            File.WriteAllText(Path.Combine(root, "V.7z"), "two");
+            var engine = new ScriptedArchiveEngine();
+            var snapshots = new List<OperationProgressInfo>();
+            // 请求不存在的字面变体触发忽略大小写枚举，命中两个条目即歧义。
+            var requested = Path.Combine(root, "v.7Z");
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = requested, FileSize = 1 }],
+                new BatchOperationOptions { OutputPath = Path.Combine(root, "out"), Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            var final = snapshots.Last();
+            AssertEqual(1, final.AmbiguousArchiveCount);
+            AssertEqual(1, final.IgnoreCount);
+            AssertEqual(0, engine.ExtractionInputs.Count);
+            Assert(final.Message == string.Format(L.CaseAmbiguitySkipped, requested), "大小写歧义消息必须与词条一致");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static async Task TestVolumeValidationAndProgress()
     {
         var root = Path.Combine(Path.GetTempPath(), $"batch-compress-volume-progress-{Guid.NewGuid():N}");
@@ -1480,6 +1862,80 @@ internal static class Program
         {
             ExtractionCalls++;
             return Task.FromResult(new ArchiveResult { Success = true });
+        }
+    }
+
+    // GLM-5.3, 2026-11-03：批次 2 表征测试用。可按输入名编排成功/失败、真实写出输出文件，
+    // 并记录每次调用的输入与选项，用于锁定批处理循环的现有行为。
+    private sealed class ScriptedArchiveEngine : IArchiveEngine
+    {
+        private readonly Func<string, bool>? _shouldFail;
+        public List<string> CompressionInputs { get; } = [];
+        public List<string> ExtractionInputs { get; } = [];
+        public List<ArchiveOptions> CompressionOptions { get; } = [];
+        public List<ArchiveOptions> ExtractionOptions { get; } = [];
+        public List<string> ExtractionOutputDirs { get; } = [];
+        public bool WriteRealOutput { get; set; }
+        public int OutputBytesPerFile { get; set; } = 1024 * 1024;
+
+        public ScriptedArchiveEngine(Func<string, bool>? shouldFail = null) => _shouldFail = shouldFail;
+
+        public bool IsAvailable() => true;
+
+        public Task<ArchiveResult> CompressAsync(
+            string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
+        {
+            CompressionInputs.Add(Path.GetFileName(input));
+            CompressionOptions.Add(options);
+            if (_shouldFail?.Invoke(input) == true)
+            {
+                return Task.FromResult(new ArchiveResult { Success = false, ErrorMessage = "scripted failure" });
+            }
+
+            if (WriteRealOutput)
+            {
+                Directory.CreateDirectory(Path.GetDirectoryName(output) ?? ".");
+                File.WriteAllBytes(output, new byte[OutputBytesPerFile]);
+            }
+
+            return Task.FromResult(new ArchiveResult { Success = true });
+        }
+
+        public Task<ArchiveResult> ExtractAsync(
+            string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default)
+        {
+            ExtractionInputs.Add(Path.GetFileName(archivePath));
+            ExtractionOptions.Add(options);
+            ExtractionOutputDirs.Add(outputDir);
+            if (_shouldFail?.Invoke(archivePath) == true)
+            {
+                return Task.FromResult(new ArchiveResult { Success = false, ErrorMessage = "scripted failure" });
+            }
+
+            return Task.FromResult(new ArchiveResult { Success = true });
+        }
+    }
+
+    // GLM-5.3, 2026-11-03：记录关机等系统集成调用次数，用于锁定关机时机行为。
+    private sealed class RecordingSystemIntegration : ISystemIntegration
+    {
+        public int ShutdownCalls { get; private set; }
+        public int CancelShutdownCalls { get; private set; }
+
+        public Task OpenFolderAsync(string path) => Task.CompletedTask;
+        public Task<string?> ReadClipboardTextAsync() => Task.FromResult<string?>(null);
+        public Task WriteClipboardTextAsync(string text) => Task.CompletedTask;
+        public void ShowNotification(string title, string message) { }
+        public Task ShutdownAsync()
+        {
+            ShutdownCalls++;
+            return Task.CompletedTask;
+        }
+
+        public Task CancelShutdownAsync()
+        {
+            CancelShutdownCalls++;
+            return Task.CompletedTask;
         }
     }
 
