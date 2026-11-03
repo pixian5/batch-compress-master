@@ -6,6 +6,7 @@ using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Services;
+using BatchCompress.Avalonia.Localization;
 
 namespace BatchCompress.Avalonia;
 
@@ -25,7 +26,9 @@ sealed class Program
         // GPT-5, 2026-08-05：帮助信息必须在初始化 Avalonia 前返回，避免命令行用户创建 GUI 进程。
         if (CommandLineHandler.IsHelpRequested(applicationArgs))
         {
-            CommandLineHandler.ShowHelp();
+            // GLM-5.3, 2026-11-04：批次 3——--help 支持 --language/--lang 组合，
+            // 完整解析前预扫描语言并输出对应语言的帮助。
+            CommandLineHandler.ShowHelp(CommandLineHandler.DetectLanguage(applicationArgs));
             return 0;
         }
 
@@ -53,6 +56,11 @@ sealed class Program
         }
 
         var options = parseOutcome.Options;
+
+        // GLM-5.3, 2026-11-04：批次 3——解析成功后立刻同步界面语言，
+        // 无界面运行期服务层消息（ItemNotFound、ItemSucceeded 等）与 CLI 输出语言一致，
+        // 彻底解决 CLI 英文文案与服务层默认中文混搭的问题。
+        LocalizationService.Instance.CurrentLanguage = options.Language;
 
         // GPT-5, 2026-08-05：无界面模式同步等待异步任务，确保 Main 返回真实的批处理退出码。
         if (options.Compress || options.Decompress)

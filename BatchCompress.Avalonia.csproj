@@ -44,6 +44,9 @@
   </ItemGroup>
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-x64' Or ('$(RuntimeIdentifier)' == '' And $([MSBuild]::IsOSPlatform('Linux'))) ">
     <Content Include="tools/7zip/linux-x64/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
+    <!-- GLM-5.3, 2026-11-04：批次 3 决策 B——整体复制官方完整未修改 RAR Linux x64 分发包
+         （rar、unrar、license.txt、readme.txt 等），禁止只挑选二进制拆包分发（许可第 3a 条）。 -->
+    <Content Include="tools/rarLinux/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />
   </ItemGroup>
   <ItemGroup Condition="'$(RuntimeIdentifier)' == 'linux-arm64'">
     <Content Include="tools/7zip/linux-arm64/**" CopyToOutputDirectory="PreserveNewest" CopyToPublishDirectory="PreserveNewest" />

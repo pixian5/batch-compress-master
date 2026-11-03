@@ -208,7 +208,10 @@ public class RarArchiveEngine : IArchiveEngine
 
     private IEnumerable<string> GetLinuxCandidates()
     {
-        // 1) 程序运行目录下的 tools/rarLinux 目录（优先使用）
+        // 1) 程序运行目录下的 tools/rarLinux 目录（优先使用）。
+        // GLM-5.3, 2026-11-04：批次 3 决策 B——该目录现携带官方完整未修改分发包
+        // （rar/unrar/license.txt/readme.txt 等，来源 rarlinux-x64-723.tar.gz），
+        // csproj 在 Linux 构建下整体复制，候选路径与实际构建输出一致。
         var toolsRarDir = Path.Combine(AppContext.BaseDirectory, "tools", "rarLinux", "rar");
         yield return toolsRarDir;
 

@@ -48,6 +48,10 @@ internal static class Program
             ("官方 7zz 真实压缩解压", TestOfficialSevenZipSmoke),
             ("完整命令行解析", TestCommandLineParsing),
             ("命令行错误校验", TestCommandLineValidation),
+            ("CLI语言参数", TestCliLanguageOptions),
+            ("CLI输出格式参数", TestCliOutputFormatOptions),
+            ("NDJSON结构化输出", TestNdjsonOutputWriter),
+            ("NDJSON端到端", TestNdjsonEndToEnd),
             ("TXT 清单与密码本诊断", TestTextFileImportModes),
             ("本地化窗口标题", TestLocalizedWindowTitles),
             ("英文与德语资源不含中文", TestLocalizedTextHasNoChinese),
@@ -2068,6 +2072,288 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    // GLM-5.3, 2026-11-04：批次 3——--language/--lang 解析、区域变体归一、
+    // DetectLanguage 预扫描、双语帮助与解析成功后的语言同步契约。
+    private static Task TestCliLanguageOptions()
+    {
+        var localization = LocalizationService.Instance;
+        var originalLanguage = localization.CurrentLanguage;
+        var originalOut = Console.Out;
+        try
+        {
+            // 区域变体归一到 LocalizationService 语言键。
+            var en = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--lang", "en-US"]);
+            Assert(en.Success, string.Join(" | ", en.Errors));
+            AssertEqual("en", en.Options.Language);
+
+            var ja = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--language=ja-JP"]);
+            Assert(ja.Success, string.Join(" | ", ja.Errors));
+            AssertEqual("ja", ja.Options.Language);
+
+            var zh = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+                ["gui", "--lang", "zh"]);
+            Assert(zh.Success, string.Join(" | ", zh.Errors));
+            AssertEqual("zh-CN", zh.Options.Language);
+            AssertEqual("zh-CN",
+                BatchCompress.Avalonia.CommandLineHandler.ParseArguments([]).Options.Language);
+
+            // 未知语言报参数错误（退出码 2 路径）。
+            AssertCommandLineFails(
+                ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--lang", "fr"],
+                "--language");
+
+            // 帮助语言预扫描：分离与内联两种形式；未指定或无效时返回 null。
+            AssertEqual("en", BatchCompress.Avalonia.CommandLineHandler.DetectLanguage(["--help", "--lang", "en-US"]));
+            AssertEqual("ja", BatchCompress.Avalonia.CommandLineHandler.DetectLanguage(["--lang=ja"]));
+            AssertEqual("zh-CN", BatchCompress.Avalonia.CommandLineHandler.DetectLanguage(["--help", "--language", "zh"]));
+            Assert(BatchCompress.Avalonia.CommandLineHandler.DetectLanguage(["--help"]) == null,
+                "未指定语言时 DetectLanguage 必须返回 null");
+            Assert(BatchCompress.Avalonia.CommandLineHandler.DetectLanguage(["--lang", "fr"]) == null,
+                "无效语言在预扫描中必须回退 null");
+
+            // 双语帮助：中文默认、英文切换；两者都必须记载 --language 与 --output-format。
+            var helpOut = new System.IO.StringWriter();
+            Console.SetOut(helpOut);
+            BatchCompress.Avalonia.CommandLineHandler.ShowHelp();
+            var chineseHelp = helpOut.ToString();
+            Assert(chineseHelp.Contains("批量压缩解压工具") && chineseHelp.Contains("--output-format"),
+                "默认帮助必须为中文并包含新参数");
+
+            helpOut = new System.IO.StringWriter();
+            Console.SetOut(helpOut);
+            BatchCompress.Avalonia.CommandLineHandler.ShowHelp("en");
+            var englishHelp = helpOut.ToString();
+            Assert(englishHelp.Contains("Batch Compress & Extract Tool") &&
+                   englishHelp.Contains("--language") && englishHelp.Contains("--output-format"),
+                "英文帮助必须完整且包含新参数");
+            Assert(!englishHelp.Contains("批量压缩解压工具"), "英文帮助不得混入中文标题");
+
+            // 解析成功后的语言同步契约：Language 值可安全赋给 CurrentLanguage。
+            localization.CurrentLanguage = en.Options.Language;
+            AssertEqual("en", localization.CurrentLanguage);
+            Assert(localization.Strings.Compress.Contains("ompress", StringComparison.Ordinal),
+                "英文语言键切换后服务层词条必须为英文");
+        }
+        finally
+        {
+            localization.CurrentLanguage = originalLanguage;
+            Console.SetOut(originalOut);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 3——--output-format 解析与校验；
+    // --format 是 --extension 的历史别名，不得被挪用为输出格式（回归锁定）。
+    private static Task TestCliOutputFormatOptions()
+    {
+        var json = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--output-format", "JSON"]);
+        Assert(json.Success, string.Join(" | ", json.Errors));
+        AssertEqual("json", json.Options.OutputFormat);
+
+        AssertEqual("text",
+            BatchCompress.Avalonia.CommandLineHandler.ParseArguments([]).Options.OutputFormat);
+        AssertCommandLineFails(
+            ["compress", "-i", "/tmp/a", "-o", "/tmp/out", "--output-format", "xml"],
+            "--output-format");
+
+        // --format 仍指向扩展名（历史兼容回归）。
+        var formatAsExtension = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(
+            ["extract", "-i", "/tmp/a.7z", "-o", "/tmp/out", "--format", "7z"]);
+        Assert(formatAsExtension.Success, string.Join(" | ", formatAsExtension.Errors));
+        AssertEqual("7z", formatAsExtension.Options.Extension);
+        AssertEqual("text", formatAsExtension.Options.OutputFormat);
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 3——NDJSON 输出器单元行为：
+    // 事件分类（progress/item/summary）、密码排除、计数呈现与非 ASCII 原样输出。
+    private static Task TestNdjsonOutputWriter()
+    {
+        using var output = new System.IO.StringWriter();
+        var writer = new NdjsonOutputWriter(output);
+
+        // 条目启动消息（计数不变）→ progress/phase=start。
+        writer.Report(new OperationProgressInfo
+        {
+            CurrentFile = "项目甲",
+            Message = "开始压缩：项目甲",
+            IsError = false
+        });
+
+        // 命令输出事件（含密码）必须整条丢弃。
+        writer.Report(new OperationProgressInfo
+        {
+            CurrentFile = "项目甲",
+            Message = "[rar] command\nrar a -pSecretPassword123 out.rar 项目甲",
+            IsCommandOutput = true
+        });
+
+        // 成功完成 → item/status=success，带七类计数。
+        writer.Report(new OperationProgressInfo
+        {
+            CurrentFile = "项目甲",
+            Message = "成功：项目甲",
+            SuccessCount = 1
+        });
+
+        // 归档成功但后处理失败：Success 与 PostProcessFail 同时增加 → 仍为 success，
+        // postProcessFailCount 呈现 1。
+        writer.Report(new OperationProgressInfo
+        {
+            CurrentFile = "项目乙",
+            Message = "成功（后处理失败）：项目乙",
+            SuccessCount = 2,
+            PostProcessFailCount = 1
+        });
+
+        // 不存在跳过 → item/status=skip（真实管线报告累计计数，此处保持同口径）。
+        writer.Report(new OperationProgressInfo
+        {
+            CurrentFile = "缺失项",
+            Message = "不存在：/tmp/missing",
+            SuccessCount = 2,
+            PostProcessFailCount = 1,
+            NonExistCount = 1,
+            IsError = true
+        });
+
+        // 引擎失败 → item/status=fail。
+        writer.Report(new OperationProgressInfo
+        {
+            CurrentFile = "失败项",
+            Message = "失败：失败项",
+            SuccessCount = 2,
+            PostProcessFailCount = 1,
+            NonExistCount = 1,
+            FailCount = 1,
+            IsError = true
+        });
+
+        writer.WriteSummary(TimeSpan.FromSeconds(3.25));
+
+        var lines = output.ToString()
+            .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+            .Select(line => line.TrimEnd('\r'))
+            .ToArray();
+        AssertEqual(6, lines.Length);
+        Assert(!output.ToString().Contains("SecretPassword123", StringComparison.Ordinal),
+            "命令输出中的密码绝对不得进入 NDJSON 流");
+
+        // 每行必须是合法 JSON（宽松转义保留中文原样）。
+        var documents = lines
+            .Select(line => System.Text.Json.JsonDocument.Parse(line))
+            .ToArray();
+        Assert(lines[0].Contains("项目甲", StringComparison.Ordinal), "非 ASCII 消息必须原样输出而非转义");
+
+        var progress = documents[0].RootElement;
+        AssertEqual("progress", progress.GetProperty("type").GetString());
+        AssertEqual("start", progress.GetProperty("phase").GetString());
+        AssertEqual("项目甲", progress.GetProperty("source").GetString());
+
+        var success = documents[1].RootElement;
+        AssertEqual("item", success.GetProperty("type").GetString());
+        AssertEqual("success", success.GetProperty("status").GetString());
+        AssertEqual(1, success.GetProperty("successCount").GetInt32());
+        AssertEqual(0, success.GetProperty("postProcessFailCount").GetInt32());
+
+        var postFail = documents[2].RootElement;
+        AssertEqual("success", postFail.GetProperty("status").GetString());
+        AssertEqual(2, postFail.GetProperty("successCount").GetInt32());
+        AssertEqual(1, postFail.GetProperty("postProcessFailCount").GetInt32());
+
+        var skip = documents[3].RootElement;
+        AssertEqual("skip", skip.GetProperty("status").GetString());
+        AssertEqual(1, skip.GetProperty("nonexistentCount").GetInt32());
+
+        var fail = documents[4].RootElement;
+        AssertEqual("fail", fail.GetProperty("status").GetString());
+
+        var summary = documents[5].RootElement;
+        AssertEqual("summary", summary.GetProperty("type").GetString());
+        AssertEqual(2, summary.GetProperty("success").GetInt32());
+        AssertEqual(1, summary.GetProperty("failed").GetInt32());
+        AssertEqual(1, summary.GetProperty("postProcessFailed").GetInt32());
+        AssertEqual(1, summary.GetProperty("nonexistent").GetInt32());
+        Assert(Math.Abs(summary.GetProperty("elapsedSeconds").GetDouble() - 3.25) < 0.0001,
+            "elapsedSeconds 必须保留毫秒精度");
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 3——NDJSON 端到端：真实批处理循环（服务层管线）
+    // 驱动输出器，锁定事件顺序与最终汇总计数。
+    private static async Task TestNdjsonEndToEnd()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-ndjson-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "src-item");
+        Directory.CreateDirectory(source);
+        File.WriteAllText(Path.Combine(source, "a.txt"), "a");
+        try
+        {
+            using var output = new System.IO.StringWriter();
+            var writer = new NdjsonOutputWriter(output);
+            var snapshots = new List<OperationProgressInfo>();
+
+            await new BatchOperationService(new ScriptedArchiveEngine(), new RecordingSystemIntegration())
+                .BatchCompressAsync(
+                    [source, Path.Combine(root, "missing-item")],
+                    new BatchOperationOptions
+                    {
+                        OutputPath = Path.Combine(root, "out"),
+                        Extension = "7z",
+                        ExistingFileMode = ExistingFileMode.Overwrite
+                    },
+                    new CloningProgress(snapshots),
+                    CancellationToken.None);
+
+            // 服务层消息流按原顺序回放到输出器，模拟 CLI InlineProgress 的转发。
+            // CloningProgress 在报告时克隆可变快照，避免共享对象被后续事件覆盖。
+            foreach (var info in snapshots)
+            {
+                writer.Report(info);
+            }
+
+            writer.WriteSummary(TimeSpan.FromSeconds(1));
+
+            var lines = output.ToString()
+                .Split('\n', StringSplitOptions.RemoveEmptyEntries)
+                .Select(line => line.TrimEnd('\r'))
+                .ToArray();
+            var documents = lines
+                .Select(line => System.Text.Json.JsonDocument.Parse(line))
+                .ToArray();
+
+            // 第一条非命令事件是条目启动（progress/phase=start，source 为真实来源名）。
+            var first = documents[0].RootElement;
+            AssertEqual("progress", first.GetProperty("type").GetString());
+            AssertEqual("src-item", first.GetProperty("source").GetString());
+
+            // 存在事件序列中存在 success 与 skip（missing-item 计 NonExistCount）。
+            var statuses = documents
+                .Where(document => document.RootElement.GetProperty("type").GetString() == "item")
+                .Select(document => document.RootElement.GetProperty("status").GetString())
+                .ToArray();
+            Assert(statuses.Contains("success"), "必须有成功条目事件");
+            Assert(statuses.Contains("skip"), "缺失来源必须产生 skip 事件");
+
+            // 末行 summary 与服务层最终计数一致。
+            var summary = documents[^1].RootElement;
+            AssertEqual("summary", summary.GetProperty("type").GetString());
+            AssertEqual(1, summary.GetProperty("success").GetInt32());
+            AssertEqual(1, summary.GetProperty("nonexistent").GetInt32());
+            AssertEqual(0, summary.GetProperty("failed").GetInt32());
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
     private static Task TestCommandLineValidation()
     {
         AssertCommandLineFails(
@@ -2107,6 +2393,32 @@ internal static class Program
     private sealed class SnapshotProgress(List<OperationProgressInfo> snapshots) : IProgress<OperationProgressInfo>
     {
         public void Report(OperationProgressInfo value) => snapshots.Add(value);
+    }
+
+    // GLM-5.3, 2026-11-04：批次 3——NDJSON 端到端测试用。服务层循环复用同一个可变进度对象，
+    // 直接存引用会让所有快照指向最终状态；在报告时克隆字段才能按原始顺序回放事件流。
+    private sealed class CloningProgress(List<OperationProgressInfo> snapshots) : IProgress<OperationProgressInfo>
+    {
+        public void Report(OperationProgressInfo value) => snapshots.Add(Clone(value));
+
+        private static OperationProgressInfo Clone(OperationProgressInfo source) => new()
+        {
+            CurrentFile = source.CurrentFile,
+            CurrentSourcePath = source.CurrentSourcePath,
+            SuccessCount = source.SuccessCount,
+            FailCount = source.FailCount,
+            PostProcessFailCount = source.PostProcessFailCount,
+            IgnoreCount = source.IgnoreCount,
+            NonExistCount = source.NonExistCount,
+            IncompleteVolumeCount = source.IncompleteVolumeCount,
+            AmbiguousArchiveCount = source.AmbiguousArchiveCount,
+            ProcessedSizeGB = source.ProcessedSizeGB,
+            Message = source.Message,
+            IsError = source.IsError,
+            IsCommandOutput = source.IsCommandOutput,
+            StartTime = source.StartTime,
+            Elapsed = source.Elapsed
+        };
     }
 
     private static (string Executable, IReadOnlyList<string> Arguments) GetSleepCommand()

@@ -21,6 +21,11 @@ public class HeadlessBatchRunner
     private readonly BatchOperationService _batchOperationService;
     private readonly CommandLineOptions _options;
 
+    // GLM-5.3, 2026-11-04：批次 3——--output-format json 的 NDJSON 输出器与批处理起点时间。
+    // json 模式下 stdout 只承载结构化事件流，人类可读提示（Found/Completed/Log file 等）改写 stderr。
+    private readonly NdjsonOutputWriter? _structuredOutput;
+    private readonly DateTime _startedAt = DateTime.Now;
+
     public HeadlessBatchRunner(CommandLineOptions options, FileLoggerService logger)
     {
         _options = options;
@@ -29,6 +34,7 @@ public class HeadlessBatchRunner
         _archiveEngine = new ArchiveEngineRouter();
         // GPT-5, 2026-09-30：把 CLI 的日志器同时注入批处理服务，使后处理失败原因等诊断进入日志文件，而不是无处可查。
         _batchOperationService = new BatchOperationService(_archiveEngine, new HeadlessSystemIntegration(_logger), _logger);
+        _structuredOutput = options.OutputFormat == "json" ? new NdjsonOutputWriter(Console.Out) : null;
     }
 
     /// <summary>
@@ -113,6 +119,14 @@ public class HeadlessBatchRunner
             var status = info.IsError ? "ERROR" : "INFO";
             _logger.LogOperation(status, info.Message);
 
+            // GLM-5.3, 2026-11-04：批次 3——json 模式把进度交给 NDJSON 输出器
+            // （命令输出含密码，整条排除）；人类可读行不再进入 stdout。
+            if (_structuredOutput != null)
+            {
+                _structuredOutput.Report(info);
+                return;
+            }
+
             if (_options.Verbose)
             {
                 WriteLine($"[{status}] {info.Message}");
@@ -136,6 +150,10 @@ public class HeadlessBatchRunner
             }
 
             WriteLine(string.Empty);
+
+            // GLM-5.3, 2026-11-04：批次 3——json 模式在批次正常结束时输出 summary 事件
+            // （取消中止不输出）；退出码映射保持 0/1/130 约定不变。
+            _structuredOutput?.WriteSummary(DateTime.Now - _startedAt);
             var summary = $"Completed: Success={progressInfo.SuccessCount}, Failed={progressInfo.FailCount}, " +
                          $"PostProcessFailed={progressInfo.PostProcessFailCount}, Skipped={progressInfo.IgnoreCount}, " +
                          $"NotFound={progressInfo.NonExistCount}, IncompleteVolumes={progressInfo.IncompleteVolumeCount}, " +
@@ -335,7 +353,16 @@ public class HeadlessBatchRunner
     {
         if (!_options.Quiet)
         {
-            Console.WriteLine(message);
+            // GLM-5.3, 2026-11-04：批次 3——json 模式下 stdout 专用于 NDJSON 事件流，
+            // 这些人类可读提示改写入 stderr；--quiet 时两种模式都保持静默。
+            if (_structuredOutput != null)
+            {
+                Console.Error.WriteLine(message);
+            }
+            else
+            {
+                Console.WriteLine(message);
+            }
         }
     }
 

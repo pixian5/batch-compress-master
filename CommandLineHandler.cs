@@ -47,6 +47,12 @@ public sealed class CommandLineOptions
     public bool Verbose { get; set; }
     public bool Quiet { get; set; }
     public bool DryRun { get; set; }
+
+    // GLM-5.3, 2026-11-04：批次 3——CLI 界面语言与结构化输出格式。
+    // Language 为 LocalizationService 的语言键（en-US 等区域变体在解析时归一为 en 等）；
+    // OutputFormat 仅 text（人类可读）与 json（NDJSON 逐行事件流）。
+    public string Language { get; set; } = "zh-CN";
+    public string OutputFormat { get; set; } = "text";
 }
 
 // GPT-5, 2026-08-06：解析结果显式携带错误，入口进程可用退出码 2 拒绝无效参数，
@@ -150,7 +156,100 @@ public static class CommandLineHandler
           --help, -h, -?, /?             显示帮助
           --version                      显示版本
 
+        语言与输出:
+          --language, --lang <zh-CN|zh-TW|en|ja|de>
+                                        界面与服务层消息语言（接受 en-US、ja-JP、de-DE
+                                        等区域变体，自动归一），默认 zh-CN
+          --output-format <text|json>   stdout 输出格式，默认 text；json 模式按
+                                        NDJSON 逐行输出 progress/item/summary 事件，
+                                        命令与进程原始输出（含密码）不进入 JSON 流，
+                                        人类可读提示改写入 stderr
+
         示例:
+          BatchCompress.Avalonia compress -i ./data -o ./out -e 7z --password-file ./password.txt
+          BatchCompress.Avalonia extract -i ./archive.7z -o ./out --password-stdin
+        """;
+
+    // GLM-5.3, 2026-11-04：批次 3——英文帮助。--help 可与 --language/--lang 组合输出对应语言。
+    private const string EnglishHelpText =
+        """
+        Batch Compress & Extract Tool
+
+        Usage:
+          BatchCompress.Avalonia [gui]
+          BatchCompress.Avalonia compress -i <paths...> -o <output dir> [options]
+          BatchCompress.Avalonia extract -i <archives...> -o <output dir> [options]
+
+        Modes:
+          compress, --compress, -c       Run headless batch compression
+          extract, decompress, --decompress, -d
+                                        Run headless batch extraction
+          gui, --gui, -g                 Launch the graphical interface explicitly
+
+        Sources and output:
+          --source, -s <dir>             Batch source directory; compression processes
+                                        its direct children
+          --input, -i <paths...>        Explicit files or directories, repeatable
+          --output, -o <dir>             Output directory
+          --text-file, -t <file>        Extraction TXT list of names and per-item passwords
+
+        Compression:
+          --extension, -e <format>      Create: rar, 7z, zip, tar, gz, bz2, xz, wim;
+                                        extract: formats readable by 7zz
+          --level, -l <0..5>            Compression level
+          --solid / --no-solid          Enable or disable solid archiving
+          --volume-size, -v <number>    Split volume size
+          --volume-unit <b|k|m|g|t>     Split volume unit
+          --recovery <0..100>           RAR recovery record percent
+          --quick-open                   Add RAR quick open information
+          --test                         Verify archives after creation
+          --comment <file>               RAR/ZIP comment text file
+          --temp-dir <dir>               Temporary directory for archiver
+
+        Passwords:
+          --random-password, -r          Derive legacy random password from archive
+                                        name (default on)
+          --no-random-password           Disable random password derivation
+          --password, -p <password>      Provide a custom password directly
+          --password-file <file>         Read the password from the first line
+          --password-stdin               Read the password from standard input
+          --password-name <archive|base> Derive from a.rar (default) or a
+
+        Processing:
+          --existing <skip|update|overwrite>
+                                        Existing file policy
+          --lock                         Lock RAR archives (conflicts with --existing update)
+          --skip-processed / --no-skip-processed
+                                        Enable or disable skipping processed items
+          --delete-source                Delete sources after success
+          --move-source                  Move sources after success
+          --max-size, --max-size-gb <GB> Total size cap, 0 means unlimited
+          --shutdown                     Request shutdown after completion
+          --add-enclosures / --no-add-enclosures
+                                        Enable or disable enclosure directories
+          --enclosure-list <file>        Legacy: newline separated enclosure list
+          --enclosure <dir...>           Enclosure directories, repeatable
+
+        Logging:
+          --log-file <file>              Log file path
+          --verbose                      Print detailed progress
+          --quiet, -q                    Only print errors to stderr
+          --dry-run                      List items without creating anything
+          --help, -h, -?, /?             Show help
+          --version                      Show version
+
+        Language and output:
+          --language, --lang <zh-CN|zh-TW|en|ja|de>
+                                        Language for UI and service messages
+                                        (regional variants such as en-US, ja-JP and
+                                        de-DE are normalized), default zh-CN
+          --output-format <text|json>    stdout format, default text; json emits
+                                        NDJSON progress/item/summary events per line,
+                                        raw command/process output (with passwords)
+                                        never enters the JSON stream and human
+                                        readable hints go to stderr
+
+        Examples:
           BatchCompress.Avalonia compress -i ./data -o ./out -e 7z --password-file ./password.txt
           BatchCompress.Avalonia extract -i ./archive.7z -o ./out --password-stdin
         """;
@@ -246,6 +345,104 @@ public static class CommandLineHandler
         Console.Out.WriteLine(HelpText);
     }
 
+    /// <summary>
+    /// 按指定语言输出帮助。language 为 LocalizationService 语言键（zh-CN/zh-TW/en/ja/de），
+    /// 目前提供中英双语帮助文本（zh-TW 暂用简体文本），其余语言与未指定（null）默认中文。
+    /// </summary>
+    public static void ShowHelp(string? language)
+    {
+        var useChinese = string.IsNullOrEmpty(language) || language is "zh-CN" or "zh-TW";
+        Console.Out.WriteLine(useChinese ? HelpText : EnglishHelpText);
+    }
+
+    /// <summary>
+    /// 在完整解析前从原始参数预扫描 --language/--lang（支持 “--lang en” 与 “--lang=en” 两种形式），
+    /// 返回归一化语言键；未指定或值无效时返回 null。供 --help 等不经过完整解析的路径使用。
+    /// </summary>
+    public static string? DetectLanguage(string[] args)
+    {
+        ArgumentNullException.ThrowIfNull(args);
+        for (var index = 0; index < args.Length; index++)
+        {
+            var token = args[index];
+            if (!token.StartsWith("--", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var equalsIndex = token.IndexOf('=');
+            var name = (equalsIndex < 0 ? token : token[..equalsIndex]).Trim();
+            if (!name.Equals("--language", StringComparison.OrdinalIgnoreCase) &&
+                !name.Equals("--lang", StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            var value = equalsIndex < 0
+                ? index + 1 < args.Length ? args[index + 1] : null
+                : token[(equalsIndex + 1)..];
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return null;
+            }
+
+            // 预扫描不做错误报告：无效值按“未指定”处理，回退默认语言。
+            return TryNormalizeLanguage(value, out var language) ? language : null;
+        }
+
+        return null;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 3——接受 BCP-47 区域变体并归一到 LocalizationService 的语言键。
+    private static string NormalizeLanguage(string value, List<string>? errors)
+    {
+        if (TryNormalizeLanguage(value, out var language))
+        {
+            return language;
+        }
+
+        errors?.Add($"--language 仅支持 zh-CN、zh-TW、en、ja、de（接受 en-US、ja-JP、de-DE 等区域变体）: {value}");
+        return value.Trim();
+    }
+
+    private static bool TryNormalizeLanguage(string value, out string language)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        switch (normalized)
+        {
+            case "zh" or "zh-cn" or "zh-hans":
+                language = "zh-CN";
+                return true;
+            case "zh-tw" or "zh-hant" or "tw":
+                language = "zh-TW";
+                return true;
+            case "en" or "en-us":
+                language = "en";
+                return true;
+            case "ja" or "ja-jp":
+                language = "ja";
+                return true;
+            case "de" or "de-de":
+                language = "de";
+                return true;
+            default:
+                language = string.Empty;
+                return false;
+        }
+    }
+
+    private static string NormalizeOutputFormat(string value, List<string>? errors)
+    {
+        var normalized = (value ?? string.Empty).Trim().ToLowerInvariant();
+        if (normalized is "text" or "json")
+        {
+            return normalized;
+        }
+
+        errors?.Add($"--output-format 仅支持 text、json: {value}");
+        return "text";
+    }
+
     private static IReadOnlyDictionary<string, OptionDefinition> BuildDefinitions()
     {
         var definitions = new Dictionary<string, OptionDefinition>(StringComparer.OrdinalIgnoreCase);
@@ -290,6 +487,10 @@ public static class CommandLineHandler
         Add(definitions, "--verbose", ValueKind.Flag, "--verbose");
         Add(definitions, "--quiet", ValueKind.Flag, "--quiet", "-q");
         Add(definitions, "--dry-run", ValueKind.Flag, "--dry-run");
+        // GLM-5.3, 2026-11-04：批次 3——语言与结构化输出。注意 --format 已是 --extension
+        // 的历史别名，不能挪用为输出格式别名，输出格式仅使用 --output-format。
+        Add(definitions, "--language", ValueKind.Single, "--language", "--lang");
+        Add(definitions, "--output-format", ValueKind.Single, "--output-format");
 
         return definitions;
     }
@@ -567,6 +768,12 @@ public static class CommandLineHandler
                 break;
             case "--log-file":
                 state.Options.LogFile = value;
+                break;
+            case "--language":
+                state.Options.Language = NormalizeLanguage(value, state.Errors);
+                break;
+            case "--output-format":
+                state.Options.OutputFormat = NormalizeOutputFormat(value, state.Errors);
                 break;
         }
     }
