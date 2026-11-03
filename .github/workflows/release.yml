@@ -1,0 +1,143 @@
+# GLM-5.3, 2026-11-04：批次 6——GitHub Releases 自动发布流。
+# 触发：推送 v* tag（如 v0.7.0）或 workflow_dispatch 手工触发。
+# 门禁：三平台（ubuntu/windows/macos）48 项单元测试全过是打包与发布的硬前置。
+# 打包：macOS 在 macos runner 产出 .app.zip；Linux（tar.gz，含 7zz 与 tools/rarLinux
+# 官方完整包）与 Windows（win-x64 自包含 zip）在 ubuntu runner RID 交叉发布打包。
+# 发布：tag 与 VERSION 一致性校验后，用 runner 预装 gh CLI（GITHUB_TOKEN）创建
+# GitHub Release 并上传三平台归档附件；不依赖任何第三方 action。
+name: Release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  test-gate:
+    name: 发布门禁·测试 (${{ matrix.os }})
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 构建主程序（Release，0 警告基线）
+        run: dotnet build BatchCompress.Avalonia.sln -c Release --nologo
+
+      - name: 运行 48 项单元测试
+        run: dotnet run -c Release --project BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.csproj --nologo
+
+  package-macos:
+    name: 打包·macOS 应用包
+    needs: test-gate
+    runs-on: macos-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 构建 .app 并输出 zip（版本绑定 VERSION）
+        run: zsh scripts/package-macos.sh --dist
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-macos
+          path: .artifacts/dist/*.zip
+          if-no-files-found: error
+
+  package-cross:
+    name: 打包·Linux 与 Windows 便携版
+    needs: test-gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 安装 .NET 10 SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: 打包 Linux 便携版（tar.gz，含官方 7zz 与完整 RAR 分发包）
+        run: bash scripts/package-linux.sh --dist
+
+      - name: 打包 Windows 便携版（win-x64 自包含 zip）
+        run: bash scripts/package-windows.sh --dist
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist-cross
+          path: .artifacts/dist/*
+          if-no-files-found: error
+
+  release:
+    name: 创建 Release 并上传附件
+    needs: [package-macos, package-cross]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 校验 tag 与 VERSION 一致
+        # tag 触发：v<VERSION> 必须与仓库 VERSION 完全一致；手工触发：以 VERSION 生成 tag。
+        id: version
+        run: |
+          app_version="$(tr -d '[:space:]' < VERSION)"
+          if [[ -z "$app_version" ]]; then
+            echo "empty VERSION file" >&2; exit 1
+          fi
+          tag="v${app_version}"
+          if [[ -n "${GITHUB_REF_NAME:-}" && "${GITHUB_REF_TYPE:-}" == "tag" ]]; then
+            if [[ "$GITHUB_REF_NAME" != "$tag" ]]; then
+              echo "tag $GITHUB_REF_NAME 与 VERSION $app_version 不一致" >&2; exit 1
+            fi
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+
+      - name: 汇总三平台产物
+        uses: actions/download-artifact@v4
+        with:
+          path: .artifacts/release
+          pattern: dist-*
+          merge-multiple: true
+
+      - name: 核对产物齐全（三平台归档均存在）
+        run: |
+          ls -l .artifacts/release
+          app_version="$(tr -d '[:space:]' < VERSION)"
+          test -f ".artifacts/release/BatchCompress.Avalonia_${app_version}_macos-arm64.app.zip"
+          test -f ".artifacts/release/BatchCompress.Avalonia_${app_version}_win-x64.zip"
+          test -f ".artifacts/release/BatchCompress.Avalonia_${app_version}_linux-x64.tar.gz"
+
+      - name: 创建 GitHub Release 并上传附件
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          tag="${{ steps.version.outputs.tag }}"
+          gh release view "$tag" --repo "$GITHUB_REPOSITORY" >/dev/null 2>&1 \
+            || gh release create "$tag" --repo "$GITHUB_REPOSITORY" \
+                 --title "BatchCompress.Avalonia ${tag#v}" \
+                 --generate-notes
+          gh release upload "$tag" --repo "$GITHUB_REPOSITORY" \
+            .artifacts/release/BatchCompress.Avalonia_* --clobber

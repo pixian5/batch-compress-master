@@ -2,11 +2,33 @@
 set -euo pipefail
 
 # GPT-5, 2026-08-05：从脚本位置解析路径，使打包可在任意当前目录执行。
+# GLM-5.3, 2026-11-04：批次 6 新增 --dist 模式：应用包构建到 .artifacts/dist/stage 并
+# 输出与 VERSION 绑定的 zip 归档（.artifacts/dist/BatchCompress.Avalonia_<版本>_macos-arm64.app.zip），
+# 不安装到 /Applications；无参数时行为与历史版本完全一致（安装到 /Applications 或 BATCHCOMPRESS_APP_DIR）。
+if [[ "${1:-}" == "--check" ]]; then
+  repo_root="${0:A:h:h}"
+  [[ -f "$repo_root/VERSION" ]] && [[ -x "$(command -v dotnet)" ]] && [[ -x "$(command -v swiftc)" ]] \
+    && print "check ok: dotnet/swiftc/VERSION ready" && exit 0
+  print -u2 "check failed: 需要 dotnet、swiftc 与仓库根目录 VERSION"
+  exit 1
+fi
+dist_mode=0
+if [[ "${1:-}" == "--dist" ]]; then
+  dist_mode=1
+elif [[ -n "${1:-}" ]]; then
+  print -u2 "usage: package-macos.sh [--dist|--check]"
+  exit 2
+fi
 repo_root="${0:A:h:h}"
+dist_dir="${BATCHCOMPRESS_DIST_DIR:-$repo_root/.artifacts/dist}"
 publish_dir="$repo_root/.artifacts/macos-publish"
 # GLM-5.3, 2026-11-03：支持用 BATCHCOMPRESS_APP_DIR 覆盖输出位置；默认仍安装到 /Applications，
 # CI 持续集成传入 .artifacts/ci 下的路径即可只构建应用包而不动本机已安装版本。
-app_path="${BATCHCOMPRESS_APP_DIR:-/Applications/BatchCompress.Avalonia.app}"
+if [[ "$dist_mode" == 1 ]]; then
+  app_path="$dist_dir/stage/BatchCompress.Avalonia.app"
+else
+  app_path="${BATCHCOMPRESS_APP_DIR:-/Applications/BatchCompress.Avalonia.app}"
+fi
 icon_source="$repo_root/Assets/压缩.ico"
 icon_png="$repo_root/Assets/压缩.png"
 seven_zip_source="$repo_root/tools/7zip/macos"
@@ -106,5 +128,21 @@ if [[ -n "$rar_source" ]]; then
 fi
 touch "$app_path"
 codesign --force --deep --sign - "$app_path" >/dev/null
+
+# GLM-5.3, 2026-11-04：批次 6——dist 模式输出 zip 归档（ditto 保留符号链接与可执行位），
+# 产物名与 VERSION 严格绑定；完成后清理 stage 目录，dist 下只留归档。
+if [[ "$dist_mode" == 1 ]]; then
+  zip_path="$dist_dir/BatchCompress.Avalonia_${app_version}_macos-arm64.app.zip"
+  mkdir -p "$dist_dir"
+  rm -f "$zip_path"
+  (cd "$dist_dir/stage" && ditto -c -k --keepParent "BatchCompress.Avalonia.app" "$zip_path")
+  rm -rf "$dist_dir/stage"
+  if [[ ! -f "$zip_path" ]]; then
+    print -u2 "zip packaging failed: $zip_path"
+    exit 1
+  fi
+  print "Packaged: $zip_path (v$app_version)"
+  exit 0
+fi
 
 print "Installed: $app_path (v$app_version)"
