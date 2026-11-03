@@ -27,10 +27,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly BatchOperationService _batchOperationService;
     // GPT-5, 2026-09-30：GUI 的文件日志器（设计器模式下为 null），把服务层诊断写入用户数据目录 logs。
     private readonly FileLoggerService? _fileLogger;
+    // GLM-5.3, 2026-11-04：批次 2 阶段 3——通知节流等会话状态迁至 OperationSession；取消令牌仍由 VM 持有。
     private CancellationTokenSource? _cancellationTokenSource;
-    private DateTime _lastProgressNotification = DateTime.MinValue;
-    private int _lastNotifiedCompletedCount;
-    private double _lastNotifiedProcessedSizeGB;
     private readonly OperationTabState _compressionTabState = new();
     private readonly OperationTabState _decompressionTabState = new();
     private bool _isSwitchingOperationTab;
@@ -268,7 +266,7 @@ public partial class MainWindowViewModel : ViewModelBase
     public bool IsFromTxtMode => SourceMode == 0;
 
     // 标签页标题附带当前条目数量。
-    public string SourceFileListTabHeader => $"{L.FileListTab} ({(string.IsNullOrEmpty(SourceFileList) ? 0 : SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
+    public string SourceFileListTabHeader => $"{L.FileListTab} ({SourceCollector.SplitLines(SourceFileList).Count})";
     public string SuccessLogTabHeader => $"{L.SuccessLogTab} ({(string.IsNullOrEmpty(SuccessLog) ? 0 : SuccessLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string FailLogTabHeader => $"{L.FailLogTab} ({(string.IsNullOrEmpty(FailLog) ? 0 : FailLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
     public string CommandLogTabHeader => $"{L.CommandLogTab} ({(string.IsNullOrEmpty(CommandLog) ? 0 : CommandLog.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries).Length)})";
@@ -410,8 +408,6 @@ public partial class MainWindowViewModel : ViewModelBase
 
     [ObservableProperty]
     private DateTime _estimatedCompletionTime = DateTime.MinValue;
-
-    private DateTime _operationStartTime = DateTime.MinValue;
 
     [ObservableProperty]
     private string _outputSizeText = "0.0GB";
@@ -810,121 +806,41 @@ public partial class MainWindowViewModel : ViewModelBase
             return;
         }
 
-        try
-        {
-            IsOperating = true;
-            ResetCounters();
-            _operationStartTime = DateTime.Now;
-
-            _cancellationTokenSource = new CancellationTokenSource();
-
-            // GPT-5, 2026-08-05：处理前统一规范按行输入；空行绝不能成为归档任务。
-            // GLM-5.3, 2026-11-04：批次 2 阶段 2——按行解析下沉到 SourceCollector，
-            // 统一空行/元数据过滤、路径规范化（消除尾部斜杠缺陷）与保序去重。
-            var sourcePaths = SourceCollector.CollectCompressionSourcesFromText(SourceFileList);
-
-            // 列表为空时先尝试自动加载。
-            if (sourcePaths.Count == 0)
+        // GLM-5.3, 2026-11-04：批次 2 阶段 3——进度回调与生命周期收敛到 OperationSession。
+        var session = new OperationSession(this, _systemIntegration);
+        await session.RunAsync(
+            () => L.Compress,
+            () => L.CompressionComplete,
+            async cancellationToken =>
             {
-                CommandLog += L.TryingToLoadAutomatically + "\n";
-                await RefreshFileListAsync();
+                // GPT-5, 2026-08-05：处理前统一规范按行输入；空行绝不能成为归档任务。
+                // GLM-5.3, 2026-11-04：批次 2 阶段 2——按行解析下沉到 SourceCollector，
+                // 统一空行/元数据过滤、路径规范化（消除尾部斜杠缺陷）与保序去重。
+                var sourcePaths = SourceCollector.CollectCompressionSourcesFromText(SourceFileList);
 
-                // 自动加载后再次检查列表。
-                sourcePaths = SourceCollector.CollectCompressionSourcesFromText(SourceFileList);
-
+                // 列表为空时先尝试自动加载。
                 if (sourcePaths.Count == 0)
                 {
-                    CommandLog += L.StillNoFiles + "\n";
-                    return;
-                }
-            }
+                    CommandLog += L.TryingToLoadAutomatically + "\n";
+                    await RefreshFileListAsync();
 
-            // GPT-5, 2026-08-05：在操作开始时快照选项，避免处理中修改影响在途任务。
-            var options = BuildBatchOperationOptions();
+                    // 自动加载后再次检查列表。
+                    sourcePaths = SourceCollector.CollectCompressionSourcesFromText(SourceFileList);
 
-            var progress = new Progress<OperationProgressInfo>(info =>
-            {
-                CurrentFile = info.CurrentFile;
-                CurrentSourcePath = info.CurrentSourcePath;
-                SuccessCount = info.SuccessCount;
-                FailCount = info.FailCount;
-                PostProcessFailCount = info.PostProcessFailCount;
-                IgnoreCount = info.IgnoreCount;
-                NonExistCount = info.NonExistCount;
-                IncompleteVolumeCount = info.IncompleteVolumeCount;
-                AmbiguousArchiveCount = info.AmbiguousArchiveCount;
-                ProcessedSizeGB = info.ProcessedSizeGB;
-
-                // 更新处理统计。
-                ElapsedTime = DateTime.Now - _operationStartTime;
-
-                // 根据已处理大小和耗时计算 MB/秒。
-                if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
-                {
-                    ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
+                    if (sourcePaths.Count == 0)
+                    {
+                        CommandLog += L.StillNoFiles + "\n";
+                        return null;
+                    }
                 }
 
-                // 根据当前速度估算剩余时间和完成时刻。
-                if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
-                {
-                    double remainingSizeMB = (TotalSizeGB - ProcessedSizeGB) * 1024;
-                    RemainingTime = TimeSpan.FromSeconds(remainingSizeMB / ProcessingSpeedMBPerSecond);
-                    EstimatedCompletionTime = DateTime.Now + RemainingTime;
-                }
-                else
-                {
-                    RemainingTime = TimeSpan.Zero;
-                    EstimatedCompletionTime = DateTime.MinValue;
-                }
+                // GPT-5, 2026-08-05：在操作开始时快照选项，避免处理中修改影响在途任务。
+                var options = BuildBatchOperationOptions();
 
-                MaybeShowProgressNotification(L.Compress, info);
-
-                // GPT-5, 2026-09-29：命令输出分类改用进度对象上的标记，不再匹配本地化后的消息前缀。
-                if (info.IsCommandOutput)
-                {
-                    CommandLog += info.Message + "\n";
-                }
-                else if (info.IsError)
-                {
-                    FailLog += info.Message + "\n";
-                }
-                else
-                {
-                    SuccessLog += info.Message + "\n";
-                }
-
+                await _batchOperationService.BatchCompressAsync(
+                    sourcePaths, options, session.CreateProgress(() => L.Compress), cancellationToken);
+                return options;
             });
-
-            await _batchOperationService.BatchCompressAsync(
-                sourcePaths, options, progress, _cancellationTokenSource.Token);
-
-            await OfferShutdownCancellationAsync(options);
-
-            CommandLog += string.Format(L.OperationCompletionSummary,
-                SuccessCount, FailCount, PostProcessFailCount, IgnoreCount,
-                NonExistCount, IncompleteVolumeCount, AmbiguousArchiveCount) + "\n";
-
-            _systemIntegration.ShowNotification(L.CompressionComplete,
-                string.Format(L.OperationResultSummary, SuccessCount, FailCount, PostProcessFailCount));
-        }
-        catch (OperationCanceledException)
-        {
-            var cancelledTitle = string.Format(L.OperationCancelled, L.Compress);
-            CommandLog += cancelledTitle + "\n";
-            _systemIntegration.ShowNotification(cancelledTitle,
-                string.Format(L.SuccessFailMessage, SuccessCount, FailCount));
-        }
-        catch (Exception ex)
-        {
-            CommandLog += string.Format(L.OperationError, ex.Message) + "\n";
-        }
-        finally
-        {
-            IsOperating = false;
-            CurrentSourcePath = string.Empty;
-            _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = null;
-        }
     }
 
     [RelayCommand]
@@ -939,137 +855,46 @@ public partial class MainWindowViewModel : ViewModelBase
         }
         ActivateOperationStateForStart(1);
 
-        try
-        {
-            IsOperating = true;
-            ResetCounters();
-            _operationStartTime = DateTime.Now;
-
-            _cancellationTokenSource = new CancellationTokenSource();
-
-            // 解析来源列表；解压密码本模式包含交替密码行。
-            List<FileEntry> entries;
-
-            // 列表为空时先尝试自动加载。
-            if (string.IsNullOrEmpty(SourceFileList.Trim()))
+        // GLM-5.3, 2026-11-04：批次 2 阶段 3——进度回调与生命周期收敛到 OperationSession。
+        var session = new OperationSession(this, _systemIntegration);
+        await session.RunAsync(
+            () => L.Decompress,
+            () => L.DecompressionComplete,
+            async cancellationToken =>
             {
-                CommandLog += L.TryingToLoadAutomatically + "\n";
-                await RefreshFileListAsync();
-
-                // 自动加载后仍为空时记录错误并返回。
+                // 解析来源列表；解压密码本模式包含交替密码行。
+                // 列表为空时先尝试自动加载。
                 if (string.IsNullOrEmpty(SourceFileList.Trim()))
                 {
-                    CommandLog += L.StillNoFiles + "\n";
-                    return;
+                    CommandLog += L.TryingToLoadAutomatically + "\n";
+                    await RefreshFileListAsync();
+
+                    // 自动加载后仍为空时记录错误并返回。
+                    if (string.IsNullOrEmpty(SourceFileList.Trim()))
+                    {
+                        CommandLog += L.StillNoFiles + "\n";
+                        return null;
+                    }
                 }
-            }
 
-            if (SourceMode == 0)
-            {
-                // 密码本模式按文件行、密码行交替解析。
-                // GLM-5.3, 2026-11-04：批次 2 阶段 2——交替行解析下沉到 SourceCollector，
-                // 保留历史配对语义（空行剔除、步进 2、缺失文件整对跳过）并统一路径规范化。
-                entries = SourceCollector.CollectPasswordBookEntries(SourceFileList);
-            }
-            else
-            {
-                // 其他模式只有文件路径。
-                // GLM-5.3, 2026-11-04：批次 2 阶段 2——文件行收集下沉到 SourceCollector，
-                // 统一存在性/格式过滤与路径规范化；跨条目去重仍由服务层负责以保持 IgnoreCount 口径。
-                entries = SourceCollector.CollectDecompressionFilesFromText(SourceFileList, Extension);
-            }
+                List<FileEntry> entries = SourceMode == 0
+                    // 密码本模式按文件行、密码行交替解析（SourceCollector 保留配对语义并统一路径规范化）。
+                    ? SourceCollector.CollectPasswordBookEntries(SourceFileList)
+                    // 其他模式只有文件路径（存在性/格式过滤＋规范化；跨条目去重仍由服务层负责以保持 IgnoreCount 口径）。
+                    : SourceCollector.CollectDecompressionFilesFromText(SourceFileList, Extension);
 
-            if (entries.Count == 0)
-            {
-                CommandLog += L.NoFilesToProcess + "\n";
-                return;
-            }
-
-            var options = BuildBatchOperationOptions();
-
-            var progress = new Progress<OperationProgressInfo>(info =>
-            {
-                CurrentFile = info.CurrentFile;
-                CurrentSourcePath = info.CurrentSourcePath;
-                SuccessCount = info.SuccessCount;
-                FailCount = info.FailCount;
-                PostProcessFailCount = info.PostProcessFailCount;
-                IgnoreCount = info.IgnoreCount;
-                NonExistCount = info.NonExistCount;
-                IncompleteVolumeCount = info.IncompleteVolumeCount;
-                AmbiguousArchiveCount = info.AmbiguousArchiveCount;
-                ProcessedSizeGB = info.ProcessedSizeGB;
-
-                // 更新处理统计。
-                ElapsedTime = DateTime.Now - _operationStartTime;
-
-                // 根据已处理大小和耗时计算 MB/秒。
-                if (ElapsedTime.TotalSeconds > 0.1 && ProcessedSizeGB > 0.01)
+                if (entries.Count == 0)
                 {
-                    ProcessingSpeedMBPerSecond = (ProcessedSizeGB * 1024) / ElapsedTime.TotalSeconds;
+                    CommandLog += L.NoFilesToProcess + "\n";
+                    return null;
                 }
 
-                // 根据速度估算剩余时间和完成时刻。
-                if (ProcessingSpeedMBPerSecond > 0.01 && TotalSizeGB > 0.01 && ProcessedSizeGB < TotalSizeGB)
-                {
-                    double remainingSizeMB = (TotalSizeGB - ProcessedSizeGB) * 1024;
-                    RemainingTime = TimeSpan.FromSeconds(remainingSizeMB / ProcessingSpeedMBPerSecond);
-                    EstimatedCompletionTime = DateTime.Now + RemainingTime;
-                }
-                else
-                {
-                    RemainingTime = TimeSpan.Zero;
-                    EstimatedCompletionTime = DateTime.MinValue;
-                }
+                var options = BuildBatchOperationOptions();
 
-                MaybeShowProgressNotification(L.Decompress, info);
-
-                // GPT-5, 2026-09-29：解压进程的原始输出与压缩使用同一分类标记。
-                if (info.IsCommandOutput)
-                {
-                    CommandLog += info.Message + "\n";
-                }
-                else if (info.IsError)
-                {
-                    FailLog += info.Message + "\n";
-                }
-                else
-                {
-                    SuccessLog += info.Message + "\n";
-                }
-
+                await _batchOperationService.BatchDecompressAsync(
+                    entries, options, session.CreateProgress(() => L.Decompress), cancellationToken);
+                return options;
             });
-
-            await _batchOperationService.BatchDecompressAsync(
-                entries, options, progress, _cancellationTokenSource.Token);
-
-            await OfferShutdownCancellationAsync(options);
-
-            CommandLog += string.Format(L.OperationCompletionSummary,
-                SuccessCount, FailCount, PostProcessFailCount, IgnoreCount,
-                NonExistCount, IncompleteVolumeCount, AmbiguousArchiveCount) + "\n";
-
-            _systemIntegration.ShowNotification(L.DecompressionComplete,
-                string.Format(L.OperationResultSummary, SuccessCount, FailCount, PostProcessFailCount));
-        }
-        catch (OperationCanceledException)
-        {
-            var cancelledTitle = string.Format(L.OperationCancelled, L.Decompress);
-            CommandLog += cancelledTitle + "\n";
-            _systemIntegration.ShowNotification(cancelledTitle,
-                string.Format(L.SuccessFailMessage, SuccessCount, FailCount));
-        }
-        catch (Exception ex)
-        {
-            CommandLog += string.Format(L.OperationError, ex.Message) + "\n";
-        }
-        finally
-        {
-            IsOperating = false;
-            CurrentSourcePath = string.Empty;
-            _cancellationTokenSource?.Dispose();
-            _cancellationTokenSource = null;
-        }
     }
 
     [RelayCommand]
@@ -1079,9 +904,22 @@ public partial class MainWindowViewModel : ViewModelBase
         CommandLog += L.CancellingOperation + "\n";
     }
 
+    // GLM-5.3, 2026-11-04：批次 2 阶段 3——取消令牌生命周期托管给 OperationSession；取消命令经 VM 字段访问在途令牌。
+    internal CancellationTokenSource BeginOperationCancellation()
+    {
+        _cancellationTokenSource = new CancellationTokenSource();
+        return _cancellationTokenSource;
+    }
+
+    internal void EndOperationCancellation()
+    {
+        _cancellationTokenSource?.Dispose();
+        _cancellationTokenSource = null;
+    }
+
     // GPT-5, 2026-08-07：批处理服务已向系统提交一分钟后的关机请求；GUI 随即提供确认框和持续可用的取消按钮。
     // 无界面命令行不显示此交互，仍由操作系统的关机命令语义负责。
-    private async Task OfferShutdownCancellationAsync(BatchOperationOptions options)
+    internal async Task OfferShutdownCancellationAsync(BatchOperationOptions options)
     {
         if (!options.ShutdownAfterComplete)
         {
@@ -1228,7 +1066,8 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    private void ResetCounters()
+    // GLM-5.3, 2026-11-04：批次 2 阶段 3——会话内状态由 OperationSession 在 RunAsync 开始时重置。
+    internal void ResetCounters()
     {
         SuccessCount = 0;
         FailCount = 0;
@@ -1244,41 +1083,6 @@ public partial class MainWindowViewModel : ViewModelBase
         RemainingTime = TimeSpan.Zero;
         ProcessingSpeedMBPerSecond = 0;
         EstimatedCompletionTime = DateTime.MinValue;
-        _operationStartTime = DateTime.MinValue;
-        _lastProgressNotification = DateTime.MinValue;
-        _lastNotifiedCompletedCount = 0;
-        _lastNotifiedProcessedSizeGB = 0;
-    }
-
-    // GPT-5, 2026-08-06：后台通知只在首个完成项、每 10 项、每增加 1GB 或每 5 分钟发送一次。
-    // 这样隐藏窗口运行时仍能看到阶段性进度，同时避免大量归档产生通知风暴。
-    private void MaybeShowProgressNotification(string operation, OperationProgressInfo info)
-    {
-        var completedCount = info.SuccessCount + info.FailCount + info.IgnoreCount;
-        if (completedCount <= 0)
-        {
-            return;
-        }
-
-        var now = DateTime.Now;
-        var first = _lastProgressNotification == DateTime.MinValue;
-        var countMilestone = completedCount >= _lastNotifiedCompletedCount + 10;
-        var sizeMilestone = info.ProcessedSizeGB >= _lastNotifiedProcessedSizeGB + 1;
-        var timeMilestone = !first && now - _lastProgressNotification >= TimeSpan.FromMinutes(5);
-        if (!first && !countMilestone && !sizeMilestone && !timeMilestone)
-        {
-            return;
-        }
-
-        _lastProgressNotification = now;
-        _lastNotifiedCompletedCount = completedCount;
-        _lastNotifiedProcessedSizeGB = info.ProcessedSizeGB;
-        var remaining = RemainingTime > TimeSpan.Zero
-            ? string.Format(L.ProgressNotificationRemaining, RemainingTime.ToString(@"hh\:mm\:ss"))
-            : string.Empty;
-        _systemIntegration.ShowNotification(
-            string.Format(L.ProgressNotificationTitle, operation),
-            string.Format(L.ProgressNotificationBody, completedCount, info.SuccessCount, info.FailCount, info.PostProcessFailCount, info.CurrentFile, remaining));
     }
 
     private BatchOperationOptions BuildBatchOperationOptions()
