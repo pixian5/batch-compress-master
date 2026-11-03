@@ -21,6 +21,7 @@ public class BatchOperationService
 {
     private readonly IArchiveEngine _archiveEngine;
     private readonly ISystemIntegration _systemIntegration;
+    private readonly PostProcessService _postProcessService;
     private readonly ILogger? _logger;
 
     // GPT-5, 2026-09-29：报告给界面与命令行的逐项状态消息跟随当前界面语言；
@@ -31,6 +32,7 @@ public class BatchOperationService
     {
         _archiveEngine = archiveEngine;
         _systemIntegration = systemIntegration;
+        _postProcessService = new PostProcessService(logger);
         _logger = logger;
     }
 
@@ -517,64 +519,20 @@ public class BatchOperationService
                     Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB ({outputBytes} bytes), Total processed: {processedSizeGB:F3} GB");
                 }
 
-                var postProcessFailed = false;
-                // GPT-5, 2026-09-30：记录最近一次后处理失败原因，并入最终失败记录，避免“只显示失败、看不到原因”。
-                var postProcessReason = string.Empty;
-
-                // 成功后执行删除或移动等后处理。
-                if (options.DeleteSourceAfter)
+                // GLM-5.3, 2026-11-04：批次 2 删除/移动后处理统一下沉到 PostProcessService。
+                // 失败消息逐条计数并写警告日志，最后一条并入成功记录，与原内联实现行为一致。
+                var postProcessFailures = _postProcessService.Apply(new PostProcessRequest(
+                    options.DeleteSourceAfter ? PostProcessMode.Delete :
+                    options.MoveSourceAfter ? PostProcessMode.Move : PostProcessMode.None,
+                    [sourcePath],
+                    "【已压缩】",
+                    L.PostProcessItemCompressionSource,
+                    PreflightWholeGroup: false));
+                var postProcessFailed = postProcessFailures.Count > 0;
+                var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
+                foreach (var failure in postProcessFailures)
                 {
-                    try
-                    {
-                        Log(LogLevel.Debug, $"Deleting source: {sourcePath}");
-                        if (Directory.Exists(sourcePath))
-                        {
-                            Directory.Delete(sourcePath, true);
-                        }
-                        else if (File.Exists(sourcePath))
-                        {
-                            File.Delete(sourcePath);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        postProcessReason = RecordPostProcessFailure(
-                            progressInfo,
-                            string.Format(L.PostProcessDeleteSourceFailed, sourcePath, ex.Message));
-                        postProcessFailed = true;
-                    }
-                }
-                else if (options.MoveSourceAfter)
-                {
-                    try
-                    {
-                        var processedDir = Path.Combine(Path.GetDirectoryName(sourcePath) ?? "", "【已压缩】");
-                        if (!Directory.Exists(processedDir))
-                        {
-                            Directory.CreateDirectory(processedDir);
-                        }
-
-                        var targetPath = Path.Combine(processedDir, name);
-                        Log(LogLevel.Debug, $"Moving source to: {targetPath}");
-
-                        if (!TryMoveWithoutOverwrite(
-                                sourcePath,
-                                targetPath,
-                                progressInfo,
-                                L.PostProcessItemCompressionSource,
-                                out var moveReason))
-                        {
-                            postProcessReason = moveReason;
-                            postProcessFailed = true;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        postProcessReason = RecordPostProcessFailure(
-                            progressInfo,
-                            string.Format(L.PostProcessMoveSourceFailed, L.PostProcessItemCompressionSource, sourcePath, ex.Message));
-                        postProcessFailed = true;
-                    }
+                    RecordPostProcessFailure(progressInfo, failure);
                 }
 
                 // 归档成功和后处理成功分别统计，避免“归档成功但移动失败”被显示为完全成功。
@@ -850,82 +808,21 @@ public class BatchOperationService
                 processedSizeGB += sizeGB;
                 progressInfo.ProcessedSizeGB = processedSizeGB;
 
-                var postProcessFailed = false;
-                // GPT-5, 2026-09-30：与压缩侧一致，记录最近一次后处理失败原因并进入失败记录。
-                var postProcessReason = string.Empty;
-
-                // 成功后按选项删除或移动源归档。
-                if (options.DeleteSourceAfter || options.MoveSourceAfter)
+                // GLM-5.3, 2026-11-04：批次 2 解压后处理统一下沉到 PostProcessService。
+                // 直接使用解压前已经校验过的整组文件集合（避免后处理阶段解析出不同结果）；
+                // 移动前整组预检语义保留：任一目标冲突即保留整组、只计一次失败。
+                var postProcessFailures = _postProcessService.Apply(new PostProcessRequest(
+                    options.DeleteSourceAfter ? PostProcessMode.Delete :
+                    options.MoveSourceAfter ? PostProcessMode.Move : PostProcessMode.None,
+                    resolved.FilesForPostProcessing,
+                    "【已解压】",
+                    L.PostProcessItemDecompressionArchive,
+                    PreflightWholeGroup: true));
+                var postProcessFailed = postProcessFailures.Count > 0;
+                var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
+                foreach (var failure in postProcessFailures)
                 {
-                    // 直接使用解压前已经校验过的文件集合，避免后处理阶段再次解析出不同结果。
-                    var volumeFiles = resolved.FilesForPostProcessing;
-                    var moveBlockedByConflict = false;
-
-                    // GPT-5, 2026-08-07：分卷移动先整体检查目标，避免前几卷已移动、后几卷冲突而形成半组状态。
-                    if (options.MoveSourceAfter)
-                    {
-                        var conflictingTarget = volumeFiles
-                            .Select(volumeFile => Path.Combine(
-                                Path.GetDirectoryName(volumeFile) ?? string.Empty,
-                                "【已解压】",
-                                Path.GetFileName(volumeFile)))
-                            .FirstOrDefault(target => File.Exists(target) || Directory.Exists(target));
-                        if (conflictingTarget != null)
-                        {
-                            postProcessReason = RecordPostProcessFailure(
-                                progressInfo,
-                                string.Format(L.PostProcessArchiveTargetExists, conflictingTarget));
-                            moveBlockedByConflict = true;
-                            postProcessFailed = true;
-                        }
-                    }
-
-                    foreach (var volumeFile in volumeFiles)
-                    {
-                        if (moveBlockedByConflict)
-                        {
-                            break;
-                        }
-
-                        try
-                        {
-                            if (options.DeleteSourceAfter)
-                            {
-                                Log(LogLevel.Debug, $"Deleting archive: {volumeFile}");
-                                File.Delete(volumeFile);
-                            }
-                            else if (options.MoveSourceAfter)
-                            {
-                                var processedDir = Path.Combine(
-                                    Path.GetDirectoryName(volumeFile) ?? "", "【已解压】");
-                                if (!Directory.Exists(processedDir))
-                                {
-                                    Directory.CreateDirectory(processedDir);
-                                }
-
-                                var targetPath = Path.Combine(processedDir, Path.GetFileName(volumeFile));
-                                Log(LogLevel.Debug, $"Moving archive to: {targetPath}");
-
-                                if (!TryMoveWithoutOverwrite(
-                                        volumeFile,
-                                        targetPath,
-                                        progressInfo,
-                                        L.PostProcessItemDecompressionArchive,
-                                        out var volumeMoveReason))
-                                {
-                                    postProcessFailed = true;
-                                    postProcessReason = volumeMoveReason;
-                                }
-                            }
-                        }
-                        catch (Exception ex)
-                        {
-                            postProcessReason = RecordPostProcessFailure(
-                                progressInfo,
-                                string.Format(L.PostProcessHandleArchiveFailed, volumeFile, ex.Message));
-                            postProcessFailed = true;
-                        }
-                    }
+                    RecordPostProcessFailure(progressInfo, failure);
                 }
 
                 // 归档成功和后处理成功分别统计，避免后处理失败被隐藏。
@@ -1097,51 +994,8 @@ public class BatchOperationService
             Elapsed = source.Elapsed
         };
 
-    // GPT-5, 2026-08-07：移动属于可选后处理，目标冲突时必须保留原目标和源文件，禁止先删除目标。
-    // GPT-5, 2026-09-30：失败原因通过 failureReason 回传，供调用方并入失败记录消息。
-    private bool TryMoveWithoutOverwrite(
-        string sourcePath,
-        string targetPath,
-        OperationProgressInfo progressInfo,
-        string itemType,
-        out string failureReason)
-    {
-        if (File.Exists(targetPath) || Directory.Exists(targetPath))
-        {
-            failureReason = RecordPostProcessFailure(
-                progressInfo,
-                string.Format(L.PostProcessMoveTargetExists, itemType, targetPath));
-            return false;
-        }
-
-        try
-        {
-            if (Directory.Exists(sourcePath))
-            {
-                Directory.Move(sourcePath, targetPath);
-            }
-            else if (File.Exists(sourcePath))
-            {
-                File.Move(sourcePath, targetPath);
-            }
-            else
-            {
-                throw new FileNotFoundException("源文件或目录不存在", sourcePath);
-            }
-
-            failureReason = string.Empty;
-            return true;
-        }
-        catch (Exception ex)
-        {
-            failureReason = RecordPostProcessFailure(
-                progressInfo,
-                string.Format(L.PostProcessMoveFailed, itemType, sourcePath, targetPath, ex.Message));
-            return false;
-        }
-    }
-
     // GPT-5, 2026-09-30：后处理失败既计入统计、写入诊断日志，也把原因回传给调用方并入失败记录消息。
+    // GLM-5.3, 2026-11-04：后处理执行已迁入 PostProcessService，此处保留计数与日志职责。
     private string RecordPostProcessFailure(OperationProgressInfo progressInfo, string message)
     {
         progressInfo.PostProcessFailCount++;
