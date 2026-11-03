@@ -16,7 +16,7 @@ if [[ ! -f "$repo_root/VERSION" ]]; then
   exit 1
 fi
 app_version="$(tr -d '[:space:]' < "$repo_root/VERSION")"
-echo "== BatchCompress.Avalonia v$app_version 打包（目标：$target）=="
+echo "== BatchCompress.Avalonia v$app_version 打包（目标：${target}）=="
 
 run_macos() {
   if [[ "$(uname -s)" != "Darwin" ]]; then
@@ -35,12 +35,19 @@ run_linux() {
 }
 
 case "$target" in
+  --check)
+    zsh "$repo_root/scripts/package-macos.sh" --check
+    bash "$repo_root/scripts/package-windows.sh" --check
+    bash "$repo_root/scripts/package-linux.sh" --check
+    echo "all packaging scripts check ok"
+    exit 0
+    ;;
   macos)  run_macos ;;
   windows) run_windows ;;
   linux)  run_linux ;;
   all)    run_macos; run_windows; run_linux ;;
   *)
-    echo "usage: package-all.sh [macos|windows|linux|all]" >&2
+    echo "usage: package-all.sh [macos|windows|linux|all|--check]" >&2
     exit 2
     ;;
 esac
