@@ -4,15 +4,15 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.6.13`。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询与 macOS 打包脚本均读取它。
+当前版本：`0.6.14`。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询与 macOS 打包脚本均读取它。
 
 ## 当前开发进度
 
-`0.6.13` 完成外部审核任务书阶段 1：新建 `Core/Services/Pipeline/` 泛型执行管线（`IBatchItemAdapter<TInput>`＋`PreparedBatchItem`＋`BatchExecutionPipeline<TInput>`），压缩、解压双循环按两步法迁移到 `CompressionItemAdapter` / `DecompressionItemAdapter`，`BatchOperationService.cs` 从 1,020 行收敛至 425 行（≤ 600 达标）；38 项测试全过、0 警告 0 错误、17 个表征场景零漂移。此前 `0.6.12` 阶段 0 缺陷阻断、`0.6.11` 后处理策略服务、`0.6.10` 表征测试。详细内容见 [docs/20261104-0058-阶段1管线重构完成-GLM-5.3.md](docs/20261104-0058-阶段1管线重构完成-GLM-5.3.md) 与 [docs/20261104-0058-当前开发进度-GLM-5.3.md](docs/20261104-0058-当前开发进度-GLM-5.3.md)。
+`0.6.14` 完成外部审核任务书阶段 2：新建 `Core/Services/SourceCollector.cs` 统一来源收集（`NormalizePath` 规范化消除尾部斜杠缺陷——GUI/CLI 输入 `/path/to/dir/` 不再生成 `.7z` 空名归档；GUI `SourceFileList` 按行解析与 CLI `--input`/`--source` 收集收敛为单一实现，压缩源保序去重、密码本交替行配对、解压格式过滤与目录展开/首卷折叠共用一套口径），`MainWindowViewModel` 与 `HeadlessBatchRunner` 双端接入，新增路径规范化与统一收集 2 项测试，38 → 40 项全过、0 警告 0 错误。此前 `0.6.13` 阶段 1 管线重构、`0.6.12` 阶段 0 缺陷阻断。详细内容见 [docs/20261104-0119-阶段2来源收集统一完成-GLM-5.3.md](docs/20261104-0119-阶段2来源收集统一完成-GLM-5.3.md) 与 [docs/20261104-0119-当前开发进度-GLM-5.3.md](docs/20261104-0119-当前开发进度-GLM-5.3.md)。
 
 ## 下一步待实现
 
-外部审核任务书阶段 2（目标 `0.6.14`）：新建 `SourceCollector` 领域服务，统一 GUI/CLI 来源文本解析并消除尾部斜杠导致 `Path.GetFileName` 返回空串的缺陷，`HeadlessBatchRunner` 与 `MainWindowViewModel` 双端接入；阶段 3（`0.6.15`）：抽取 `OperationSession` 收敛界面双流程重复的进度回调逻辑，`MainWindowViewModel` 从 1,673 行降至 ≤ 1,450 行；验收约束：测试 ≥ 38 项全过、表征零漂移。其后为批次 3-6（CLI 语言与 RAR 处置、卫生、并行度、发布自动化）。详细内容见 [docs/20261104-0058-下一步待实现-GLM-5.3.md](docs/20261104-0058-下一步待实现-GLM-5.3.md)。
+外部审核任务书阶段 3（目标 `0.6.15`）：抽取 `ViewModels/OperationSession.cs` 收敛 `MainWindowViewModel` 中压缩/解压重复的 50+ 行进度回调逻辑（统计映射、速度与剩余时间计算、进度通知、三分类日志、取消提示、完成弹窗），`MainWindowViewModel.cs` 从 1,644 行降至 ≤ 1,450 行；随后产出批次 2 完成报告（三阶段汇总＋验收核对表）。验收约束：测试 ≥ 40 项全过、表征零漂移。其后为批次 3-6（CLI 语言与 RAR 处置、卫生、并行度、发布自动化）。详细内容见 [docs/20261104-0119-下一步待实现-GLM-5.3.md](docs/20261104-0119-下一步待实现-GLM-5.3.md)。
 
 ## 功能
 

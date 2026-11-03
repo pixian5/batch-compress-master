@@ -26,6 +26,7 @@
     <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
     <Compile Include="..\Core\Services\BatchOperationService.cs" Link="Core\Services\BatchOperationService.cs" />
     <Compile Include="..\Core\Services\PostProcessService.cs" Link="Core\Services\PostProcessService.cs" />
+    <Compile Include="..\Core\Services\SourceCollector.cs" Link="Core\Services\SourceCollector.cs" />
     <Compile Include="..\Core\Services\Pipeline\IBatchItemAdapter.cs" Link="Core\Services\Pipeline\IBatchItemAdapter.cs" />
     <Compile Include="..\Core\Services\Pipeline\PreparedBatchItem.cs" Link="Core\Services\Pipeline\PreparedBatchItem.cs" />
     <Compile Include="..\Core\Services\Pipeline\BatchExecutionPipeline.cs" Link="Core\Services\Pipeline\BatchExecutionPipeline.cs" />

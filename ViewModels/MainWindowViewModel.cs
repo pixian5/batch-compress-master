@@ -819,10 +819,9 @@ public partial class MainWindowViewModel : ViewModelBase
             _cancellationTokenSource = new CancellationTokenSource();
 
             // GPT-5, 2026-08-05：处理前统一规范按行输入；空行绝不能成为归档任务。
-            var sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(s => s.Trim())
-                .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
-                .ToList();
+            // GLM-5.3, 2026-11-04：批次 2 阶段 2——按行解析下沉到 SourceCollector，
+            // 统一空行/元数据过滤、路径规范化（消除尾部斜杠缺陷）与保序去重。
+            var sourcePaths = SourceCollector.CollectCompressionSourcesFromText(SourceFileList);
 
             // 列表为空时先尝试自动加载。
             if (sourcePaths.Count == 0)
@@ -831,10 +830,7 @@ public partial class MainWindowViewModel : ViewModelBase
                 await RefreshFileListAsync();
 
                 // 自动加载后再次检查列表。
-                sourcePaths = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrEmpty(s) && !SystemMetadataFileFilter.ShouldSkip(s))
-                    .ToList();
+                sourcePaths = SourceCollector.CollectCompressionSourcesFromText(SourceFileList);
 
                 if (sourcePaths.Count == 0)
                 {
@@ -971,41 +967,16 @@ public partial class MainWindowViewModel : ViewModelBase
             if (SourceMode == 0)
             {
                 // 密码本模式按文件行、密码行交替解析。
-                entries = new List<FileEntry>();
-                var lines = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries);
-
-                for (int i = 0; i < lines.Length; i += 2)
-                {
-                    var filePath = lines[i].Trim();
-                    var password = i + 1 < lines.Length ? lines[i + 1].Trim() : null;
-
-                    if (!SystemMetadataFileFilter.ShouldSkip(filePath) && File.Exists(filePath))
-                    {
-                        entries.Add(new FileEntry
-                        {
-                            FilePath = filePath,
-                            Password = password,
-                            FileSize = new FileInfo(filePath).Length
-                        });
-                    }
-                }
+                // GLM-5.3, 2026-11-04：批次 2 阶段 2——交替行解析下沉到 SourceCollector，
+                // 保留历史配对语义（空行剔除、步进 2、缺失文件整对跳过）并统一路径规范化。
+                entries = SourceCollector.CollectPasswordBookEntries(SourceFileList);
             }
             else
             {
                 // 其他模式只有文件路径。
-                var files = SourceFileList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
-                    .Select(s => s.Trim())
-                    .Where(s => !string.IsNullOrEmpty(s) &&
-                                !SystemMetadataFileFilter.ShouldSkip(s) &&
-                                File.Exists(s) &&
-                                ArchiveVolumeResolver.MatchesFormat(s, Extension));
-
-                entries = files.Select(f => new FileEntry
-                {
-                    FilePath = f,
-                    Password = null,
-                    FileSize = new FileInfo(f).Length
-                }).ToList();
+                // GLM-5.3, 2026-11-04：批次 2 阶段 2——文件行收集下沉到 SourceCollector，
+                // 统一存在性/格式过滤与路径规范化；跨条目去重仍由服务层负责以保持 IgnoreCount 口径。
+                entries = SourceCollector.CollectDecompressionFilesFromText(SourceFileList, Extension);
             }
 
             if (entries.Count == 0)

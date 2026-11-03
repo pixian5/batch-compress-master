@@ -35,6 +35,8 @@ internal static class Program
             ("Update模式透传", TestUpdateModePassthrough),
             ("CurrentFile刷新基线", TestCurrentFileBaseline),
             ("来源收集表征", TestSourceCollectionCharacterization),
+            ("路径规范化与尾部斜杠", TestPathNormalization),
+            ("统一来源收集", TestUnifiedSourceCollection),
             ("大小写歧义跳过", TestCaseAmbiguitySkip),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
             ("解压失败残留回滚", TestFailedExtractionRollback),
@@ -1314,6 +1316,178 @@ internal static class Program
         {
             Directory.Delete(root, true);
         }
+    }
+
+    // GLM-5.3, 2026-11-04：批次 2 阶段 2——尾部斜杠缺陷阻断的规范化基线。
+    // 锁定：SourceCollector.NormalizePath 消除尾部目录分隔符（文件名不得为空串）、
+    // 根路径保持原样、相对路径转绝对、空输入与非法路径防御。
+    private static Task TestPathNormalization()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-norm-{Guid.NewGuid():N}");
+        var directory = Path.Combine(root, "dir");
+        Directory.CreateDirectory(directory);
+        try
+        {
+            // 尾部主分隔符消除：GetFileName("/x/dir/") 历史上返回空串导致生成 ".7z" 空名归档。
+            var withSlash = SourceCollector.NormalizePath(directory + Path.DirectorySeparatorChar);
+            AssertEqual(directory, withSlash);
+            AssertEqual("dir", Path.GetFileName(withSlash));
+
+            // 备用分隔符（Windows 的 “/”）与连续多个尾部斜杠同样消除。
+            AssertEqual(directory, SourceCollector.NormalizePath(
+                directory + Path.AltDirectorySeparatorChar));
+            AssertEqual(directory, SourceCollector.NormalizePath(
+                directory + new string(Path.DirectorySeparatorChar, 3)));
+
+            // 文件系统根不得截断：TrimEnd("/") 会得到空串，Windows 上 “C:\”→“C:” 会变成盘符相对路径。
+            var volumeRoot = Path.GetPathRoot(Path.GetFullPath(root)) ?? Path.DirectorySeparatorChar.ToString();
+            AssertEqual(volumeRoot, SourceCollector.NormalizePath(volumeRoot));
+
+            // 相对路径转绝对；首尾空格剔除。
+            AssertEqual(
+                Path.Combine(Directory.GetCurrentDirectory(), "dir"),
+                SourceCollector.NormalizePath("  dir  "));
+
+            // 空与空白输入返回空串；非法路径不抛异常、原样返回（交由服务层按 ItemNotFound 报告）。
+            AssertEqual(string.Empty, SourceCollector.NormalizePath("   "));
+            AssertEqual(string.Empty, SourceCollector.NormalizePath(null));
+            var invalid = "bad\0path";
+            AssertEqual(invalid, SourceCollector.NormalizePath(invalid));
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 2 阶段 2——统一来源收集行为基线。
+    // 锁定：GUI/CLI 共用收集器的空行与元数据过滤、保序去重、尾部斜杠识别、
+    // 密码本交替行配对、解压格式过滤与 CLI 目录展开/首卷折叠/种子优先去重。
+    private static Task TestUnifiedSourceCollection()
+    {
+        var L = LocalizationService.Instance.Strings;
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-collect-{Guid.NewGuid():N}");
+        var project = Path.Combine(root, "proj");
+        var archives = Path.Combine(root, "archives");
+        Directory.CreateDirectory(project);
+        Directory.CreateDirectory(archives);
+        File.WriteAllText(Path.Combine(root, "a.7z"), "a");
+        File.WriteAllText(Path.Combine(root, "b.rar"), "b");
+        File.WriteAllText(Path.Combine(root, "note.txt"), "n");
+        File.WriteAllText(Path.Combine(root, ".DS_Store"), "meta");
+        File.WriteAllText(Path.Combine(archives, "g.7z.001"), "1");
+        File.WriteAllText(Path.Combine(archives, "g.7z.002"), "2");
+        File.WriteAllText(Path.Combine(archives, "other.rar"), "rar");
+        try
+        {
+            // 1. 压缩来源（GUI 多行文本与 CLI 路径集合共用口径）：
+            //    空行/空白行/元数据行剔除；目录尾斜杠规范化后文件名为 “proj” 而非空串；
+            //    等价写法（尾斜杠、/./ 段）保序去重为一条。
+            var projectWithSlash = project + Path.DirectorySeparatorChar;
+            var multiLineText = string.Join("\r\n",
+            [
+                "",
+                "   ",
+                "  " + projectWithSlash,
+                Path.Combine(root, "a.7z"),
+                Path.Combine(root, ".DS_Store"),
+                projectWithSlash,
+                Path.Combine(root, ".", "proj")
+            ]);
+            var sources = SourceCollector.CollectCompressionSourcesFromText(multiLineText);
+            AssertEqual(2, sources.Count);
+            AssertEqual(project, sources[0]);
+            AssertEqual("proj", Path.GetFileName(sources[0]));
+            AssertEqual(Path.Combine(root, "a.7z"), sources[1]);
+
+            // CLI 入口等价：同一批原始路径得到同一结果。
+            var cliSources = SourceCollector.CollectCompressionSources(
+            [
+                projectWithSlash,
+                Path.Combine(root, "a.7z"),
+                projectWithSlash
+            ]);
+            AssertEqual(sources.Count, cliSources.Count);
+            AssertEqual(sources[0], cliSources[0]);
+            AssertEqual(sources[1], cliSources[1]);
+
+            // 2. 密码本交替行：缺失文件连同密码整对跳过；文件行尾斜杠仍可识别；密码配对不漂移。
+            var missing = Path.Combine(root, "missing.7z");
+            var bookText = string.Join("\n",
+            [
+                Path.Combine(root, "a.7z"), "pw-a",
+                missing, "pw-missing",
+                Path.Combine(root, "b.rar") + Path.DirectorySeparatorChar, "pw-b"
+            ]);
+            var book = SourceCollector.CollectPasswordBookEntries(bookText);
+            AssertEqual(2, book.Count);
+            AssertEqual(Path.Combine(root, "a.7z"), book[0].FilePath);
+            AssertEqual("pw-a", book[0].Password);
+            AssertEqual(Path.Combine(root, "b.rar"), book[1].FilePath);
+            AssertEqual("pw-b", book[1].Password);
+
+            // 3. 解压文件行：存在性 + 格式过滤（txt 与 rar 不入 7z 任务）、路径规范化。
+            var files = SourceCollector.CollectDecompressionFilesFromText(
+                string.Join("\n", [Path.Combine(root, "b.rar"), "  " + Path.Combine(root, "a.7z") + "  ", Path.Combine(root, "note.txt")]),
+                "7z");
+            AssertEqual(1, files.Count);
+            AssertEqual(Path.Combine(root, "a.7z"), files[0].FilePath);
+            AssertEqual(1L, files[0].FileSize);
+
+            // 4. CLI 解压收集：目录展开按目标格式过滤、--input 与目录展开折叠到同一首卷后去重、
+            //    密码本种子条目优先保留（含密码）。
+            var service = new BatchOperationService(new ScriptedArchiveEngine(), new RecordingSystemIntegration());
+            var seed = new List<FileEntry>
+            {
+                new() { FilePath = Path.Combine(archives, "g.7z.001"), Password = "seed-pw", FileSize = 1 }
+            };
+            var entries = SourceCollector.CollectDecompressionEntries(
+                seed,
+                [archives, Path.Combine(archives, "g.7z.001"), missing],
+                "7z",
+                skipProcessed: false,
+                batchService: service);
+            AssertEqual(1, entries.Count);
+            AssertEqual(Path.Combine(archives, "g.7z.001"), entries[0].FilePath);
+            AssertEqual("seed-pw", entries[0].Password);
+
+            // 尾部斜杠目录（GUI 风格输入走 CLI 收集口径）同样完成展开与去重。
+            var slashedEntries = SourceCollector.CollectDecompressionEntries(
+                null,
+                [archives + Path.DirectorySeparatorChar],
+                "7z",
+                skipProcessed: false,
+                batchService: service);
+            AssertEqual(1, slashedEntries.Count);
+            AssertEqual(Path.Combine(archives, "g.7z.001"), slashedEntries[0].FilePath);
+
+            // 端到端守卫：带尾斜杠的来源经收集后进入批处理循环，消息必须携带真实目录名。
+            var snapshots = new List<OperationProgressInfo>();
+            new BatchOperationService(new ScriptedArchiveEngine(), new RecordingSystemIntegration())
+                .BatchCompressAsync(
+                    SourceCollector.CollectCompressionSources([projectWithSlash]),
+                    new BatchOperationOptions
+                    {
+                        OutputPath = Path.Combine(root, "out"),
+                        Extension = "7z",
+                        ExistingFileMode = ExistingFileMode.Overwrite
+                    },
+                    new SnapshotProgress(snapshots),
+                    CancellationToken.None)
+                .GetAwaiter().GetResult();
+            Assert(snapshots.Count > 0 && snapshots.Last().CurrentFile == "proj",
+                "尾斜杠来源必须以目录名进入压缩任务，禁止空名归档");
+            Assert(snapshots.Last().Message == string.Format(L.ItemSucceeded, "proj"),
+                "成功消息必须携带真实目录名，禁止空名归档任务");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+
+        return Task.CompletedTask;
     }
 
     // GLM-5.3, 2026-11-04：外部审核补强——取消传播表征。锁定：

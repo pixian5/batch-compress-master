@@ -288,17 +288,17 @@ public class HeadlessBatchRunner
         }
 
         // GPT-5, 2026-08-06：--input 表示精确项目，所以指定目录本身作为一个归档来源，不展开其直接子项。
-        paths.AddRange(_options.InputPaths.Where(path => File.Exists(path) || Directory.Exists(path)));
-        return paths
-            .Where(path => !SystemMetadataFileFilter.ShouldSkip(path))
-            .Select(Path.GetFullPath)
-            .Distinct(StringComparer.OrdinalIgnoreCase)
-            .ToList();
+        paths.AddRange(_options.InputPaths);
+
+        // GLM-5.3, 2026-11-04：批次 2 阶段 2——过滤/规范化/去重统一下沉到 SourceCollector，
+        // 尾部斜杠路径在 CLI 侧同样被规范化；--input 存在性已由 ValidateSourcePaths 前置校验，
+        // 极端竞态下被删除的项将进入服务的 ItemNotFound 报告而非静默丢弃。
+        return SourceCollector.CollectCompressionSources(paths);
     }
 
     private List<FileEntry> CollectDecompressionEntries()
     {
-        var entries = new List<FileEntry>();
+        var seedEntries = new List<FileEntry>();
         if (!string.IsNullOrWhiteSpace(_options.TextFile))
         {
             var sourceDirectory = Directory.Exists(_options.SourcePath)
@@ -308,68 +308,28 @@ public class HeadlessBatchRunner
                 _options.TextFile,
                 sourceDirectory,
                 _options.Extension);
-            entries.AddRange(textEntries);
+            seedEntries.AddRange(textEntries);
             _logger.LogOperation("FILES_LOADED", $"Loaded {textEntries.Count} files from text file");
         }
 
         // GPT-5, 2026-08-06：TXT 模式中的 --source 只作为相对文件名的基准目录，不能再把整个目录重复加入任务。
+        var rawPaths = new List<string>();
         if (string.IsNullOrWhiteSpace(_options.TextFile) && !string.IsNullOrWhiteSpace(_options.SourcePath))
         {
-            AddDecompressionPath(entries, _options.SourcePath);
+            rawPaths.Add(_options.SourcePath);
         }
 
-        foreach (var input in _options.InputPaths)
-        {
-            AddDecompressionPath(entries, input);
-        }
+        rawPaths.AddRange(_options.InputPaths);
 
-        return entries
-            .Where(entry => !SystemMetadataFileFilter.ShouldSkip(entry.FilePath))
-            .GroupBy(entry => Path.GetFullPath(entry.FilePath), StringComparer.OrdinalIgnoreCase)
-            .Select(group => group.First())
-            .ToList();
+        // GLM-5.3, 2026-11-04：批次 2 阶段 2——路径→任务条目（文件格式校验/首卷折叠/目录展开）、
+        // 元数据过滤与全路径去重统一下沉到 SourceCollector。
+        return SourceCollector.CollectDecompressionEntries(
+            seedEntries,
+            rawPaths,
+            _options.Extension,
+            _options.SkipProcessed,
+            _batchOperationService);
     }
-
-    private void AddDecompressionPath(List<FileEntry> entries, string path)
-    {
-        if (File.Exists(path))
-        {
-            if (ArchiveVolumeResolver.MatchesFormat(path, _options.Extension))
-            {
-                AddResolvedArchive(entries, path);
-            }
-            return;
-        }
-
-        if (!Directory.Exists(path))
-        {
-            return;
-        }
-
-        foreach (var file in _batchOperationService.LoadArchivesFromFolder(
-                     path,
-                     _options.Extension,
-                     _options.SkipProcessed))
-        {
-            AddResolvedArchive(entries, file);
-        }
-    }
-
-    private static void AddResolvedArchive(List<FileEntry> entries, string path)
-    {
-        var resolved = ArchiveVolumeResolver.Resolve(path);
-        var taskPath = resolved.FirstVolumePath ?? resolved.Volumes.FirstOrDefault()?.Path ?? path;
-        if (File.Exists(taskPath))
-        {
-            entries.Add(CreateFileEntry(taskPath));
-        }
-    }
-
-    private static FileEntry CreateFileEntry(string path) => new()
-    {
-        FilePath = path,
-        FileSize = new FileInfo(path).Length
-    };
 
     private void WriteLine(string message)
     {
