@@ -2,11 +2,11 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
+using BatchCompress.Avalonia.Core.Services.Pipeline;
 using BatchCompress.Avalonia.Localization;
 using Microsoft.Extensions.Logging;
 
@@ -318,9 +318,6 @@ public class BatchOperationService
     }
 
     /// <summary>
-    /// 判断是否为分卷归档，并返回第一卷路径。
-    /// </summary>
-    /// <summary>
     /// 计算目录中指定格式归档的总大小。
     /// </summary>
     public double CalculateTotalSizeGB(string directory, string extension)
@@ -349,6 +346,8 @@ public class BatchOperationService
 
     /// <summary>
     /// 批量压缩文件或目录。
+    /// GLM-5.3, 2026-11-04：批次 2 阶段 1——逐项循环已下沉到 BatchExecutionPipeline，
+    /// 此处保留批次级格式校验与适配器装配。
     /// </summary>
     public async Task BatchCompressAsync(
         List<string> sourcePaths,
@@ -360,17 +359,15 @@ public class BatchOperationService
         Log(LogLevel.Information, $"Output path: {options.OutputPath}");
         Log(LogLevel.Information, $"Extension: {options.Extension}, Compression level: {options.CompressionLevel}");
 
-        var progressInfo = new OperationProgressInfo
-        {
-            StartTime = DateTime.Now
-        };
-
-        double processedSizeGB = 0;
-
+        // 不可创建格式直接计一条失败并返回：不进循环、不触发关机。
         var normalizedFormat = ArchiveFormatCatalog.Normalize(options.Extension);
         if (!ArchiveFormatCatalog.TryGet(normalizedFormat, out var formatDefinition) ||
             !formatDefinition.CanCreate)
         {
+            var progressInfo = new OperationProgressInfo
+            {
+                StartTime = DateTime.Now
+            };
             var message = string.Format(L.FormatCannotCreate, options.Extension, ArchiveFormatCatalog.CreateFormatsText);
             Log(LogLevel.Error, message);
             progressInfo.FailCount++;
@@ -380,262 +377,18 @@ public class BatchOperationService
             return;
         }
 
-        foreach (var sourcePath in sourcePaths)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // GPT-5, 2026-08-05：防御手工编辑列表绕过正常枚举的情况。
-            if (SystemMetadataFileFilter.ShouldSkip(sourcePath))
-            {
-                Log(LogLevel.Debug, $"Skipping system metadata path: {sourcePath}");
-                continue;
-            }
-
-            // 手工编辑列表后仍需再次检查文件或目录是否存在。
-            if (!File.Exists(sourcePath) && !Directory.Exists(sourcePath))
-            {
-                Log(LogLevel.Warning, $"Source not found: {sourcePath}");
-                progressInfo.NonExistCount++;
-                progressInfo.Message = string.Format(L.ItemNotFound, sourcePath);
-                progressInfo.IsError = true;
-                progress.Report(progressInfo);
-                continue;
-            }
-
-            var name = Path.GetFileName(sourcePath);
-            progressInfo.CurrentFile = name;
-            progressInfo.CurrentSourcePath = sourcePath;
-            Log(LogLevel.Debug, $"Processing: {name}");
-
-            // 按选项跳过已经完成压缩的项目。
-            if (options.SkipAlreadyProcessed && name.Contains("【已压缩】"))
-            {
-                Log(LogLevel.Debug, $"Skipping already processed: {name}");
-                progressInfo.IgnoreCount++;
-                continue;
-            }
-
-            // 使用来源项目名称构造输出归档名称。
-            var outputFileName = name + "." + normalizedFormat;
-            var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, sourcePath);
-            var outputPath = Path.Combine(outputDirectory, outputFileName);
-
-            // 根据用户选择处理已有输出文件。分卷输出可能没有基础文件，必须检查全部卷。
-            var existingOutputFiles = ArchiveVolumeResolver.ResolveOutputFiles(outputPath);
-            if (existingOutputFiles.Count > 0)
-            {
-                if (options.ExistingFileMode == ExistingFileMode.Skip)
-                {
-                    Log(LogLevel.Debug, $"Skipping existing output: {outputPath}");
-                    progressInfo.IgnoreCount++;
-                    progressInfo.Message = string.Format(L.SkipExistingOutput, outputFileName);
-                    progressInfo.IsError = false;
-                    progress.Report(progressInfo);
-                    continue;
-                }
-                else if (options.ExistingFileMode == ExistingFileMode.Overwrite)
-                {
-                    foreach (var existingOutputFile in existingOutputFiles)
-                    {
-                        Log(LogLevel.Debug, $"Deleting existing output: {existingOutputFile}");
-                        File.Delete(existingOutputFile);
-                    }
-                }
-            }
-
-            // 按当前选项生成单个归档的密码。
-            string? password = null;
-            if (options.UseRandomPassword && formatDefinition.SupportsPassword)
-            {
-                var passwordName = PasswordUtility.GetPasswordSourceName(outputFileName, options.PasswordNameMode);
-                password = PasswordUtility.GenerateCompressionPassword(passwordName);
-            }
-            else if (!string.IsNullOrEmpty(options.CustomPassword))
-            {
-                password = options.CustomPassword;
-            }
-
-            // GPT-5, 2026-08-05：每个来源项目只转换一次批处理默认值到更窄的引擎契约。
-            var archiveOptions = new ArchiveOptions
-            {
-                ArchiveFormat = normalizedFormat,
-                Password = password,
-                CompressionLevel = options.CompressionLevel,
-                SolidArchive = options.SolidArchive,
-                QuickOpen = options.QuickOpen,
-                TestArchive = options.TestArchive,
-                CommentFile = options.CommentFile,
-                TempDirectory = string.IsNullOrWhiteSpace(options.TempDirectory)
-                    ? outputDirectory
-                    : options.TempDirectory,
-                ExistingFileMode = options.ExistingFileMode,
-                RecoveryRecordPercent = options.RecoveryRecordPercent,
-                LockArchive = options.LockArchive,
-                RarStoreOnlyExtensions = normalizedFormat.Equals("rar", StringComparison.OrdinalIgnoreCase)
-                    ? options.RarStoreOnlyExtensions
-                    : null,
-                VolumeSize = !string.IsNullOrEmpty(options.VolumeSize) ?
-                    options.VolumeSize + options.VolumeSizeUnit : null
-            };
-
-            // GPT-5, 2026-08-06：附件直接作为额外输入交给归档程序。存在的路径保留其 basename，
-            // 不存在的路径只在临时暂存目录创建空目录，避免修改用户源目录。
-            var stagingDirectory = CreateAttachmentInputs(options, out var attachmentInputs);
-            archiveOptions.AdditionalInputs = attachmentInputs;
-
-            Log(LogLevel.Information, $"Compression started: {name} -> {outputFileName}");
-            progressInfo.Message = string.Format(L.CompressionStarted, name);
-            progressInfo.IsError = false;
-            progress.Report(progressInfo);
-
-            // 调用归档引擎执行压缩。
-            ArchiveResult result;
-            try
-            {
-                result = await _archiveEngine.CompressAsync(sourcePath, outputPath, archiveOptions, cancellationToken);
-            }
-            finally
-            {
-                if (stagingDirectory != null)
-                {
-                    try { Directory.Delete(stagingDirectory, recursive: true); }
-                    catch (Exception ex) { Log(LogLevel.Warning, $"清理附件暂存目录失败：{ex.Message}"); }
-                }
-            }
-            ReportArchiveOutput(L.CompressionCommandLabel, result, progressInfo, progress);
-
-            if (result.Success)
-            {
-                Log(LogLevel.Information, $"Compression successful: {name} -> {outputFileName}");
-                progressInfo.SuccessCount++;
-
-                // 以实际输出文件累计处理量。分卷创建时基础路径通常不存在，必须把所有卷求和。
-                var outputBytes = CalculateArchiveOutputBytes(outputPath);
-                if (outputBytes > 0)
-                {
-                    var sizeGB = outputBytes / (1024.0 * 1024.0 * 1024.0);
-                    processedSizeGB += sizeGB;
-                    progressInfo.ProcessedSizeGB = processedSizeGB;
-                    Log(LogLevel.Debug, $"Output size: {sizeGB:F3} GB ({outputBytes} bytes), Total processed: {processedSizeGB:F3} GB");
-                }
-
-                // GLM-5.3, 2026-11-04：批次 2 删除/移动后处理统一下沉到 PostProcessService。
-                // 失败消息逐条计数并写警告日志，最后一条并入成功记录，与原内联实现行为一致。
-                var postProcessFailures = _postProcessService.Apply(new PostProcessRequest(
-                    options.DeleteSourceAfter ? PostProcessMode.Delete :
-                    options.MoveSourceAfter ? PostProcessMode.Move : PostProcessMode.None,
-                    [sourcePath],
-                    "【已压缩】",
-                    L.PostProcessItemCompressionSource,
-                    PostProcessItemKind.CompressionSource,
-                    PreflightWholeGroup: false));
-                var postProcessFailed = postProcessFailures.Count > 0;
-                var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
-                foreach (var failure in postProcessFailures)
-                {
-                    RecordPostProcessFailure(progressInfo, failure);
-                }
-
-                // 归档成功和后处理成功分别统计，避免“归档成功但移动失败”被显示为完全成功。
-                progressInfo.Message = postProcessFailed
-                    ? string.Format(L.ItemSucceededWithPostProcessFailure, name, postProcessReason)
-                    : string.Format(L.ItemSucceeded, name);
-                progressInfo.IsError = postProcessFailed;
-            }
-            else
-            {
-                Log(LogLevel.Error, $"Compression failed: {name} - {result.ErrorMessage}");
-                progressInfo.FailCount++;
-                progressInfo.Message = string.Format(L.ItemFailed, name, result.ErrorMessage);
-                progressInfo.IsError = true;
-            }
-
-            progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
-            progress.Report(progressInfo);
-
-            // 达到总大小上限后停止后续任务。
-            if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
-            {
-                Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
-                progressInfo.Message = L.SizeLimitReached;
-                progress.Report(progressInfo);
-                break;
-            }
-        }
-
-        Log(LogLevel.Information, $"Batch compression complete. Success: {progressInfo.SuccessCount}, Failed: {progressInfo.FailCount}");
-
-        // 用户要求时在全部任务结束后请求系统关机。
-        if (options.ShutdownAfterComplete)
-        {
-            await _systemIntegration.ShutdownAsync();
-        }
-    }
-
-    private static string? CreateAttachmentInputs(BatchOperationOptions options, out string[] inputs)
-    {
-        inputs = [];
-        if (!options.AddEnclosures || options.EnclosureDirectories is not { Length: > 0 })
-        {
-            return null;
-        }
-
-        string? stagingDirectory = null;
-        var result = new List<string>();
-        foreach (var rawPath in options.EnclosureDirectories)
-        {
-            var path = rawPath.Trim();
-            if (path.Length == 0 || SystemMetadataFileFilter.ShouldSkip(path))
-            {
-                continue;
-            }
-
-            if (File.Exists(path) || Directory.Exists(path))
-            {
-                result.Add(Path.GetFullPath(path));
-                continue;
-            }
-
-            stagingDirectory ??= Path.Combine(Path.GetTempPath(), $"batch-compress-attachments-{Guid.NewGuid():N}");
-            var safeName = Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
-            if (string.IsNullOrWhiteSpace(safeName) || safeName is "." or "..")
-            {
-                safeName = "附件";
-            }
-
-            var emptyDirectory = Path.Combine(stagingDirectory, safeName);
-            Directory.CreateDirectory(emptyDirectory);
-            result.Add(emptyDirectory);
-        }
-
-        inputs = result.Distinct(StringComparer.OrdinalIgnoreCase).ToArray();
-        return stagingDirectory;
-    }
-
-    private static long CalculateArchiveOutputBytes(string outputPath)
-    {
-        try
-        {
-            var files = ArchiveVolumeResolver.ResolveOutputFiles(outputPath)
-                .Where(File.Exists)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .ToArray();
-            if (files.Length > 0)
-            {
-                return files.Sum(path => new FileInfo(path).Length);
-            }
-
-            return File.Exists(outputPath) ? new FileInfo(outputPath).Length : 0;
-        }
-        catch
-        {
-            // 归档已成功时统计失败不应改变成功结果；记录后回退到基础路径。
-            return File.Exists(outputPath) ? new FileInfo(outputPath).Length : 0;
-        }
+        var pipeline = new BatchExecutionPipeline<string>(
+            new CompressionItemAdapter(_archiveEngine, normalizedFormat, formatDefinition, _logger),
+            _postProcessService,
+            _systemIntegration,
+            _logger);
+        await pipeline.RunAsync(sourcePaths, options, progress, cancellationToken);
     }
 
     /// <summary>
     /// 批量解压归档文件。
+    /// GLM-5.3, 2026-11-04：批次 2 阶段 1——逐项循环已下沉到 BatchExecutionPipeline，
+    /// 此处只保留适配器装配。
     /// </summary>
     public async Task BatchDecompressAsync(
         List<FileEntry> archives,
@@ -646,366 +399,18 @@ public class BatchOperationService
         Log(LogLevel.Information, $"Starting batch decompression of {archives.Count} archives");
         Log(LogLevel.Information, $"Output path: {options.OutputPath}");
 
-        var progressInfo = new OperationProgressInfo
-        {
-            StartTime = DateTime.Now
-        };
-
-        double processedSizeGB = 0;
-        var processedArchives = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-
-        foreach (var entry in archives)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            // GPT-5, 2026-08-05：TXT 列表可由用户编辑，因此执行时再次实施相同的元数据过滤。
-            if (SystemMetadataFileFilter.ShouldSkip(entry.FilePath))
-            {
-                Log(LogLevel.Debug, $"Skipping system metadata archive: {entry.FilePath}");
-                continue;
-            }
-
-            ArchiveVolumeResolveResult resolved;
-            try
-            {
-                resolved = ArchiveVolumeResolver.Resolve(entry.FilePath);
-            }
-            catch (Exception ex)
-            {
-                Log(LogLevel.Warning, $"无法解析归档：{entry.FilePath}：{ex.Message}");
-                progressInfo.NonExistCount++;
-                progressInfo.Message = string.Format(L.CannotResolveArchive, entry.FilePath, ex.Message);
-                progressInfo.IsError = true;
-                progress.Report(progressInfo);
-                continue;
-            }
-
-            if (resolved.HasCaseAmbiguity)
-            {
-                progressInfo.AmbiguousArchiveCount++;
-                progressInfo.IgnoreCount++;
-                progressInfo.Message = string.Format(L.CaseAmbiguitySkipped, entry.FilePath);
-                progressInfo.IsError = true;
-                Log(LogLevel.Warning, progressInfo.Message);
-                progress.Report(progressInfo);
-                continue;
-            }
-
-            if (resolved.HasDuplicateNumbers)
-            {
-                progressInfo.AmbiguousArchiveCount++;
-                progressInfo.IgnoreCount++;
-                progressInfo.Message = string.Format(L.DuplicateVolumeSkipped, entry.FilePath);
-                progressInfo.IsError = true;
-                Log(LogLevel.Warning, progressInfo.Message);
-                progress.Report(progressInfo);
-                continue;
-            }
-
-            if (resolved.IsMultiVolume && (!resolved.HasRequiredFirstVolume || !resolved.IsSequenceContiguous))
-            {
-                progressInfo.IncompleteVolumeCount++;
-                progressInfo.IgnoreCount++;
-                progressInfo.Message = BuildIncompleteVolumeMessage(resolved);
-                progressInfo.IsError = true;
-                Log(LogLevel.Warning, progressInfo.Message);
-                progress.Report(progressInfo);
-                continue;
-            }
-
-            var archivePath = resolved.FirstVolumePath;
-            if (archivePath == null || !File.Exists(archivePath))
-            {
-                Log(LogLevel.Warning, $"Archive not found: {entry.FilePath}");
-                progressInfo.NonExistCount++;
-                progressInfo.Message = string.Format(L.ItemNotFound, entry.FilePath);
-                progressInfo.IsError = true;
-                progress.Report(progressInfo);
-                continue;
-            }
-
-            if (!processedArchives.Add(Path.GetFullPath(archivePath)))
-            {
-                Log(LogLevel.Debug, $"Skipping duplicate archive task: {archivePath}");
-                progressInfo.IgnoreCount++;
-                continue;
-            }
-
-            var archiveName = Path.GetFileName(archivePath);
-            progressInfo.CurrentFile = archiveName;
-            progressInfo.CurrentSourcePath = archivePath;
-            Log(LogLevel.Debug, $"Processing: {archiveName}");
-
-            // 按选项跳过已经完成解压的归档。
-            if (options.SkipAlreadyProcessed && archiveName.Contains("【已解压】"))
-            {
-                Log(LogLevel.Debug, $"Skipping already processed: {archiveName}");
-                progressInfo.IgnoreCount++;
-                continue;
-            }
-
-            // 优先使用 TXT 条目密码，再使用全局密码策略。
-            string? password = entry.Password;
-            if (string.IsNullOrEmpty(password) && options.UseRandomPassword)
-            {
-                var passwordName = PasswordUtility.GetPasswordSourceName(
-                    resolved.LogicalArchiveName,
-                    options.PasswordNameMode);
-                password = PasswordUtility.GenerateDecompressionPassword(passwordName);
-            }
-            else if (string.IsNullOrEmpty(password) && !string.IsNullOrEmpty(options.CustomPassword))
-            {
-                password = options.CustomPassword;
-            }
-
-            // 将批处理选项转换为归档引擎选项。
-            var archiveOptions = new ArchiveOptions
-            {
-                // GPT-5, 2026-08-07：统一解析器已经处理数字分卷，不能让 Path.GetExtension 把 .001 当成格式。
-                ArchiveFormat = resolved.ActualExtension.Length > 0
-                    ? resolved.ActualExtension
-                    : options.Extension,
-                Password = password,
-                ExistingFileMode = options.ExistingFileMode
-            };
-
-            Log(LogLevel.Information, $"Extraction started: {archiveName}");
-            progressInfo.Message = string.Format(L.ExtractionStarted, archiveName);
-            progressInfo.IsError = false;
-            progress.Report(progressInfo);
-
-            var outputDirectoryExisted = Directory.Exists(
-                string.IsNullOrWhiteSpace(options.OutputPath)
-                    ? Path.GetDirectoryName(Path.GetFullPath(archivePath)) ?? Directory.GetCurrentDirectory()
-                    : Path.GetFullPath(options.OutputPath));
-            var outputDirectory = OutputPathResolver.ResolveAndCreate(options.OutputPath, archivePath);
-            var outputSnapshot = SnapshotOutputDirectory(outputDirectory);
-
-            // 调用归档引擎执行解压。
-            var result = await _archiveEngine.ExtractAsync(archivePath, outputDirectory, archiveOptions, cancellationToken);
-            ReportArchiveOutput(L.ExtractionCommandLabel, result, progressInfo, progress);
-
-            if (result.Success)
-            {
-                Log(LogLevel.Information, $"Extraction successful: {archiveName}");
-                progressInfo.SuccessCount++;
-
-                // 以当前归档大小累计处理量。
-                // GLM-5.3, 2026-11-03：防御解压成功后、统计前分卷被外部删除（杀毒或用户操作）
-                // 的竞态；统计失败回退到列表大小，与压缩侧 CalculateArchiveOutputBytes 的防护对齐。
-                long processedBytes;
-                try
-                {
-                    processedBytes = resolved.FilesForPostProcessing.Count > 0
-                        ? resolved.FilesForPostProcessing.Sum(path => new FileInfo(path).Length)
-                        : entry.FileSize;
-                }
-                catch (Exception ex)
-                {
-                    Log(LogLevel.Warning, $"统计归档大小失败，回退到列表大小：{entry.FilePath}：{ex.Message}");
-                    processedBytes = entry.FileSize;
-                }
-                var sizeGB = processedBytes / (1024.0 * 1024.0 * 1024.0);
-                processedSizeGB += sizeGB;
-                progressInfo.ProcessedSizeGB = processedSizeGB;
-
-                // GLM-5.3, 2026-11-04：批次 2 解压后处理统一下沉到 PostProcessService。
-                // 直接使用解压前已经校验过的整组文件集合（避免后处理阶段解析出不同结果）；
-                // 移动前整组预检语义保留：任一目标冲突即保留整组、只计一次失败。
-                var postProcessFailures = _postProcessService.Apply(new PostProcessRequest(
-                    options.DeleteSourceAfter ? PostProcessMode.Delete :
-                    options.MoveSourceAfter ? PostProcessMode.Move : PostProcessMode.None,
-                    resolved.FilesForPostProcessing,
-                    "【已解压】",
-                    L.PostProcessItemDecompressionArchive,
-                    PostProcessItemKind.DecompressionArchive,
-                    PreflightWholeGroup: true));
-                var postProcessFailed = postProcessFailures.Count > 0;
-                var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
-                foreach (var failure in postProcessFailures)
-                {
-                    RecordPostProcessFailure(progressInfo, failure);
-                }
-
-                // 归档成功和后处理成功分别统计，避免后处理失败被隐藏。
-                progressInfo.Message = postProcessFailed
-                    ? string.Format(L.ItemSucceededWithPostProcessFailure, archiveName, postProcessReason)
-                    : string.Format(L.ItemSucceeded, archiveName);
-                progressInfo.IsError = postProcessFailed;
-            }
-            else
-            {
-                CleanupFailedExtractionOutput(outputDirectory, outputSnapshot, outputDirectoryExisted);
-                Log(LogLevel.Error, $"Extraction failed: {archiveName} - {result.ErrorMessage}");
-                progressInfo.FailCount++;
-                progressInfo.Message = string.Format(L.ItemFailed, archiveName, result.ErrorMessage);
-                progressInfo.IsError = true;
-            }
-
-            progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
-            progress.Report(progressInfo);
-
-            // 达到总大小上限后停止后续解压任务。
-            if (options.MaxSizeGB > 0 && processedSizeGB >= options.MaxSizeGB)
-            {
-                Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
-                progressInfo.Message = L.SizeLimitReached;
-                progress.Report(progressInfo);
-                break;
-            }
-        }
-
-        Log(LogLevel.Information, $"Batch decompression complete. Success: {progressInfo.SuccessCount}, Failed: {progressInfo.FailCount}");
-
-        // 用户要求时在全部解压任务结束后请求系统关机。
-        if (options.ShutdownAfterComplete)
-        {
-            Log(LogLevel.Information, "Shutdown requested after completion");
-            await _systemIntegration.ShutdownAsync();
-        }
+        var pipeline = new BatchExecutionPipeline<FileEntry>(
+            new DecompressionItemAdapter(_archiveEngine, options, _logger),
+            _postProcessService,
+            _systemIntegration,
+            _logger);
+        await pipeline.RunAsync(archives, options, progress, cancellationToken);
     }
 
-    private static HashSet<string> SnapshotOutputDirectory(string outputDirectory)
-    {
-        var snapshot = new HashSet<string>(StringComparer.Ordinal);
-        if (!Directory.Exists(outputDirectory))
-        {
-            return snapshot;
-        }
-
-        foreach (var path in Directory.EnumerateFileSystemEntries(outputDirectory, "*", SearchOption.AllDirectories))
-        {
-            snapshot.Add(Path.GetRelativePath(outputDirectory, path));
-        }
-
-        return snapshot;
-    }
-
-    // 解压失败时回滚引擎已经写出的新文件，避免缺卷或密码错误留下看似成功的残片。
-    private void CleanupFailedExtractionOutput(
-        string outputDirectory,
-        IReadOnlySet<string> outputSnapshot,
-        bool outputDirectoryExisted)
-    {
-        if (!Directory.Exists(outputDirectory))
-        {
-            return;
-        }
-
-        try
-        {
-            var currentEntries = Directory
-                .EnumerateFileSystemEntries(outputDirectory, "*", SearchOption.AllDirectories)
-                .Select(path => new
-                {
-                    FullPath = path,
-                    RelativePath = Path.GetRelativePath(outputDirectory, path)
-                })
-                .Where(entry => !outputSnapshot.Contains(entry.RelativePath))
-                .OrderByDescending(entry => entry.RelativePath.Length)
-                .ToArray();
-
-            foreach (var entry in currentEntries)
-            {
-                try
-                {
-                    if (File.Exists(entry.FullPath))
-                    {
-                        File.Delete(entry.FullPath);
-                    }
-                    else if (Directory.Exists(entry.FullPath))
-                    {
-                        Directory.Delete(entry.FullPath, recursive: false);
-                    }
-                }
-                catch (Exception ex)
-                {
-                    Log(LogLevel.Warning, $"清理解压失败残留失败：{entry.FullPath}：{ex.Message}");
-                }
-            }
-
-            if (!outputDirectoryExisted && !Directory.EnumerateFileSystemEntries(outputDirectory).Any())
-            {
-                Directory.Delete(outputDirectory, recursive: false);
-            }
-        }
-        catch (Exception ex)
-        {
-            Log(LogLevel.Warning, $"清理解压失败残留失败：{outputDirectory}：{ex.Message}");
-        }
-    }
-
-    // GPT-5, 2026-08-06：归档进程输出是用户要求保留的原始诊断证据。
-    // 此处明确不调用脱敏、掩码或替换逻辑，即使 stdout/stderr 中包含密码也原样转发。
-    private static void ReportArchiveOutput(
-        string prefix,
-        ArchiveResult result,
-        OperationProgressInfo progressInfo,
-        IProgress<OperationProgressInfo> progress)
-    {
-        if (!string.IsNullOrWhiteSpace(result.CommandLine))
-        {
-            progress.Report(CloneProgress(
-                progressInfo,
-                $"[{prefix}] command{Environment.NewLine}{result.CommandLine}",
-                isError: false,
-                isCommandOutput: true));
-        }
-
-        if (!string.IsNullOrWhiteSpace(result.StandardOutput))
-        {
-            progress.Report(CloneProgress(
-                progressInfo,
-                $"[{prefix}] stdout{Environment.NewLine}{result.StandardOutput.TrimEnd()}",
-                isError: false,
-                isCommandOutput: true));
-        }
-
-        if (!string.IsNullOrWhiteSpace(result.StandardError))
-        {
-            progress.Report(CloneProgress(
-                progressInfo,
-                $"[{prefix}] stderr{Environment.NewLine}{result.StandardError.TrimEnd()}",
-                isError: !result.Success,
-                isCommandOutput: true));
-        }
-    }
-
-    // GPT-5, 2026-08-06：IProgress 可能异步投递回调，因此命令输出必须使用独立快照，
-    // 防止下一条状态消息改写同一个可变对象后导致 stdout/stderr 丢失。
-    private static OperationProgressInfo CloneProgress(
-        OperationProgressInfo source,
-        string message,
-        bool isError,
-        bool isCommandOutput = false) => new()
-        {
-            CurrentFile = source.CurrentFile,
-            CurrentSourcePath = source.CurrentSourcePath,
-            SuccessCount = source.SuccessCount,
-            FailCount = source.FailCount,
-            PostProcessFailCount = source.PostProcessFailCount,
-            IgnoreCount = source.IgnoreCount,
-            NonExistCount = source.NonExistCount,
-            IncompleteVolumeCount = source.IncompleteVolumeCount,
-            AmbiguousArchiveCount = source.AmbiguousArchiveCount,
-            ProcessedSizeGB = source.ProcessedSizeGB,
-            Message = message,
-            IsError = isError,
-            IsCommandOutput = isCommandOutput,
-            StartTime = source.StartTime,
-            Elapsed = source.Elapsed
-        };
-
-    // GPT-5, 2026-09-30：后处理失败既计入统计、写入诊断日志，也把原因回传给调用方并入失败记录消息。
-    // GLM-5.3, 2026-11-04：后处理执行已迁入 PostProcessService，此处保留计数与日志职责。
-    private string RecordPostProcessFailure(OperationProgressInfo progressInfo, string message)
-    {
-        progressInfo.PostProcessFailCount++;
-        Log(LogLevel.Warning, message);
-        return message;
-    }
-
-    private static string BuildIncompleteVolumeMessage(ArchiveVolumeResolveResult resolved)
+    /// <summary>
+    /// 构建缺卷跳过消息（解压适配器与 TXT 密码本导入共用）。
+    /// </summary>
+    internal static string BuildIncompleteVolumeMessage(ArchiveVolumeResolveResult resolved)
     {
         // GLM-5.3, 2026-11-03：缺卷编号换算为实际文件名后缀（r01 / z02 / part3.rar），
         // 旧式分卷的组内编号与文件名后缀有偏移，直接显示数字会误导排查。

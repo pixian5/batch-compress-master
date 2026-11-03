@@ -26,6 +26,11 @@
     <Compile Include="..\Core\Services\SystemMetadataFileFilter.cs" Link="Core\Services\SystemMetadataFileFilter.cs" />
     <Compile Include="..\Core\Services\BatchOperationService.cs" Link="Core\Services\BatchOperationService.cs" />
     <Compile Include="..\Core\Services\PostProcessService.cs" Link="Core\Services\PostProcessService.cs" />
+    <Compile Include="..\Core\Services\Pipeline\IBatchItemAdapter.cs" Link="Core\Services\Pipeline\IBatchItemAdapter.cs" />
+    <Compile Include="..\Core\Services\Pipeline\PreparedBatchItem.cs" Link="Core\Services\Pipeline\PreparedBatchItem.cs" />
+    <Compile Include="..\Core\Services\Pipeline\BatchExecutionPipeline.cs" Link="Core\Services\Pipeline\BatchExecutionPipeline.cs" />
+    <Compile Include="..\Core\Services\Pipeline\CompressionItemAdapter.cs" Link="Core\Services\Pipeline\CompressionItemAdapter.cs" />
+    <Compile Include="..\Core\Services\Pipeline\DecompressionItemAdapter.cs" Link="Core\Services\Pipeline\DecompressionItemAdapter.cs" />
     <Compile Include="..\Core\Models\OperationModels.cs" Link="Core\Models\OperationModels.cs" />
     <Compile Include="..\Core\Models\ArchiveDefaults.cs" Link="Core\Models\ArchiveDefaults.cs" />
     <Compile Include="..\Core\Models\ArchiveFormatCatalog.cs" Link="Core\Models\ArchiveFormatCatalog.cs" />

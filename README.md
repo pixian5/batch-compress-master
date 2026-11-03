@@ -4,15 +4,15 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.6.12`。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询与 macOS 打包脚本均读取它。
+当前版本：`0.6.13`。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询与 macOS 打包脚本均读取它。
 
 ## 当前开发进度
 
-`0.6.12` 完成外部审核任务书阶段 0：修复 `DescribeVolumeSuffix` 映射截断（主卷显示 rar/zip）、`.z00` 与主卷撞号（负向前瞻排除）、`PostProcessService` 词条语义偷渡（显式 `PostProcessItemKind` 枚举解耦）；补齐取消传播（不关机＋附件暂存 finally 清理）、Update 模式透传、CurrentFile 刷新基线三个盲区测试，35 → 38 项全过。此前 `0.6.11` 完成后处理策略服务、`0.6.10` 表征测试、`0.6.9` 全项目复核。详细内容见 [docs/20261104-0038-阶段0前置缺陷阻断-GLM-5.3.md](docs/20261104-0038-阶段0前置缺陷阻断-GLM-5.3.md)。
+`0.6.13` 完成外部审核任务书阶段 1：新建 `Core/Services/Pipeline/` 泛型执行管线（`IBatchItemAdapter<TInput>`＋`PreparedBatchItem`＋`BatchExecutionPipeline<TInput>`），压缩、解压双循环按两步法迁移到 `CompressionItemAdapter` / `DecompressionItemAdapter`，`BatchOperationService.cs` 从 1,020 行收敛至 425 行（≤ 600 达标）；38 项测试全过、0 警告 0 错误、17 个表征场景零漂移。此前 `0.6.12` 阶段 0 缺陷阻断、`0.6.11` 后处理策略服务、`0.6.10` 表征测试。详细内容见 [docs/20261104-0058-阶段1管线重构完成-GLM-5.3.md](docs/20261104-0058-阶段1管线重构完成-GLM-5.3.md) 与 [docs/20261104-0058-当前开发进度-GLM-5.3.md](docs/20261104-0058-当前开发进度-GLM-5.3.md)。
 
 ## 下一步待实现
 
-外部审核任务书阶段 1（目标 `0.6.13`）：新建 `Core/Services/Pipeline/` 管线抽象（`IBatchItemAdapter`＋`BatchExecutionPipeline`），双步法迁移——压缩先接入全绿、解压再接入全绿，`BatchOperationService` 收敛至 ≤ 600 行；阶段 2（`0.6.14`）：`SourceCollector` 来源统一并修复尾部斜杠空文件名缺陷；阶段 3（`0.6.15`）：`OperationSession` 收敛界面双流程、`MainWindowViewModel` ≤ 1,450 行；验收约束：测试 ≥ 38 项全过、17 个表征场景零漂移、产出批次 2 完成报告。其后为批次 3-6（CLI 语言与 RAR 处置、卫生、并行度、发布自动化）。批次计划与决策记录见 [docs/20261103-2258-下一阶段批次计划与决策-GLM-5.3.md](docs/20261103-2258-下一阶段批次计划与决策-GLM-5.3.md)。
+外部审核任务书阶段 2（目标 `0.6.14`）：新建 `SourceCollector` 领域服务，统一 GUI/CLI 来源文本解析并消除尾部斜杠导致 `Path.GetFileName` 返回空串的缺陷，`HeadlessBatchRunner` 与 `MainWindowViewModel` 双端接入；阶段 3（`0.6.15`）：抽取 `OperationSession` 收敛界面双流程重复的进度回调逻辑，`MainWindowViewModel` 从 1,673 行降至 ≤ 1,450 行；验收约束：测试 ≥ 38 项全过、表征零漂移。其后为批次 3-6（CLI 语言与 RAR 处置、卫生、并行度、发布自动化）。详细内容见 [docs/20261104-0058-下一步待实现-GLM-5.3.md](docs/20261104-0058-下一步待实现-GLM-5.3.md)。
 
 ## 功能
 
