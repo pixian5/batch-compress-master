@@ -875,6 +875,28 @@ internal static class Program
             Assert(outputs.Any(file => Path.GetFileName(file) == "old.r00"), "输出解析必须包含遗留 .r00 分卷");
             Assert(outputs.Any(file => Path.GetFileName(file) == "old.r01"), "输出解析必须包含遗留 .r01 分卷");
 
+            // 场景 6：从主卷入口解析——旁边存在旧式分卷成员时必须返回整组，
+            // 否则解压后的删除/移动源只会处理主卷，分卷成员会遗留成孤儿。
+            var fromMain = ArchiveVolumeResolver.Resolve(Path.Combine(root, "old.rar"));
+            AssertEqual(ArchiveVolumeKind.RarOldStyle, fromMain.VolumeKind);
+            AssertEqual(3, fromMain.FilesForPostProcessing.Count);
+            Assert(fromMain.FilesForPostProcessing.Any(file => Path.GetFileName(file) == "old.r00"),
+                "主卷入口的后处理集合必须包含 .r00 成员");
+            Assert(fromMain.FilesForPostProcessing.Any(file => Path.GetFileName(file) == "old.r01"),
+                "主卷入口的后处理集合必须包含 .r01 成员");
+            Assert(fromMain.CanExtract, "主卷入口的完整旧式组必须可解压");
+
+            var fromZipMain = ArchiveVolumeResolver.Resolve(Path.Combine(root, "zs.zip"));
+            AssertEqual(ArchiveVolumeKind.ZipOldStyle, fromZipMain.VolumeKind);
+            AssertEqual(3, fromZipMain.FilesForPostProcessing.Count);
+
+            // 场景 7：旁边没有旧式成员的普通单卷不受影响，保持单卷语义。
+            File.WriteAllText(Path.Combine(root, "plain.rar"), "single");
+            var plain = ArchiveVolumeResolver.Resolve(Path.Combine(root, "plain.rar"));
+            AssertEqual(ArchiveVolumeKind.None, plain.VolumeKind);
+            AssertEqual(1, plain.FilesForPostProcessing.Count);
+            Assert(plain.CanExtract, "普通单卷必须保持可解压");
+
             // 大小统计口径：分卷（base.7z.001）与大写扩展（UP.RAR）都必须计入。
             File.WriteAllText(Path.Combine(root, "sz.7z.001"), new string('a', 1024));
             File.WriteAllText(Path.Combine(root, "sz.7z.002"), new string('a', 1024));

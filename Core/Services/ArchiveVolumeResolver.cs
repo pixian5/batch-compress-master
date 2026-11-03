@@ -129,11 +129,21 @@ public static class ArchiveVolumeResolver
         }
 
         // 已存在同名单卷时优先使用单卷；只有单卷不存在时才推断同名分卷组。
+        // GLM-5.3, 2026-11-03：旧式分卷的主卷（base.rar / base.zip）本身就是普通归档名，
+        // 不匹配任何分卷正则；若同目录存在分卷成员（base.rNN / base.zNN）却按单卷返回，
+        // 解压后的删除/移动源只会处理主卷，成员会遗留成孤儿，且缺卷预检被跳过。
+        // 因此进入单卷分支前先检查旧式成员，存在则按整组返回。
         var effectivePattern = actualPath == null
             ? requestedPattern
             : ParseVolumePattern(Path.GetFileName(actualPath));
         if (actualPath != null && effectivePattern.Kind == ArchiveVolumeKind.None)
         {
+            var oldStyleGroup = TryBuildOldStyleGroupResult(directory, actualPath, requestedPath, hasCaseAmbiguity);
+            if (oldStyleGroup != null)
+            {
+                return oldStyleGroup;
+            }
+
             return CreateSingleVolumeResult(requestedPath, actualPath, hasCaseAmbiguity);
         }
 
@@ -154,7 +164,20 @@ public static class ArchiveVolumeResolver
             };
         }
 
-        var volumes = EnumerateVolumes(directory, effectivePattern).ToArray();
+        return BuildGroupResult(requestedPath, directory, effectivePattern, hasCaseAmbiguity);
+    }
+
+    /// <summary>
+    /// 按分卷组模式枚举目录并构造完整解析结果；Resolve 主路径与旧式主卷入口共用，
+    /// 保证两条路径的重复编号、首卷与缺卷判定完全一致。
+    /// </summary>
+    private static ArchiveVolumeResolveResult BuildGroupResult(
+        string requestedPath,
+        string directory,
+        VolumePattern pattern,
+        bool hasCaseAmbiguity)
+    {
+        var volumes = EnumerateVolumes(directory, pattern).ToArray();
         var duplicateNumbers = volumes.GroupBy(volume => volume.Number).Any(group => group.Count() > 1);
         var firstVolumes = volumes.Where(volume => volume.Number == 1).ToArray();
         var hasRequiredFirstVolume = firstVolumes.Length == 1;
@@ -164,10 +187,10 @@ public static class ArchiveVolumeResolver
         return new ArchiveVolumeResolveResult
         {
             RequestedPath = requestedPath,
-            ArchiveKind = KindForVolume(effectivePattern),
-            VolumeKind = effectivePattern.Kind,
-            ActualExtension = effectivePattern.Extension,
-            LogicalArchiveName = effectivePattern.LogicalArchiveName,
+            ArchiveKind = KindForVolume(pattern),
+            VolumeKind = pattern.Kind,
+            ActualExtension = pattern.Extension,
+            LogicalArchiveName = pattern.LogicalArchiveName,
             FirstVolumePath = hasRequiredFirstVolume ? firstVolumes[0].Path : null,
             Volumes = volumes,
             MissingNumbers = missingNumbers,
@@ -175,6 +198,45 @@ public static class ArchiveVolumeResolver
             HasDuplicateNumbers = duplicateNumbers,
             HasRequiredFirstVolume = hasRequiredFirstVolume
         };
+    }
+
+    /// <summary>
+    /// GLM-5.3, 2026-11-03：主卷入口（base.rar / base.zip）的旧式分卷组识别。
+    /// 返回 null 表示旁边没有分卷成员，调用方按普通单卷处理。
+    /// </summary>
+    private static ArchiveVolumeResolveResult? TryBuildOldStyleGroupResult(
+        string directory,
+        string actualPath,
+        string requestedPath,
+        bool hasCaseAmbiguity)
+    {
+        var actualName = Path.GetFileName(actualPath);
+        var extension = Path.GetExtension(actualName).TrimStart('.').ToLowerInvariant();
+        var kind = extension switch
+        {
+            "rar" => ArchiveVolumeKind.RarOldStyle,
+            "zip" => ArchiveVolumeKind.ZipOldStyle,
+            _ => (ArchiveVolumeKind?)null
+        };
+        if (kind is null)
+        {
+            return null;
+        }
+
+        var baseName = Path.GetFileNameWithoutExtension(actualName);
+        if (baseName.Length == 0)
+        {
+            return null;
+        }
+
+        var pattern = CreatePattern(kind.Value, baseName, actualName);
+        // 只见到主卷、没有分卷成员（编号 ≥ 2）时保持单卷语义，不改变普通归档行为。
+        if (!EnumerateVolumes(directory, pattern).Any(volume => volume.Number >= 2))
+        {
+            return null;
+        }
+
+        return BuildGroupResult(requestedPath, directory, pattern, hasCaseAmbiguity);
     }
 
     /// <summary>
