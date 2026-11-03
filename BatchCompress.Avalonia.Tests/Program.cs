@@ -31,6 +31,9 @@ internal static class Program
             ("旧式分卷识别", TestOldStyleVolumeResolution),
             ("压缩循环表征", TestCompressionLoopCharacterization),
             ("解压循环表征", TestDecompressionLoopCharacterization),
+            ("取消传播表征", TestCancellationPropagation),
+            ("Update模式透传", TestUpdateModePassthrough),
+            ("CurrentFile刷新基线", TestCurrentFileBaseline),
             ("来源收集表征", TestSourceCollectionCharacterization),
             ("大小写歧义跳过", TestCaseAmbiguitySkip),
             ("分卷完整性与解压统计", TestVolumeValidationAndProgress),
@@ -835,6 +838,12 @@ internal static class Program
             Assert(gap.MissingNumbers.Contains(3L), "缺 .r01 应报其组内编号 3 缺失");
             AssertEqual("r01", ArchiveVolumeResolver.DescribeVolumeSuffix(gap, gap.MissingNumbers[0]));
 
+            // GLM-5.3, 2026-11-04：外部审核修复——后缀映射不得截断歧义：编号 1 是主卷，
+            // 显式显示 rar / zip；编号 2 与 3 分别对应 .r00/.z02 与 .r01/.z02。
+            AssertEqual("rar", ArchiveVolumeResolver.DescribeVolumeSuffix(gap, 1L));
+            AssertEqual("r00", ArchiveVolumeResolver.DescribeVolumeSuffix(gap, 2L));
+            AssertEqual("r01", ArchiveVolumeResolver.DescribeVolumeSuffix(gap, 3L));
+
             // 场景 4：z01 组——ZIP 旧式分卷归入 zip 格式。
             File.WriteAllText(Path.Combine(root, "zs.zip"), "x");
             File.WriteAllText(Path.Combine(root, "zs.z01"), "x");
@@ -844,6 +853,19 @@ internal static class Program
             AssertEqual(ArchiveKind.Zip, zipOld.ArchiveKind);
             AssertEqual("zs.zip", Path.GetFileName(zipOld.FirstVolumePath!));
             Assert(zipOld.CanExtract, "完整旧式 ZIP 分卷组必须可解压");
+            AssertEqual("zip", ArchiveVolumeResolver.DescribeVolumeSuffix(zipOld, 1L));
+            AssertEqual("z01", ArchiveVolumeResolver.DescribeVolumeSuffix(zipOld, 2L));
+            AssertEqual("z02", ArchiveVolumeResolver.DescribeVolumeSuffix(zipOld, 3L));
+
+            // GLM-5.3, 2026-11-04：外部审核修复——.z00 不是合法 PKZIP 分卷，
+            // 负向前瞻阻止其入组，避免与主卷编号 1 撞车被判重复。
+            File.WriteAllText(Path.Combine(root, "noz.zip"), "x");
+            File.WriteAllText(Path.Combine(root, "noz.z00"), "x");
+            File.WriteAllText(Path.Combine(root, "noz.z01"), "x");
+            var noz = ArchiveVolumeResolver.Resolve(Path.Combine(root, "noz.z01"));
+            Assert(!noz.HasDuplicateNumbers, ".z00 不得与主卷构成编号重复");
+            Assert(noz.CanExtract, "存在 .z00 文件不得影响正常分卷组解压");
+            Assert(!noz.Volumes.Any(volume => Path.GetFileName(volume.Path) == "noz.z00"), ".z00 不得加入分卷组");
 
             // 场景 5：大小写混合——大写 .R00 仍归组到主卷；两个大小写变体并存判为编号重复。
             // macOS 默认文件系统大小写不敏感，case.r00 与 case.R00 是同一文件，重复编号断言只在
@@ -1287,6 +1309,153 @@ internal static class Program
             AssertEqual(1, final.IgnoreCount);
             AssertEqual(0, engine.ExtractionInputs.Count);
             Assert(final.Message == string.Format(L.CaseAmbiguitySkipped, requested), "大小写歧义消息必须与词条一致");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：外部审核补强——取消传播表征。锁定：
+    // 循环头预取消与引擎执行中取消均抛 OperationCanceledException、绝不触发关机、
+    // 附件暂存目录在 finally 中可靠清理。
+    private static async Task TestCancellationPropagation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-cancel-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var source = Path.Combine(root, "src");
+        Directory.CreateDirectory(source);
+        File.WriteAllText(Path.Combine(source, "a.txt"), "a");
+        try
+        {
+            // 场景 1：进入循环前已取消——循环头即抛、引擎零调用、不关机。
+            var engine = new ScriptedArchiveEngine { ThrowCancellationOnCompress = true };
+            var system = new RecordingSystemIntegration();
+            using var cancelled = new CancellationTokenSource();
+            cancelled.Cancel();
+            await AssertThrowsAsync<OperationCanceledException>(
+                new BatchOperationService(engine, system).BatchCompressAsync(
+                    [source],
+                    new BatchOperationOptions
+                    {
+                        OutputPath = Path.Combine(root, "out"), Extension = "7z",
+                        ExistingFileMode = ExistingFileMode.Overwrite, ShutdownAfterComplete = true
+                    },
+                    new SnapshotProgress([]), cancelled.Token));
+            AssertEqual(0, engine.CompressionInputs.Count);
+            AssertEqual(0, system.ShutdownCalls);
+
+            // 场景 2：引擎执行中取消——附件暂存目录必须被 finally 清理、不关机。
+            var delayingEngine = new ScriptedArchiveEngine { CancelAfterMilliseconds = 400 };
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(50);
+            await AssertThrowsAsync<OperationCanceledException>(
+                new BatchOperationService(delayingEngine, system).BatchCompressAsync(
+                    [source],
+                    new BatchOperationOptions
+                    {
+                        OutputPath = Path.Combine(root, "out2"), Extension = "7z",
+                        ExistingFileMode = ExistingFileMode.Overwrite, ShutdownAfterComplete = true,
+                        AddEnclosures = true,
+                        EnclosureDirectories = [Path.Combine(root, "definitely-not-exists-attachment")]
+                    },
+                    new SnapshotProgress([]), cts.Token));
+            AssertEqual(1, delayingEngine.CompressionInputs.Count);
+            AssertEqual(0, system.ShutdownCalls);
+            Assert(Directory.GetDirectories(Path.GetTempPath(), "batch-compress-attachments-*").Length == 0,
+                "取消后附件暂存目录必须被 finally 可靠清理，不得残留");
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：外部审核补强——Update 模式在服务层原样透传：
+    // 不预删除已有输出、不跳过任务，ExistingFileMode 原样传给引擎（差异化由命令构建层实现）。
+    private static async Task TestUpdateModePassthrough()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-update-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 压缩侧：已有输出存在时 Update 仍调用引擎且不删除旧输出。
+            var source = Path.Combine(root, "src");
+            var output = Path.Combine(root, "out");
+            Directory.CreateDirectory(source);
+            Directory.CreateDirectory(output);
+            File.WriteAllText(Path.Combine(source, "a.txt"), "a");
+            var existing = Path.Combine(output, "src.7z");
+            File.WriteAllText(existing, "old output");
+            var engine = new ScriptedArchiveEngine();
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchCompressAsync(
+                [source],
+                new BatchOperationOptions { OutputPath = output, Extension = "7z", ExistingFileMode = ExistingFileMode.Update },
+                new SnapshotProgress([]), CancellationToken.None);
+            AssertEqual(1, engine.CompressionInputs.Count);
+            Assert(File.Exists(existing), "Update 模式不得预删除已有输出");
+            AssertEqual(ExistingFileMode.Update, engine.CompressionOptions[0].ExistingFileMode);
+
+            // 解压侧：ExistingFileMode 原样透传给引擎选项。
+            var archive = Path.Combine(root, "book.7z");
+            File.WriteAllText(archive, "archive");
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchDecompressAsync(
+                [new FileEntry { FilePath = archive, FileSize = 7 }],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "ex"), Extension = "7z", ExistingFileMode = ExistingFileMode.Update
+                },
+                new SnapshotProgress([]), CancellationToken.None);
+            AssertEqual(ExistingFileMode.Update, engine.ExtractionOptions[0].ExistingFileMode);
+        }
+        finally
+        {
+            Directory.Delete(root, true);
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：外部审核补强——CurrentFile 刷新基线。
+    // 锁定：解压预检失败（缺首卷等）与压缩源不存在分支均在刷新 CurrentFile 之前 continue，
+    // 最后一次进度报告的 CurrentFile 保持上一个成功项，不显示失败项名。
+    private static async Task TestCurrentFileBaseline()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-char-cf-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 解压侧：先成功一项，再遇到缺首卷组——CurrentFile 不得刷新为失败项。
+            File.WriteAllText(Path.Combine(root, "ok.7z"), "x");
+            File.WriteAllText(Path.Combine(root, "broken.7z.002"), "x");
+            File.WriteAllText(Path.Combine(root, "broken.7z.003"), "x");
+            var engine = new ScriptedArchiveEngine();
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new RecordingSystemIntegration()).BatchDecompressAsync(
+                [
+                    new FileEntry { FilePath = Path.Combine(root, "ok.7z"), FileSize = 1 },
+                    new FileEntry { FilePath = Path.Combine(root, "broken.7z.003"), FileSize = 1 }
+                ],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "ex"), Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            var final = snapshots.Last();
+            AssertEqual(1, final.IncompleteVolumeCount);
+            AssertEqual("ok.7z", final.CurrentFile);
+
+            // 压缩侧：源不存在分支在 CurrentFile 赋值前 continue，保持上一项。
+            snapshots.Clear();
+            var good = Path.Combine(root, "good");
+            Directory.CreateDirectory(good);
+            await new BatchOperationService(new ScriptedArchiveEngine(), new RecordingSystemIntegration()).BatchCompressAsync(
+                [good, Path.Combine(root, "gone")],
+                new BatchOperationOptions
+                {
+                    OutputPath = Path.Combine(root, "co"), Extension = "7z", ExistingFileMode = ExistingFileMode.Overwrite
+                },
+                new SnapshotProgress(snapshots), CancellationToken.None);
+            AssertEqual("good", snapshots.Last().CurrentFile);
+            AssertEqual(1, snapshots.Last().NonExistCount);
         }
         finally
         {
@@ -1877,19 +2046,36 @@ internal static class Program
         public List<string> ExtractionOutputDirs { get; } = [];
         public bool WriteRealOutput { get; set; }
         public int OutputBytesPerFile { get; set; } = 1024 * 1024;
+        // GLM-5.3, 2026-11-04：取消传播表征测试用——引擎收到调用即抛取消异常，
+        // 驱动服务层 finally 清理附件暂存目录并向上传播 OperationCanceledException。
+        public bool ThrowCancellationOnCompress { get; set; }
+        // 引擎执行中取消：延迟指定毫秒后抛取消异常，配合外部 CancelAfter 模拟用户中途取消。
+        public int CancelAfterMilliseconds { get; set; }
 
         public ScriptedArchiveEngine(Func<string, bool>? shouldFail = null) => _shouldFail = shouldFail;
 
         public bool IsAvailable() => true;
 
-        public Task<ArchiveResult> CompressAsync(
+        public async Task<ArchiveResult> CompressAsync(
             string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
         {
             CompressionInputs.Add(Path.GetFileName(input));
             CompressionOptions.Add(options);
+            if (CancelAfterMilliseconds > 0)
+            {
+                await Task.Delay(CancelAfterMilliseconds, cancellationToken);
+                cancellationToken.ThrowIfCancellationRequested();
+                return new ArchiveResult { Success = false, ErrorMessage = "不应到达：延迟后应已取消" };
+            }
+
+            if (ThrowCancellationOnCompress)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                throw new InvalidOperationException("ThrowCancellationOnCompress 需要已取消的令牌");
+            }
             if (_shouldFail?.Invoke(input) == true)
             {
-                return Task.FromResult(new ArchiveResult { Success = false, ErrorMessage = "scripted failure" });
+                return new ArchiveResult { Success = false, ErrorMessage = "scripted failure" };
             }
 
             if (WriteRealOutput)
@@ -1898,7 +2084,7 @@ internal static class Program
                 File.WriteAllBytes(output, new byte[OutputBytesPerFile]);
             }
 
-            return Task.FromResult(new ArchiveResult { Success = true });
+            return new ArchiveResult { Success = true };
         }
 
         public Task<ArchiveResult> ExtractAsync(

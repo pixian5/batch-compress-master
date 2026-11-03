@@ -527,6 +527,7 @@ public class BatchOperationService
                     [sourcePath],
                     "【已压缩】",
                     L.PostProcessItemCompressionSource,
+                    PostProcessItemKind.CompressionSource,
                     PreflightWholeGroup: false));
                 var postProcessFailed = postProcessFailures.Count > 0;
                 var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
@@ -817,6 +818,7 @@ public class BatchOperationService
                     resolved.FilesForPostProcessing,
                     "【已解压】",
                     L.PostProcessItemDecompressionArchive,
+                    PostProcessItemKind.DecompressionArchive,
                     PreflightWholeGroup: true));
                 var postProcessFailed = postProcessFailures.Count > 0;
                 var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;

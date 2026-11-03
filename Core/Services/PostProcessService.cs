@@ -18,6 +18,17 @@ public enum PostProcessMode
 }
 
 /// <summary>
+/// 后处理目标种类：压缩源（文件或目录）或解压归档（可能为整组分卷）。
+/// GLM-5.3, 2026-11-04：外部审核指出删除失败词条此前借用 PreflightWholeGroup
+/// 布尔值区分压缩/解压属于语义偷渡；显式枚举解耦，两者不再相互隐含。
+/// </summary>
+public enum PostProcessItemKind
+{
+    CompressionSource,
+    DecompressionArchive
+}
+
+/// <summary>
 /// GLM-5.3, 2026-11-04：批次 2 从压缩/解压双循环中抽出的后处理请求。
 /// PreflightWholeGroup 为 true（解压多卷）时移动前先整组检查目标，
 /// 任一冲突即保留整组；false（压缩单源）不预检。
@@ -27,6 +38,7 @@ public sealed record PostProcessRequest(
     IReadOnlyList<string> Targets,
     string ProcessedFolderName,
     string ItemLabel,
+    PostProcessItemKind ItemKind,
     bool PreflightWholeGroup);
 
 /// <summary>
@@ -73,9 +85,9 @@ public sealed class PostProcessService
                 catch (Exception ex)
                 {
                     // 失败词条沿用双循环时期的差异：压缩源用 PostProcessDeleteSourceFailed，
-                    // 解压归档（整组卷）用 PostProcessHandleArchiveFailed，由 PreflightWholeGroup 区分。
+                    // 解压归档（整组卷）用 PostProcessHandleArchiveFailed，由显式 ItemKind 区分。
                     failures.Add(string.Format(
-                        request.PreflightWholeGroup
+                        request.ItemKind == PostProcessItemKind.DecompressionArchive
                             ? L.PostProcessHandleArchiveFailed
                             : L.PostProcessDeleteSourceFailed,
                         target,
@@ -120,8 +132,8 @@ public sealed class PostProcessService
             catch (Exception ex)
             {
                 // 外层只覆盖目录创建等基础设施异常；移动自身的失败已在 TryMoveWithoutOverwrite 内本地化。
-                // 压缩与解压沿用双循环时期的词条差异：压缩 3 参、解压 2 参。
-                if (request.PreflightWholeGroup)
+                // 压缩与解压沿用双循环时期的词条差异：压缩 3 参、解压 2 参，由 ItemKind 显式区分。
+                if (request.ItemKind == PostProcessItemKind.DecompressionArchive)
                 {
                     failures.Add(string.Format(L.PostProcessHandleArchiveFailed, target, ex.Message));
                 }

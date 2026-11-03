@@ -92,12 +92,14 @@ public static class ArchiveVolumeResolver
     // GLM-5.3, 2026-11-03：旧式 RAR / ZIP 分卷（base.r00…、base.z01…）。编号至少两位，
     // 避免把 file.r1、data.gz 之类普通扩展名误认成分卷；主卷 base.rar / base.zip 由
     // VolumePattern.MainVolumeFileName 显式并入，不依赖该正则匹配。
+    // GLM-5.3, 2026-11-04：外部审核指出 .z00 匹配后编号 0+1=1 与主卷撞号、误判重复；
+    // PKZIP 分卷从 .z01 起，用负向前瞻排除 00 开头编号。.r00 是 RAR 合法首分卷，不受影响。
     private static readonly Regex RarOldStyleRegex = new(
         @"^(?<base>.+)\.r(?<number>\d{2,})$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     private static readonly Regex ZipOldStyleRegex = new(
-        @"^(?<base>.+)\.z(?<number>\d{2,})$",
+        @"^(?<base>.+)\.z(?!00)(?<number>\d{2,})$",
         RegexOptions.IgnoreCase | RegexOptions.CultureInvariant);
 
     public static ArchiveVolumeResolveResult Resolve(string path)
@@ -347,12 +349,18 @@ public static class ArchiveVolumeResolver
     /// GLM-5.3, 2026-11-03：把组内编号换算为用户可直接对照的文件名后缀描述。
     /// 旧式分卷的组内编号与文件名后缀存在偏移（.r01 组内编号为 3），直接显示数字会误导，
     /// 因此旧式返回实际后缀（如 r01 / z02），part 分卷返回 partN.rar，数字分卷维持原数字。
+    /// GLM-5.3, 2026-11-04：外部审核指出 Math.Max 截断导致编号 1（主卷）与 2（首分卷）
+    /// 输出相同后缀；编号 1 是主卷，显式返回 rar / zip。
     /// </summary>
     public static string DescribeVolumeSuffix(ArchiveVolumeResolveResult resolved, long number) =>
         resolved.VolumeKind switch
         {
-            ArchiveVolumeKind.RarOldStyle => $"r{Math.Max(0, number - 2).ToString("D2", CultureInfo.InvariantCulture)}",
-            ArchiveVolumeKind.ZipOldStyle => $"z{Math.Max(1, number - 1).ToString("D2", CultureInfo.InvariantCulture)}",
+            ArchiveVolumeKind.RarOldStyle => number == 1
+                ? "rar"
+                : $"r{(number - 2).ToString("D2", CultureInfo.InvariantCulture)}",
+            ArchiveVolumeKind.ZipOldStyle => number == 1
+                ? "zip"
+                : $"z{(number - 1).ToString("D2", CultureInfo.InvariantCulture)}",
             ArchiveVolumeKind.RarPart => $"part{number.ToString(CultureInfo.InvariantCulture)}.rar",
             _ => number.ToString(CultureInfo.InvariantCulture)
         };
@@ -509,7 +517,7 @@ public static class ArchiveVolumeResolver
             ArchiveVolumeKind.SevenZipNumeric => $@"^{escapedBase}\.7z\.(?<number>\d+)$",
             ArchiveVolumeKind.ZipNumeric => $@"^{escapedBase}\.zip\.(?<number>\d+)$",
             ArchiveVolumeKind.RarOldStyle => $@"^{escapedBase}\.r(?<number>\d{{2,}})$",
-            ArchiveVolumeKind.ZipOldStyle => $@"^{escapedBase}\.z(?<number>\d{{2,}})$",
+            ArchiveVolumeKind.ZipOldStyle => $@"^{escapedBase}\.z(?!00)(?<number>\d{{2,}})$",
             ArchiveVolumeKind.SevenZipOtherNumeric =>
                 $@"^{escapedBase}\.{Regex.Escape(extension ?? string.Empty)}\.(?<number>\d+)$",
             _ => "(?!)"
