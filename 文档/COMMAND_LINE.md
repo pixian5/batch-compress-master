@@ -83,6 +83,8 @@ GLM-5.3，2026-11-04（批次 8 文档化）：`--concurrency/-j` 大于 1 时�
 - `--verbose`：逐项显示进度和完整归档进程 stdout/stderr。
 - `--quiet`：只向 stderr 输出错误；不能与 verbose 同时使用。
 - `--log-file PATH`：指定 UTF-8 日志文件；默认写入程序目录的 `logs/`。
+- `--language LANG` / `--lang LANG`：指定界面或命令行语言。支持 `zh-CN`、`zh-TW`、`en`、`ja`、`de`。仅传语言且不带批处理参数时，默认启动对应语言的桌面 GUI；带批处理参数时控制终端输出文案与错误信息语言。
+- `--output-format text|json` / `--format-output`：指定输出格式，默认 `text`；`json` 开启标准 NDJSON 事件流。
 
 | 退出码 | 含义 |
 | --- | --- |
@@ -90,6 +92,27 @@ GLM-5.3，2026-11-04（批次 8 文档化）：`--concurrency/-j` 大于 1 时�
 | `1` | 归档失败、后处理失败、没有匹配项目或运行时错误。 |
 | `2` | 参数或输入验证错误。 |
 | `130` | Ctrl+C 取消。 |
+
+## NDJSON 结构化流式输出
+
+批次 3 / 8 / 9 规范：通过 `--output-format json`（或 `--format-output json`）启用机器可解析的单行 JSON（NDJSON）流，适用于自动化脚本、监控后台或管道集成。
+
+- **格式特征**：每行输出为一个独立的 JSON 对象，UTF-8 编码，保留可读非 ASCII 字符（如中文文件名与提示）；密码绝不输出到流中。
+- **事件 Schema**：
+  1. `progress`（任务进度事件）：
+     ```json
+     {"type":"progress","phase":"start","source":"item1.txt","message":"[1/2] 正在处理 item1.txt...","successCount":0,"failCount":0,"nonexistentCount":0,"postProcessFailCount":0}
+     ```
+  2. `item`（单项完成事件）：
+     ```json
+     {"type":"item","status":"success","source":"item1.txt","message":"成功：item1.txt -> item1.7z","successCount":1,"failCount":0,"nonexistentCount":0,"postProcessFailCount":0}
+     ```
+     `status` 可为 `success`（成功）、`skip`（跳过已有/忽略）、`fail`（归档失败）等。
+  3. `summary`（最终汇总事件）：
+     ```json
+     {"type":"summary","success":2,"failed":0,"postProcessFailed":0,"nonexistent":0,"elapsedSeconds":3.250}
+     ```
+- **消费准则**：在并发模式（`-j > 1`）下，消费端应依赖每行事件中的 `source` 字段来聚合与追踪特定任务的生命周期，而非依赖接收顺序。
 
 ## 示例
 

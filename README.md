@@ -4,9 +4,11 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.7.2`（体验与健壮性优化批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
+当前版本：`0.7.3`（体验与健壮性优化批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
 
 ## 当前开发进度
+
+`0.7.3` 完成批次 9（2026-11-04）：**GUI 附件配置一键保存与重置**——在主窗口附件列表栏提供“保存为默认配置”与“恢复默认模版”操作按钮，支持全 5 语言本地化（简体中文、繁體中文、English、日本語、Deutsch），一键持久化至跨平台配置文件并实时提示；**日志 Gzip 轮转容灾降级（防丢日志）**——`FileLoggerService` 采用临时文件写入加原子替换机制，在极端磁盘满或 IO 异常时自动降级保留纯文本代次，绝不丢失任何日志；**补全 `文档/COMMAND_LINE.md` 完整参考**——补充 `--language / --lang` 5 语言与默认 GUI 启动语义，以及 `--output-format json`（NDJSON 事件流 Schema、事件类型与敏感信息保护规范）；测试 52 → **54 项**全过、Release 构建 0 警告 0 错误。详细内容见 [docs/20261104-1030-批次9完成报告-Antigravity.md](docs/20261104-1030-批次9完成报告-Antigravity.md)。
 
 `0.7.2` 完成批次 8（2026-11-04）：**附件联系方式外置**——新建 `Core/Services/EnclosureConfigService.cs`，GUI 启动时按“自定义路径 > 应用目录相邻 `enclosures.txt`（便携模式）> 用户应用数据目录（Unix `~/.config/batchcompress/enclosures.txt`）”查找配置，无配置回退默认联系文案（原硬编码逐字保留），IO 失败安全回退不阻断启动，`MainWindowViewModel` 两处硬编码全部移除；**旧代日志 Gzip 压缩归档**——轮转第 1 代 `.1` 保持纯文本（cat/tail 直接查看），第 2 代起为 `.log.<代次>.gz`（BCL `GZipStream` 零外部依赖，实测文本压缩约 96% 节省、系统 gunzip 互操作校验通过），0.7.1 遗留纯文本代下一轮转自动收敛，`.gz` 同样 0600 并纳入 7 天过期清理；**并发无序性文档化**——`文档/COMMAND_LINE.md` 新增“并发执行”章节（完成顺序非输入顺序、NDJSON 消费方须按 `source` 字段关联、达限/取消/关机语义）；测试 50 → **52 项**全过、Release 构建 0 警告 0 错误。详细内容见 [docs/20261104-0917-批次8完成报告-GLM-5.3.md](docs/20261104-0917-批次8完成报告-GLM-5.3.md)。
 
@@ -16,7 +18,7 @@
 
 ## 下一步待实现
 
-批次 8 已收口。后续候选方向（未排期）：GUI 附件文案“编辑并保存到配置文件”的界面入口（当前服务已具备 `SaveEnclosuresText`，仅缺 UI 按钮）、COMMAND_LINE.md 补全批次 3 起的 `--language`/`--output-format` 完整参考、外部 AI 审查者整体复核。发布通道：推送 `v0.7.2` tag 或在 Actions 页手工触发 Release 工作流即可产出三平台安装包。见 [docs/20261104-0917-下一步待实现-GLM-5.3.md](docs/20261104-0917-下一步待实现-GLM-5.3.md)。
+批次 9 已收口。后续候选方向：GUI 启动冒烟测试脚本化、多平台 Release 触发验证、外部审查复核。发布通道：推送 `v0.7.3` tag 或在 Actions 页手工触发 Release 工作流即可产出三平台安装包。见 [docs/20261104-1030-下一步待实现-Antigravity.md](docs/20261104-1030-下一步待实现-Antigravity.md)。
 
 ## 功能
 

@@ -27,6 +27,8 @@ public partial class MainWindowViewModel : ViewModelBase
     private readonly BatchOperationService _batchOperationService;
     // GPT-5, 2026-09-30：GUI 的文件日志器（设计器模式下为 null），把服务层诊断写入用户数据目录 logs。
     private readonly FileLoggerService? _fileLogger;
+    // GLM-5.3, 2026-11-04：批次 9——附件配置服务（构造可注入，测试用显式临时路径隔离用户目录）。
+    private readonly EnclosureConfigService _enclosureConfig;
     // GLM-5.3, 2026-11-04：批次 2 阶段 3——通知节流等会话状态迁至 OperationSession；取消令牌仍由 VM 持有。
     private CancellationTokenSource? _cancellationTokenSource;
     private readonly OperationTabState _compressionTabState = new();
@@ -468,8 +470,11 @@ public partial class MainWindowViewModel : ViewModelBase
         }
     }
 
-    public MainWindowViewModel()
+    public MainWindowViewModel(EnclosureConfigService? enclosureConfig = null)
     {
+        // GLM-5.3, 2026-11-04：批次 9——附件配置服务可注入；默认行为与批次 8 一致。
+        _enclosureConfig = enclosureConfig ?? new EnclosureConfigService();
+
         // GPT-5, 2026-08-06：按归档格式选择 WinRAR/RAR 或官方 7zz，界面不直接依赖具体命令行工具。
         _archiveEngine = new ArchiveEngineRouter();
         _systemIntegration = new SystemIntegrationService();
@@ -499,7 +504,8 @@ public partial class MainWindowViewModel : ViewModelBase
         // GLM-5.3, 2026-11-04：批次 8——附件联系方式不再硬编码：
         // 优先读用户配置文件（~/.config/batchcompress/enclosures.txt 或应用目录相邻），
         // 不存在或为空时回退默认联系文案模版。
-        EnclosureList = new EnclosureConfigService().LoadEnclosuresText();
+        // GLM-5.3, 2026-11-04：批次 9——改用注入的配置服务实例（测试可隔离）。
+        EnclosureList = _enclosureConfig.LoadEnclosuresText();
 
         // GPT-5, 2026-08-05：仅在剪贴板文本是现有目录时采用，绝不把任意复制文本作为路径。
         Dispatcher.UIThread.Post(async () =>
@@ -628,6 +634,34 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             await BrowseAttachmentRequested();
         }
+    }
+
+    // GLM-5.3, 2026-11-04：批次 9——把界面当前附件文案持久化为启动默认配置。
+    // 状态提示走 CurrentFile 状态行（GUI 既有用户可见反馈位，等价于 StatusMessage），
+    // 操作过程写入文件日志便于诊断；保存失败不抛出（服务层已尽力而为并警告）。
+    [RelayCommand]
+    private void SaveEnclosuresConfig()
+    {
+        if (_enclosureConfig.SaveEnclosuresText(EnclosureList))
+        {
+            CurrentFile = L.EnclosuresConfigSaved;
+            _fileLogger?.LogOperation("EnclosureConfig", $"保存附件默认配置（{EnclosureList.Length} 字符）");
+        }
+        else
+        {
+            CurrentFile = L.EnclosuresConfigSaveFailed;
+            _fileLogger?.LogWarning("保存附件默认配置失败");
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：批次 9——恢复内置默认联系文案模版（仅重置界面文本，
+    // 不删除已保存的配置文件；用户可编辑后再次保存覆盖）。
+    [RelayCommand]
+    private void ResetEnclosuresConfig()
+    {
+        EnclosureList = EnclosureConfigService.GetDefaultEnclosuresText();
+        CurrentFile = L.EnclosuresConfigReset;
+        _fileLogger?.LogOperation("EnclosureConfig", "恢复附件默认联系文案模版");
     }
 
     [RelayCommand]

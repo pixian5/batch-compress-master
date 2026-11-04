@@ -348,4 +348,13 @@ public class LanguageStrings : INotifyPropertyChanged
     public string CliErrorConcurrencyRange { get; set; } = "--concurrency 必须在 1 到 16 之间。";
     public string MaxConcurrencyLabel { get; set; } = "并发数：";
     public string TooltipMaxConcurrency { get; set; } = "同时执行的归档任务数（1-16）；1 为串行，较大值会同时运行多个压缩/解压进程。";
+
+    // GLM-5.3, 2026-11-04：批次 9——GUI 附件配置“保存为默认配置/恢复默认模版”词条。
+    public string SaveEnclosuresConfig { get; set; } = "保存为默认配置";
+    public string ResetEnclosuresConfig { get; set; } = "恢复默认模版";
+    public string TooltipSaveEnclosuresConfig { get; set; } = "将当前附件列表文本保存为程序启动时的默认配置";
+    public string TooltipResetEnclosuresConfig { get; set; } = "恢复内置默认联系文案模版（不影响已保存配置，可再次保存覆盖）";
+    public string EnclosuresConfigSaved { get; set; } = "附件默认配置已保存";
+    public string EnclosuresConfigReset { get; set; } = "已恢复默认联系文案模版";
+    public string EnclosuresConfigSaveFailed { get; set; } = "附件默认配置保存失败，详见控制台警告";
 }

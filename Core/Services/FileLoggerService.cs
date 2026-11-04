@@ -157,6 +157,8 @@ public class FileLoggerService : ILogger, IDisposable
     // 2) .log.g.gz（g>=2）直接重命名为 .log.{g+1}.gz（内容不变，不重压缩）；
     // 3) 纯文本 .log.g（第 1 代常态，或 0.7.1 版残留的旧代）压缩写入 .log.{g+1}.gz 后删除原文，
     //    使任何历史布局在下一轮转后收敛到 “.1 纯文本 + .2+.gz” 的标准形态。
+    // Antigravity, 2026-11-04：批次 9——容灾兜底：压缩采用临时文件写入加原子替换机制；
+    // 若压缩过程因磁盘满或权限受阻抛出异常，自动降级为保留纯文本移动至下一代，杜绝日志丢失。
     private void ShiftRotatedGenerations()
     {
         File.Delete($"{_logFilePath}.{_maxRotatedGenerations}");
@@ -174,25 +176,62 @@ public class FileLoggerService : ILogger, IDisposable
             var plainPath = $"{_logFilePath}.{generation}";
             if (File.Exists(plainPath))
             {
-                CompressFileToGzip(plainPath, $"{_logFilePath}.{generation + 1}.gz");
-                File.Delete(plainPath);
+                var targetGz = $"{_logFilePath}.{generation + 1}.gz";
+                if (TryCompressFileToGzip(plainPath, targetGz))
+                {
+                    File.Delete(plainPath);
+                }
+                else
+                {
+                    // 降级兜底：压缩失败时保留纯文本并移动到下一代，避免日志丢失。
+                    try
+                    {
+                        File.Move(plainPath, $"{_logFilePath}.{generation + 1}", overwrite: true);
+                    }
+                    catch (Exception moveEx)
+                    {
+                        Console.WriteLine($"Warning: Failed to move plain log fallback '{plainPath}': {moveEx.Message}");
+                    }
+                }
             }
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 8——单文件 Gzip 压缩（BCL 内置，零外部依赖）：
-    // Optimal 级别对文本日志的空间收益接近最大而 CPU 开销可忽略（每次轮转仅压缩一份旧代）。
-    private static void CompressFileToGzip(string sourcePath, string targetPath)
+    // GLM-5.3, 2026-11-04：批次 8——单文件 Gzip 压缩（BCL 内置，零外部依赖）。
+    // Antigravity, 2026-11-04：批次 9——临时文件原子写入与全链路异常捕获。
+    internal static bool TryCompressFileToGzip(string sourcePath, string targetPath)
     {
-        using (var input = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
-        using (var output = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
-        using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        var tempPath = targetPath + ".tmp";
+        try
         {
-            input.CopyTo(gzip);
-        }
+            using (var input = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+            using (var output = new FileStream(tempPath, FileMode.Create, FileAccess.Write, FileShare.None))
+            using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+            {
+                input.CopyTo(gzip);
+            }
 
-        // 压缩生成的 .gz 归档同样收紧为 Unix 0600（内容源自含密码的日志）。
-        RestrictLogFilePermissions(targetPath);
+            // 压缩生成的 .gz 归档同样收紧为 Unix 0600（内容源自含密码的日志）。
+            RestrictLogFilePermissions(tempPath);
+            File.Move(tempPath, targetPath, overwrite: true);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Warning: Failed to compress log file '{sourcePath}' to '{targetPath}': {ex.Message}");
+            try
+            {
+                if (File.Exists(tempPath))
+                {
+                    File.Delete(tempPath);
+                }
+            }
+            catch
+            {
+                // 忽略清理临时文件的次生异常。
+            }
+            return false;
+        }
     }
 
     // GLM-5.3, 2026-11-04：批次 4/7/8——会话启动时清理过期日志：仅删除日志目录内

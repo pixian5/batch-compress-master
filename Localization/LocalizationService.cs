@@ -398,6 +398,15 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorConcurrencyRange = "--concurrency 必须在 1 到 16 之间。",
             MaxConcurrencyLabel = "并发数：",
             TooltipMaxConcurrency = "同时执行的归档任务数（1-16）；1 为串行，较大值会同时运行多个压缩/解压进程。",
+
+            // GLM-5.3, 2026-11-04：批次 9——GUI 附件配置保存/恢复词条（简体中文）。
+            SaveEnclosuresConfig = "保存为默认配置",
+            ResetEnclosuresConfig = "恢复默认模版",
+            TooltipSaveEnclosuresConfig = "将当前附件列表文本保存为程序启动时的默认配置",
+            TooltipResetEnclosuresConfig = "恢复内置默认联系文案模版（不影响已保存配置，可再次保存覆盖）",
+            EnclosuresConfigSaved = "附件默认配置已保存",
+            EnclosuresConfigReset = "已恢复默认联系文案模版",
+            EnclosuresConfigSaveFailed = "附件默认配置保存失败，详见控制台警告",
         };
     }
     
@@ -700,6 +709,15 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorConcurrencyRange = "--concurrency 必須在 1 到 16 之間。",
             MaxConcurrencyLabel = "並行數：",
             TooltipMaxConcurrency = "同時執行的封存任務數（1-16）；1 為串列，較大值會同時執行多個壓縮/解壓程序。",
+
+            // GLM-5.3, 2026-11-04：批次 9——GUI 附件配置保存/恢復詞條（繁體中文）。
+            SaveEnclosuresConfig = "儲存為預設配置",
+            ResetEnclosuresConfig = "恢復預設範本",
+            TooltipSaveEnclosuresConfig = "將目前附件清單文字儲存為程式啟動時的預設配置",
+            TooltipResetEnclosuresConfig = "恢復內建預設聯絡文案範本（不影響已儲存配置，可再次儲存覆蓋）",
+            EnclosuresConfigSaved = "附件預設配置已儲存",
+            EnclosuresConfigReset = "已恢復預設聯絡文案範本",
+            EnclosuresConfigSaveFailed = "附件預設配置儲存失敗，詳見主控台警告",
         };
     }
     
@@ -1002,6 +1020,15 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorConcurrencyRange = "--concurrency must be between 1 and 16.",
             MaxConcurrencyLabel = "Concurrency:",
             TooltipMaxConcurrency = "Number of archive tasks to run at once (1-16); 1 is serial, larger values run multiple archiver processes.",
+
+            // GLM-5.3, 2026-11-04：批次 9——GUI 附件配置保存/恢复词条（English，不含任何中文字符）。
+            SaveEnclosuresConfig = "Save as Default",
+            ResetEnclosuresConfig = "Reset to Template",
+            TooltipSaveEnclosuresConfig = "Save the current enclosure list text as the startup default",
+            TooltipResetEnclosuresConfig = "Restore the built-in contact template (the saved config is kept until you save again)",
+            EnclosuresConfigSaved = "Enclosure default config saved",
+            EnclosuresConfigReset = "Contact template restored",
+            EnclosuresConfigSaveFailed = "Failed to save enclosure default config, see console warning",
         };
     }
     
@@ -1304,6 +1331,15 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorConcurrencyRange = "--concurrency は 1～16 の範囲で指定してください。",
             MaxConcurrencyLabel = "並列数：",
             TooltipMaxConcurrency = "同時に実行するアーカイブタスク数（1-16）。1 は逐次実行、大きい値は複数プロセスを並行実行します。",
+
+            // GLM-5.3, 2026-11-04：批次 9——GUI 附件配置保存/恢復詞條（日本語）。
+            SaveEnclosuresConfig = "デフォルトとして保存",
+            ResetEnclosuresConfig = "テンプレートに戻す",
+            TooltipSaveEnclosuresConfig = "現在の添付リストのテキストを起動時のデフォルトとして保存",
+            TooltipResetEnclosuresConfig = "内蔵の連絡先テンプレートに戻す（保存済み設定はそのまま、再保存で上書きされます）",
+            EnclosuresConfigSaved = "添付のデフォルト設定を保存しました",
+            EnclosuresConfigReset = "連絡先テンプレートを復元しました",
+            EnclosuresConfigSaveFailed = "添付のデフォルト設定の保存に失敗しました。コンソールの警告を参照してください",
         };
     }
     
@@ -1607,6 +1643,15 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorConcurrencyRange = "--concurrency muss zwischen 1 und 16 liegen.",
             MaxConcurrencyLabel = "Parallelität:",
             TooltipMaxConcurrency = "Anzahl gleichzeitig laufender Archiv-Aufgaben (1-16); 1 ist seriell, größere Werte starten mehrere Prozesse.",
+
+            // GLM-5.3, 2026-11-04：批次 9——GUI 附件配置保存/恢复词条（Deutsch，不含任何中文字符）。
+            SaveEnclosuresConfig = "Als Standard speichern",
+            ResetEnclosuresConfig = "Auf Vorlage zurücksetzen",
+            TooltipSaveEnclosuresConfig = "Den aktuellen Anhangslistentext als Startstandard speichern",
+            TooltipResetEnclosuresConfig = "Eingebaute Kontaktvorlage wiederherstellen (die gespeicherte Konfiguration bleibt bis zum erneuten Speichern erhalten)",
+            EnclosuresConfigSaved = "Anhang-Standardkonfiguration gespeichert",
+            EnclosuresConfigReset = "Kontaktvorlage wiederhergestellt",
+            EnclosuresConfigSaveFailed = "Anhang-Standardkonfiguration konnte nicht gespeichert werden, siehe Konsolenwarnung",
         };
     }
 }

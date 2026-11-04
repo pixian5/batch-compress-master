@@ -158,7 +158,11 @@
                             <StackPanel IsVisible="{Binding AddEnclosures}" Margin="0,2">
                                 <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,*" ColumnSpacing="8">
                                     <TextBlock Grid.Column="0" Text="{Binding L.AttachmentDirectoryLabel}" VerticalAlignment="Center" ToolTip.Tip="{Binding L.TooltipAttachmentList}"/>
-                                    <Button Grid.Column="1" Content="{Binding L.Browse}" Command="{Binding BrowseAttachmentCommand}" ToolTip.Tip="{Binding L.SelectAttachmentFolder}"/>
+                                    <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+                                        <Button Content="{Binding L.Browse}" Command="{Binding BrowseAttachmentCommand}" ToolTip.Tip="{Binding L.SelectAttachmentFolder}"/>
+                                        <Button Content="{Binding L.SaveEnclosuresConfig}" Command="{Binding SaveEnclosuresConfigCommand}" ToolTip.Tip="{Binding L.TooltipSaveEnclosuresConfig}"/>
+                                        <Button Content="{Binding L.ResetEnclosuresConfig}" Command="{Binding ResetEnclosuresConfigCommand}" ToolTip.Tip="{Binding L.TooltipResetEnclosuresConfig}"/>
+                                    </StackPanel>
                                     <TextBox Grid.Row="1" Grid.ColumnSpan="2" Text="{Binding EnclosureList}" Height="100" AcceptsReturn="True" TextWrapping="Wrap"
                                              IsEnabled="{Binding AddEnclosures}"/>
                                 </Grid>

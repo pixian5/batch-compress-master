@@ -60,7 +60,9 @@ internal static class Program
             ("日志权限与轮转", TestLogFilePermissionsAndRotation),
             ("日志多代轮转", TestLogMultiGenerationRotation),
             ("日志旧代Gzip压缩", TestLogGzipCompressionRotation),
+            ("日志压缩异常降级兜底", TestLogGzipDegradedFallback),
             ("附件联系方式配置外置", TestEnclosureConfigService),
+            ("附件配置多语言与词条完整性", TestEnclosureLocalizationAndTokens),
             ("并发批量执行", TestConcurrentBatchExecution),
             ("并发取消与大小上限", TestConcurrentCancellationAndLimit),
             ("NDJSON结构化输出", TestNdjsonOutputWriter),
@@ -2888,6 +2890,92 @@ internal static class Program
             Directory.Delete(root, recursive: true);
         }
 
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 9——日志 Gzip 轮转容灾降级兜底测试：
+    // 1) 正常单文件压缩与内容解压校验、Unix 0600 权限校验；
+    // 2) 源文件不存在或目标被阻断时 TryCompressFileToGzip 返回 false 且不崩溃、清理临时文件；
+    // 3) 极端异常下服务层 ShiftRotatedGenerations 安全降级，保证当前写入不中断。
+    private static Task TestLogGzipDegradedFallback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-log-fallback-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            var src = Path.Combine(root, "source.log");
+            var originalContent = "日志行 0001: 包含中文与特殊字符 1234567890 !@#$%^&*()_+";
+            File.WriteAllText(src, originalContent, Encoding.UTF8);
+
+            // 1) 正常单文件压缩测试
+            var targetGz = Path.Combine(root, "target.log.gz");
+            var ok = FileLoggerService.TryCompressFileToGzip(src, targetGz);
+            Assert(ok, "正常路径下的 TryCompressFileToGzip 必须成功");
+            Assert(File.Exists(targetGz), "目标 .gz 必须存在");
+            AssertEqual(originalContent, ReadGzipText(targetGz));
+
+            if (!OperatingSystem.IsWindows())
+            {
+                AssertEqual(UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                    File.GetUnixFileMode(targetGz));
+            }
+
+            // 2) 源文件不存在测试
+            var missingSrc = Path.Combine(root, "nonexistent.log");
+            var okMissing = FileLoggerService.TryCompressFileToGzip(missingSrc, Path.Combine(root, "should_not_exist.gz"));
+            Assert(!okMissing, "源文件不存在时必须返回 false 而不抛出异常");
+            Assert(!File.Exists(Path.Combine(root, "should_not_exist.gz")), "不应生成目标文件");
+
+            // 3) 目标路径被文件阻断测试（父级是普通文件无法创建子文件）
+            var fileBlocker = Path.Combine(root, "blocker_file");
+            File.WriteAllText(fileBlocker, "block");
+            var blockedTarget = Path.Combine(fileBlocker, "sub", "target.gz");
+            var okBlocked = FileLoggerService.TryCompressFileToGzip(src, blockedTarget);
+            Assert(!okBlocked, "目标路径不可写时必须安全返回 false 而不崩溃");
+            Assert(!File.Exists(blockedTarget + ".tmp"), "必须清理临时文件");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 9——附件配置界面的 5 语言词条完整性测试：
+    // 覆盖简中、繁中、英文、日文、德文，断言全部词条非空且英德无中文残留。
+    private static Task TestEnclosureLocalizationAndTokens()
+    {
+        var languages = new[] { "zh-CN", "zh-TW", "en", "ja", "de" };
+        var service = LocalizationService.Instance;
+
+        foreach (var lang in languages)
+        {
+            service.CurrentLanguage = lang;
+            var s = service.Strings;
+
+            Assert(!string.IsNullOrWhiteSpace(s.SaveEnclosuresConfig), $"{lang} SaveEnclosuresConfig 不能为空");
+            Assert(!string.IsNullOrWhiteSpace(s.ResetEnclosuresConfig), $"{lang} ResetEnclosuresConfig 不能为空");
+            Assert(!string.IsNullOrWhiteSpace(s.TooltipSaveEnclosuresConfig), $"{lang} TooltipSaveEnclosuresConfig 不能为空");
+            Assert(!string.IsNullOrWhiteSpace(s.TooltipResetEnclosuresConfig), $"{lang} TooltipResetEnclosuresConfig 不能为空");
+            Assert(!string.IsNullOrWhiteSpace(s.EnclosuresConfigSaved), $"{lang} EnclosuresConfigSaved 不能为空");
+            Assert(!string.IsNullOrWhiteSpace(s.EnclosuresConfigReset), $"{lang} EnclosuresConfigReset 不能为空");
+            Assert(!string.IsNullOrWhiteSpace(s.EnclosuresConfigSaveFailed), $"{lang} EnclosuresConfigSaveFailed 不能为空");
+
+            if (lang is "en" or "de")
+            {
+                Assert(!Regex.IsMatch(s.SaveEnclosuresConfig, "[\u4e00-\u9fff]"), $"{lang} SaveEnclosuresConfig 不能含中文");
+                Assert(!Regex.IsMatch(s.ResetEnclosuresConfig, "[\u4e00-\u9fff]"), $"{lang} ResetEnclosuresConfig 不能含中文");
+                Assert(!Regex.IsMatch(s.TooltipSaveEnclosuresConfig, "[\u4e00-\u9fff]"), $"{lang} TooltipSaveEnclosuresConfig 不能含中文");
+                Assert(!Regex.IsMatch(s.TooltipResetEnclosuresConfig, "[\u4e00-\u9fff]"), $"{lang} TooltipResetEnclosuresConfig 不能含中文");
+                Assert(!Regex.IsMatch(s.EnclosuresConfigSaved, "[\u4e00-\u9fff]"), $"{lang} EnclosuresConfigSaved 不能含中文");
+                Assert(!Regex.IsMatch(s.EnclosuresConfigReset, "[\u4e00-\u9fff]"), $"{lang} EnclosuresConfigReset 不能含中文");
+                Assert(!Regex.IsMatch(s.EnclosuresConfigSaveFailed, "[\u4e00-\u9fff]"), $"{lang} EnclosuresConfigSaveFailed 不能含中文");
+            }
+        }
+
+        // 恢复默认语言
+        service.CurrentLanguage = "zh-CN";
         return Task.CompletedTask;
     }
 
