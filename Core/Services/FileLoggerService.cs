@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text;
+using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
 
 namespace BatchCompress.Avalonia.Core.Services;
@@ -11,11 +12,16 @@ namespace BatchCompress.Avalonia.Core.Services;
 // GPT-5, 2026-08-05：用于无界面执行的线程安全文件日志器。一个锁同时保护写入器生命周期和多线程进度消息，确保每条日志完整。
 // GLM-5.3, 2026-11-04：批次 4——日志可能包含命令行原文（含密码）与环境诊断：
 // 1) Unix 下新建日志文件即收紧为 0600（仅当前用户读写），防止同机其他用户读取；
-// 2) 单文件超过 rotationBytes（默认 10MB）轮转为 “.1”（旧 .1 删除，只保留一代）；
-// 3) 每次会话启动时清理 7 天前且匹配 batchcompress_*.log 模式的过期日志与轮转副本。
+// 2) 单文件超过 rotationBytes（默认 10MB）触发多代轮转；
+// GLM-5.3, 2026-11-04：批次 7——轮转升级为标准多代滚动：.1 → .2 → … → .N 依次后移，
+// 超过 maxRotatedGenerations（默认 5 代，含 .1.. .5）自动淘汰最旧一代，不再覆写 .1；
+// 3) 每次会话启动时清理 7 天前且匹配 batchcompress_*.log 模式的过期日志与全部轮转代副本。
 public class FileLoggerService : ILogger, IDisposable
 {
     private const long DefaultRotationBytes = 10 * 1024 * 1024;
+
+    // GLM-5.3, 2026-11-04：批次 7——默认保留的轮转代数（.1 至 .5），公开常量供测试与调用方对齐。
+    public const int DefaultRotatedGenerations = 5;
 
     // 每 64 次写入检查一次文件大小，避免高频日志路径上每次写都触碰文件系统元数据。
     private const int RotationCheckIntervalWrites = 64;
@@ -24,15 +30,23 @@ public class FileLoggerService : ILogger, IDisposable
 
     private readonly string _logFilePath;
     private readonly long _rotationBytes;
+
+    // GLM-5.3, 2026-11-04：批次 7——轮转代数上限（>=1，非法值回退默认）。
+    private readonly int _maxRotatedGenerations;
+
     private readonly object _lock = new();
     private StreamWriter? _writer;
     private bool _disposed;
     private int _writesSinceSizeCheck;
 
-    public FileLoggerService(string? logFilePath = null, long rotationBytes = DefaultRotationBytes)
+    public FileLoggerService(
+        string? logFilePath = null,
+        long rotationBytes = DefaultRotationBytes,
+        int maxRotatedGenerations = DefaultRotatedGenerations)
     {
         _logFilePath = logFilePath ?? GetDefaultLogPath();
         _rotationBytes = rotationBytes > 0 ? rotationBytes : DefaultRotationBytes;
+        _maxRotatedGenerations = maxRotatedGenerations > 0 ? maxRotatedGenerations : DefaultRotatedGenerations;
         EnsureLogDirectoryExists();
         PruneExpiredLogs();
         InitializeWriter();
@@ -102,8 +116,10 @@ public class FileLoggerService : ILogger, IDisposable
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 4——轻量轮转：当前文件超过阈值时改名为 “.1”（旧 .1 先删除），
-    // 随后新建同名日志继续写入；失败不影响后续写入（尽力而为）。
+    // GLM-5.3, 2026-11-04：批次 7——多代轮转：当前文件超过阈值时先整体后移轮转代
+    // （.N-1 → .N、…、.1 → .2，最旧的 .N 先淘汰），随后当前文件改名为 .1 并新建同名日志
+    // 继续写入；失败不影响后续写入（尽力而为）。File.Move 保留原文件权限，
+    // 因此轮转副本继承此前收紧的 0600，新当前文件由 InitializeWriter 重新收紧。
     private void RotateIfOversized()
     {
         try
@@ -114,15 +130,10 @@ public class FileLoggerService : ILogger, IDisposable
                 return;
             }
 
-            var rotatedPath = _logFilePath + ".1";
             _writer?.Dispose();
             _writer = null;
-            if (File.Exists(rotatedPath))
-            {
-                File.Delete(rotatedPath);
-            }
-
-            File.Move(_logFilePath, rotatedPath);
+            ShiftRotatedGenerations();
+            File.Move(_logFilePath, _logFilePath + ".1");
             InitializeWriter();
         }
         catch (Exception ex)
@@ -135,8 +146,28 @@ public class FileLoggerService : ILogger, IDisposable
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 4——会话启动时清理过期日志：仅删除日志目录内匹配
-    // batchcompress_*.log（及其 .1 轮转副本）且最后写入时间早于保留期的文件；
+    // GLM-5.3, 2026-11-04：批次 7——轮转代向上滚动：删除超限的最旧一代后，
+    // 从高代到低代依次后移一格；不存在的代直接跳过（首次/中间轮转无需补齐空洞）。
+    private void ShiftRotatedGenerations()
+    {
+        var oldestPath = $"{_logFilePath}.{_maxRotatedGenerations}";
+        if (File.Exists(oldestPath))
+        {
+            File.Delete(oldestPath);
+        }
+
+        for (var generation = _maxRotatedGenerations - 1; generation >= 1; generation--)
+        {
+            var sourcePath = $"{_logFilePath}.{generation}";
+            if (File.Exists(sourcePath))
+            {
+                File.Move(sourcePath, $"{_logFilePath}.{generation + 1}");
+            }
+        }
+    }
+
+    // GLM-5.3, 2026-11-04：批次 4/7——会话启动时清理过期日志：仅删除日志目录内
+    // 匹配 batchcompress_*.log（及其 .1.. .N 全部轮转代）且最后写入时间早于保留期的文件；
     // 用户显式指定的其它路径模式不受影响。
     private void PruneExpiredLogs()
     {
@@ -149,14 +180,14 @@ public class FileLoggerService : ILogger, IDisposable
             }
 
             var cutoff = DateTime.UtcNow - LogRetention;
-            foreach (var pattern in new[] { "batchcompress_*.log", "batchcompress_*.log.1" })
+            // 通配符先粗筛（Windows 三字符扩展名匹配会放宽到 *.log 前缀），再用
+            // IsBatchCompressLogName 精确锁定 “batchcompress_*.log” 与 “.log.<数字>”。
+            foreach (var file in Directory.EnumerateFiles(directory, "batchcompress_*.log*"))
             {
-                foreach (var file in Directory.EnumerateFiles(directory, pattern))
+                if (IsBatchCompressLogName(Path.GetFileName(file)) &&
+                    File.GetLastWriteTimeUtc(file) < cutoff)
                 {
-                    if (File.GetLastWriteTimeUtc(file) < cutoff)
-                    {
-                        File.Delete(file);
-                    }
+                    File.Delete(file);
                 }
             }
         }
@@ -165,6 +196,12 @@ public class FileLoggerService : ILogger, IDisposable
             Console.WriteLine($"Warning: Failed to prune expired logs: {ex.Message}");
         }
     }
+
+    // GLM-5.3, 2026-11-04：批次 7——精确匹配本工具的日志文件名：
+    // batchcompress_ 前缀 + .log 结尾或 .log.<纯数字代次> 结尾（多代轮转副本）。
+    private static bool IsBatchCompressLogName(string fileName) =>
+        fileName.StartsWith("batchcompress_", StringComparison.OrdinalIgnoreCase) &&
+        Regex.IsMatch(fileName, @"\.log(\.\d+)?$", RegexOptions.CultureInvariant);
 
     public string LogFilePath => _logFilePath;
 

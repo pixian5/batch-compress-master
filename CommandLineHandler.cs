@@ -90,6 +90,10 @@ public static class CommandLineHandler
         public CommandLineOptions Options { get; } = new();
         public List<string> Errors { get; } = [];
         public bool ExplicitGui { get; set; }
+
+        // GLM-5.3, 2026-11-04：批次 7——命令行出现过“有效的”--language/--lang 即置位，
+        // 用于“纯 GUI 平滑启动”判定（见 ShouldDefaultToGui）。
+        public bool LanguageRequested { get; set; }
         public bool RandomPassword { get; set; } = true;
         public bool NoRandomPassword { get; set; }
         public bool NoSolid { get; set; }
@@ -168,7 +172,8 @@ public static class CommandLineHandler
         语言与输出:
           --language, --lang <zh-CN|zh-TW|en|ja|de>
                                         界面与服务层消息语言（接受 en-US、ja-JP、de-DE
-                                        等区域变体，自动归一），默认 zh-CN
+                                        等区域变体，自动归一），默认 zh-CN；单独使用
+                                        且不带模式动词时直接以该语言启动图形界面
           --output-format <text|json>   stdout 输出格式，默认 text；json 模式按
                                         NDJSON 逐行输出 progress/item/summary 事件，
                                         命令与进程原始输出（含密码）不进入 JSON 流，
@@ -248,7 +253,8 @@ public static class CommandLineHandler
         語言與輸出:
           --language, --lang <zh-CN|zh-TW|en|ja|de>
                                         介面與服務層訊息語言（接受 en-US、ja-JP、de-DE
-                                        等區域變體，自動歸一），預設 zh-CN
+                                        等區域變體，自動歸一），預設 zh-CN；單獨使用
+                                        且不帶模式動詞時直接以該語言啟動圖形介面
           --output-format <text|json>   stdout 輸出格式，預設 text；json 模式按
                                         NDJSON 逐行輸出 progress/item/summary 事件，
                                         命令與程序原始輸出（含密碼）不進入 JSON 流，
@@ -332,7 +338,9 @@ public static class CommandLineHandler
           --language, --lang <zh-CN|zh-TW|en|ja|de>
                                         Language for UI and service messages
                                         (regional variants such as en-US, ja-JP and
-                                        de-DE are normalized), default zh-CN
+                                        de-DE are normalized), default zh-CN; used
+                                        alone without a mode verb it launches the
+                                        GUI directly in that language
           --output-format <text|json>    stdout format, default text; json emits
                                         NDJSON progress/item/summary events per line,
                                         raw command/process output (with passwords)
@@ -405,7 +413,11 @@ public static class CommandLineHandler
         options.VolumeUnit = NormalizeVolumeUnit(options.VolumeUnit);
         options.ExistingFileMode = (options.ExistingFileMode ?? "overwrite").Trim().ToLowerInvariant();
         options.PasswordName = (options.PasswordName ?? "archive").Trim().ToLowerInvariant();
-        options.Gui = effectiveArgs.Length == 0 || state.ExplicitGui;
+        // GLM-5.3, 2026-11-04：批次 7——放宽默认模式：
+        // 无参数（原有行为）或仅携带有效 --language/--lang 且无任何批处理来源/输出意图时，
+        // 默认进入 GUI 模式（如 `--lang en` 直接以英文启动桌面程序）。
+        options.Gui = effectiveArgs.Length == 0 || state.ExplicitGui ||
+                      ShouldDefaultToGui(options, state.LanguageRequested);
         options.Solid = options.Solid && !state.NoSolid;
         options.SkipProcessed = options.SkipProcessed && !state.NoSkipProcessed;
         options.AddEnclosures = options.AddEnclosures && !state.NoAddEnclosures;
@@ -424,8 +436,21 @@ public static class CommandLineHandler
             options.UseRandomPassword = false;
         }
 
-        Validate(options, state.ExplicitGui, explicitPasswordSourceCount, effectiveArgs, state.Errors);
+        Validate(options, state.ExplicitGui, state.LanguageRequested, explicitPasswordSourceCount, effectiveArgs, state.Errors);
         return new CommandLineParseOutcome { Options = options, Errors = state.Errors };
+    }
+
+    // GLM-5.3, 2026-11-04：批次 7——“纯 GUI 平滑启动”判定：
+    // 仅当用户显式给出有效 --language/--lang，且未携带任何批处理意图
+    // （--input/--source/--text-file/--output 均未出现）时才默认进入 GUI；
+    // 携带批处理来源或输出的命令行仍必须显式指定模式，避免误启动 GUI 掩盖参数错误。
+    private static bool ShouldDefaultToGui(CommandLineOptions options, bool languageRequested)
+    {
+        return languageRequested &&
+               string.IsNullOrWhiteSpace(options.SourcePath) &&
+               string.IsNullOrWhiteSpace(options.OutputPath) &&
+               string.IsNullOrWhiteSpace(options.TextFile) &&
+               options.InputPaths.Length == 0;
     }
 
     public static bool IsHelpRequested(string[] args)
@@ -878,6 +903,12 @@ public static class CommandLineHandler
                 break;
             case "--language":
                 state.Options.Language = NormalizeLanguage(value, state.Errors);
+                // GLM-5.3, 2026-11-04：批次 7——只有“有效的”语言值才允许触发默认 GUI
+                //（无效值已由上方 NormalizeLanguage 记录错误，退出码 2 路径不受影响）。
+                if (TryNormalizeLanguage(value, out _))
+                {
+                    state.LanguageRequested = true;
+                }
                 break;
             case "--output-format":
                 state.Options.OutputFormat = NormalizeOutputFormat(value, state.Errors);
@@ -931,6 +962,7 @@ public static class CommandLineHandler
     private static void Validate(
         CommandLineOptions options,
         bool explicitGui,
+        bool languageRequested,
         int explicitPasswordSourceCount,
         string[] effectiveArgs,
         List<string> errors)
@@ -946,7 +978,8 @@ public static class CommandLineHandler
         }
 
         var isHeadless = options.Compress || options.Decompress;
-        if (!isHeadless && !explicitGui && effectiveArgs.Length > 0)
+        if (!isHeadless && !explicitGui && effectiveArgs.Length > 0 &&
+            !ShouldDefaultToGui(options, languageRequested))
         {
             errors.Add(L.CliErrorSpecifyMode);
         }

@@ -194,6 +194,11 @@ public sealed class BatchExecutionPipeline<TInput>
         double processedSizeGB = 0;
         var limitReached = false;
 
+        // GLM-5.3, 2026-11-04：批次 7 审查结论：engineCts/gateCts/semaphore 均以 using
+        // 声明，无论 WhenAll 正常结束、外部取消（OperationCanceledException）还是适配器
+        // 真实异常向上传播，离开方法时都确定性释放（CreateLinkedTokenSource 对外部令牌的
+        // 注册随之撤销，SemaphoreSlim 句柄归还），不存在泄漏路径；Task.Run 任务全部被
+        // WhenAll 观测，不产生未观察的任务异常。
         using var engineCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         using var gateCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         using var semaphore = new SemaphoreSlim(options.MaxConcurrency, options.MaxConcurrency);
@@ -235,9 +240,12 @@ public sealed class BatchExecutionPipeline<TInput>
                         return;
                     }
 
+                    // GLM-5.3, 2026-11-04：批次 7——启动日志在锁外先写：
+                    // 日志文件 I/O（FileLoggerService 自带线程安全）不占用 gate 锁，
+                    // 缩短高并发下的临界区；消息内容不依赖共享进度对象。
+                    Log(LogLevel.Information, item.StartedLogMessage);
                     lock (gate)
                     {
-                        Log(LogLevel.Information, item.StartedLogMessage);
                         progressInfo.CurrentFile = item.DisplayName;
                         progressInfo.CurrentSourcePath = item.CurrentSourcePath;
                         progressInfo.Message = item.StartedMessage;
@@ -266,22 +274,30 @@ public sealed class BatchExecutionPipeline<TInput>
                         var postProcessFailures = _postProcessService.Apply(
                             _adapter.BuildPostProcessRequest(item, options));
 
+                        // GLM-5.3, 2026-11-04：批次 7——完成消息在锁外预构建：
+                        // 字符串格式化不依赖共享状态，锁内只做统计回写与快照上报；
+                        // 后处理失败的警告日志仍由锁内 RecordPostProcessFailure 统一记录
+                        //（与串行路径同一实现，避免双写）。
+                        var postProcessFailed = postProcessFailures.Count > 0;
+                        var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
+                        var completedMessage = postProcessFailed
+                            ? string.Format(L.ItemSucceededWithPostProcessFailure, item.DisplayName, postProcessReason)
+                            : string.Format(L.ItemSucceeded, item.DisplayName);
+
+                        var sizeLimitJustReached = false;
                         lock (gate)
                         {
                             progressInfo.SuccessCount++;
                             processedSizeGB += measuredBytes / BytesPerGB;
                             progressInfo.ProcessedSizeGB = processedSizeGB;
 
-                            var postProcessFailed = postProcessFailures.Count > 0;
-                            var postProcessReason = postProcessFailures.LastOrDefault() ?? string.Empty;
                             foreach (var failure in postProcessFailures)
                             {
                                 RecordPostProcessFailure(progressInfo, failure);
                             }
 
-                            progressInfo.Message = postProcessFailed
-                                ? string.Format(L.ItemSucceededWithPostProcessFailure, item.DisplayName, postProcessReason)
-                                : string.Format(L.ItemSucceeded, item.DisplayName);
+                            // 归档成功和后处理成功分别统计，避免“归档成功但移动失败”被显示为完全成功。
+                            progressInfo.Message = completedMessage;
                             progressInfo.IsError = postProcessFailed;
                             progressInfo.Elapsed = DateTime.Now - progressInfo.StartTime;
                             progress.Report(CloneProgress(progressInfo));
@@ -293,11 +309,17 @@ public sealed class BatchExecutionPipeline<TInput>
                                 processedSizeGB >= options.MaxSizeGB)
                             {
                                 limitReached = true;
-                                Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
+                                sizeLimitJustReached = true;
                                 progressInfo.Message = L.SizeLimitReached;
                                 progress.Report(CloneProgress(progressInfo));
                                 gateCts.Cancel();
                             }
+                        }
+
+                        if (sizeLimitJustReached)
+                        {
+                            // 批次 7：达限日志移出 gate 锁，临界区内只保留状态切换与取消信号。
+                            Log(LogLevel.Information, $"Size limit reached: {processedSizeGB:F3} GB >= {options.MaxSizeGB} GB");
                         }
                     }
                     else

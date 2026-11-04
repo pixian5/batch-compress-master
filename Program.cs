@@ -63,6 +63,9 @@ sealed class Program
         // GLM-5.3, 2026-11-04：批次 3——解析成功后立刻同步界面语言，
         // 无界面运行期服务层消息（ItemNotFound、ItemSucceeded 等）与 CLI 输出语言一致，
         // 彻底解决 CLI 英文文案与服务层默认中文混搭的问题。
+        // GLM-5.3, 2026-11-04：批次 7——`--lang en` 等纯语言调用（无模式动词、无批处理
+        // 来源/输出）在 CommandLineHandler 中已放宽为默认 GUI，因此此处语言同步完成后
+        // 自然落入下方 GUI 分支，桌面程序以指定语言启动（gui --lang en 语义保持不变）。
         LocalizationService.Instance.CurrentLanguage = options.Language;
 
         // GPT-5, 2026-08-05：无界面模式同步等待异步任务，确保 Main 返回真实的批处理退出码。

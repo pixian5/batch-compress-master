@@ -4,15 +4,17 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.7.0`（六批次重构收官里程碑）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
+当前版本：`0.7.1`（体验与健壮性优化批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
 
 ## 当前开发进度
 
-`0.7.0` 完成批次 6 并收官 2026-11-03 至 11-04 的全部六批次重构：三平台打包脚本体系（`scripts/package-{macos,windows,linux,all}.sh`，产物命名与 VERSION 严格绑定；macOS 输出 `.app.zip` 已本地实测）与 GitHub Releases 自动发布流（`.github/workflows/release.yml`：`v*` tag 或手工触发，三平台 48 项测试为发布硬门禁，gh CLI 创建 Release 并上传三平台附件，tag 与 VERSION 一致性校验）。六批次累计交付：**批次 0-2**（表征测试护栏→后处理/执行管线/来源收集/界面会话四层下沉，`BatchOperationService` 1,020→425 行、`MainWindowViewModel` 1,673→1,448 行、17 项表征零漂移、尾部斜杠致命缺陷阻断）；**批次 3-5**（CLI 五语言 `--language`＋NDJSON `--output-format json`、RAR 官方完整分发包合规化、MIT LICENSE、日志 0600/轮转/清理、CLI 错误全本地化、受控并发 `--concurrency/-j` 双令牌调度实测 2.4× 加速）；测试 30 → **48 项**全过、0 警告 0 错误。详细内容见 [docs/20261104-0232-全项目六批次重构全面收官报告-GLM-5.3.md](docs/20261104-0232-全项目六批次重构全面收官报告-GLM-5.3.md)。
+`0.7.1` 完成批次 7（2026-11-04）：**CLI 纯 GUI 语言平滑启动**——`--lang en` / `--lang ja` 等不带模式动词、不带批处理来源的命令行现在直接以指定语言启动桌面程序（携带 `--input/--source/--output/--text-file` 等批处理意图时仍要求显式模式，防止误启动 GUI 掩盖参数错误；三语帮助同步更新）；**多代日志轮转**——`FileLoggerService` 由单代 `.1` 升级为 `.1→.2→…→.5` 标准滚动（默认保留 5 代、超限淘汰最旧、0600 权限随 `File.Move` 继承、过期清理覆盖全部代次）；**并发管线锁内精简**——启动/达限日志与完成消息格式化移出 `gate` 锁（缩短高并发临界区），审查确认 `gateCts`/`engineCts`/信号量经 `using` 在取消与异常路径下均确定性释放；测试 48 → **50 项**全过、`dotnet build` 0 警告 0 错误。详细内容见 [docs/20261104-0854-批次7完成报告-GLM-5.3.md](docs/20261104-0854-批次7完成报告-GLM-5.3.md)。
+
+`0.7.0` 完成批次 6 并收官 2026-11-03 至 11-04 的全部六批次重构：三平台打包脚本体系（`scripts/package-{macos,windows,linux,all}.sh`，产物命名与 VERSION 严格绑定；macOS 输出 `.app.zip` 已本地实测）与 GitHub Releases 自动发布流（`.github/workflows/release.yml`：`v*` tag 或手工触发，三平台 48 项测试为发布硬门禁，gh CLI 创建 Release 并上传三平台附件，tag 与 VERSION 一致性校验）。六批次累计交付：**批次 0-2**（表征测试护栏→后处理/执行管线/来源收集/界面会话四层下沉，`BatchOperationService` 1,020→425 行、`MainWindowViewModel` 1,673→1,448 行、17 项表征零漂移、尾部斜杠致命缺陷阻断）；**批次 3-5**（CLI 五语言 `--language`＋NDJSON `--output-format json`、RAR 官方完整分发包合规化、MIT LICENSE、日志 0600/轮转/清理、CLI 错误全本地化、受控并发 `--concurrency/-j` 双令牌调度实测 2.4× 加速）；测试 30 → 48 项全过、0 警告 0 错误。详细内容见 [docs/20261104-0232-全项目六批次重构全面收官报告-GLM-5.3.md](docs/20261104-0232-全项目六批次重构全面收官报告-GLM-5.3.md)。
 
 ## 下一步待实现
 
-六批次重构计划已全部完成。后续候选方向（未排期）：外部 AI 审查者对 0.7.0 的整体复核、`--language` 纯 GUI 调用语义与附件联系方式外置两个遗留决策项、日志多代轮转、并发下消息顺序文档化。发布通道：推送 `v0.7.0` tag 或在 Actions 页手工触发 Release 工作流即可产出三平台安装包。见 [docs/20261104-0232-下一步待实现-GLM-5.3.md](docs/20261104-0232-下一步待实现-GLM-5.3.md)。
+批次 7 已收口。后续候选方向（未排期）：附件联系方式外置为配置文件、并发下消息完成顺序非确定的消费方文档化、日志压缩归档（gzip 旧代）、外部 AI 审查者整体复核。发布通道：推送 `v0.7.1` tag 或在 Actions 页手工触发 Release 工作流即可产出三平台安装包。见 [docs/20261104-0854-下一步待实现-GLM-5.3.md](docs/20261104-0854-下一步待实现-GLM-5.3.md)。
 
 ## 功能
 

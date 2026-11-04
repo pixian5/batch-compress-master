@@ -49,9 +49,11 @@ internal static class Program
             ("完整命令行解析", TestCommandLineParsing),
             ("命令行错误校验", TestCommandLineValidation),
             ("CLI语言参数", TestCliLanguageOptions),
+            ("CLI语言默认GUI启动", TestCliLanguageDefaultGui),
             ("CLI输出格式参数", TestCliOutputFormatOptions),
             ("CLI错误文案本地化", TestCliErrorLocalization),
             ("日志权限与轮转", TestLogFilePermissionsAndRotation),
+            ("日志多代轮转", TestLogMultiGenerationRotation),
             ("并发批量执行", TestConcurrentBatchExecution),
             ("并发取消与大小上限", TestConcurrentCancellationAndLimit),
             ("NDJSON结构化输出", TestNdjsonOutputWriter),
@@ -2149,6 +2151,69 @@ internal static class Program
         return Task.CompletedTask;
     }
 
+    // GLM-5.3, 2026-11-04：批次 7——--lang 纯 GUI 平滑启动：
+    // 仅携带有效 --language/--lang（不带模式动词、不带批处理来源/输出）时默认进入 GUI
+    // 并同步全局界面语言；携带 --input/--source/--output/--text-file 等批处理意图时
+    // 仍必须显式指定模式（回归锁定）；无语言参数的非空命令行维持原报错。
+    private static Task TestCliLanguageDefaultGui()
+    {
+        var localization = LocalizationService.Instance;
+        var originalLanguage = localization.CurrentLanguage;
+        try
+        {
+            // 分离/内联、区域变体归一：全部默认 GUI 且解析成功。
+            foreach (var arguments in new[]
+            {
+                new[] { "--lang", "en" },
+                new[] { "--lang", "ja" },
+                new[] { "--language", "de" },
+                new[] { "--lang=zh-TW" },
+                new[] { "--lang", "en-US" }
+            })
+            {
+                var outcome = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(arguments);
+                Assert(outcome.Success, string.Join(" | ", outcome.Errors));
+                Assert(outcome.Options.Gui, $"{string.Join(' ', arguments)} 必须默认进入 GUI 模式");
+                Assert(!outcome.Options.Compress && !outcome.Options.Decompress,
+                    "纯语言启动不得落入无界面模式");
+            }
+
+            // 语言精确切换：Options.Language 归一值可直接驱动 CurrentLanguage，
+            // 且解析期预扫描已把全局语言切换到位（GUI 启动路径无需二次处理）。
+            var ja = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["--lang", "ja"]);
+            AssertEqual("ja", ja.Options.Language);
+            AssertEqual("ja", localization.CurrentLanguage);
+
+            // GUI 伴随的无害参数不阻断默认 GUI。
+            var withVerbose = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["--lang", "en", "--verbose"]);
+            Assert(withVerbose.Success && withVerbose.Options.Gui, "伴随 --verbose 不得阻断默认 GUI");
+
+            // 显式 gui 动词 + 语言：既有语义保持不变。
+            var explicitGui = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["gui", "--lang", "de"]);
+            Assert(explicitGui.Success && explicitGui.Options.Gui, "gui --lang 必须保持显式 GUI");
+            AssertEqual("de", explicitGui.Options.Language);
+
+            // 批处理意图（来源/输入/输出/清单）存在时：仍必须显式指定模式。
+            AssertCommandLineFails(["--lang", "en", "-i", "/tmp/a"], "compress");
+            AssertCommandLineFails(["--lang", "en", "-s", "/tmp/src"], "compress");
+            AssertCommandLineFails(["--lang", "en", "-o", "/tmp/out"], "compress");
+            AssertCommandLineFails(["--lang", "en", "-t", "/tmp/missing.txt"], "compress");
+
+            // 无语言参数的非空命令行：维持“必须指定模式”原报错（防止放宽被无限外推）。
+            AssertCommandLineFails(["--verbose"], "compress");
+            AssertCommandLineFails(["--level", "5"], "compress");
+
+            // 无效语言单独出现：仍按语言取值错误拒绝（退出码 2 路径）。
+            AssertCommandLineFails(["--lang", "fr"], "--language");
+        }
+        finally
+        {
+            localization.CurrentLanguage = originalLanguage;
+        }
+
+        return Task.CompletedTask;
+    }
+
     // GLM-5.3, 2026-11-04：批次 3——--output-format 解析与校验；
     // --format 是 --extension 的历史别名，不得被挪用为输出格式（回归锁定）。
     private static Task TestCliOutputFormatOptions()
@@ -2535,6 +2600,125 @@ internal static class Program
         }
 
         return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 7——多代日志轮转与边界：
+    // .1→.2→…→.N 向上滚动、超限淘汰最旧一代（默认 5 代）、代序内容 .1 最新、
+    // 轮转副本保持 0600、过期清理覆盖全部代次、上限 1 退化旧行为。
+    private static Task TestLogMultiGenerationRotation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-log-multigen-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 0) 默认代数常量锁定为 5（.1 至 .5）。
+            AssertEqual(5, FileLoggerService.DefaultRotatedGenerations);
+
+            // 1) 上限 3 代：足量写入触发多轮轮转后恰好保留 .1/.2/.3，不产生 .4。
+            var logPath = Path.Combine(root, "batchcompress_multi.log");
+            using (var logger = new FileLoggerService(logPath, rotationBytes: 256, maxRotatedGenerations: 3))
+            {
+                for (var i = 0; i < 400; i++)
+                {
+                    logger.LogOperation("TEST", $"多代轮转行 {i:D4} 0123456789ABCDEF");
+                }
+            }
+
+            Assert(File.Exists(logPath), "轮转后当前日志必须继续写入");
+            for (var generation = 1; generation <= 3; generation++)
+            {
+                Assert(File.Exists($"{logPath}.{generation}"), $"必须保留第 {generation} 代轮转副本");
+            }
+            Assert(!File.Exists($"{logPath}.4"), "不得超过代数上限滚动出 .4");
+
+            // 代序内容：.1 中的最大行号必须大于 .3（新内容滚入 .1，旧内容被推向高代）；
+            // .1 是末段轮转代（含 300+ 行号但不含收尾写入），收尾写入留在当前日志。
+            var newest = MaxLoggedLineNumber(logPath + ".1");
+            var oldest = MaxLoggedLineNumber(logPath + ".3");
+            Assert(newest > oldest, $"代序必须 .1 最新（{newest}）> .3 最旧（{oldest}）");
+            Assert(newest >= 300 && newest < 400, $"末段轮转代应落在 300-399 行段，实际 {newest}");
+            Assert(MaxLoggedLineNumber(logPath) > newest, "当前日志必须继续接收轮转后的写入");
+
+            // Unix 权限：全部轮转副本保持 0600（File.Move 继承当前文件已收紧的模式）。
+            if (!OperatingSystem.IsWindows())
+            {
+                for (var generation = 1; generation <= 3; generation++)
+                {
+                    AssertEqual(UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                        File.GetUnixFileMode($"{logPath}.{generation}"));
+                }
+            }
+
+            // 2) 上限 1 代：退化为旧单代行为——仅 .1 存在，不产生 .2。
+            var singlePath = Path.Combine(root, "batchcompress_single.log");
+            using (var logger = new FileLoggerService(singlePath, rotationBytes: 256, maxRotatedGenerations: 1))
+            {
+                for (var i = 0; i < 200; i++)
+                {
+                    logger.LogOperation("TEST", $"单代轮转行 {i:D4} 0123456789ABCDEF");
+                }
+            }
+
+            Assert(File.Exists(singlePath + ".1"), "上限 1 代仍必须轮转出 .1");
+            Assert(!File.Exists(singlePath + ".2"), "上限 1 代不得产生 .2");
+
+            // 3) 过期清理覆盖全部代次：7 天前的 .2/.3/.5 与主日志一并清理，无关命名不受影响。
+            var staleRoot = Path.Combine(root, "stale");
+            Directory.CreateDirectory(staleRoot);
+            var staleFiles = new[]
+            {
+                Path.Combine(staleRoot, "batchcompress_20200101_000000.log"),
+                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.2"),
+                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.3"),
+                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.5"),
+                Path.Combine(staleRoot, "unrelated_old.log.2")
+            };
+            foreach (var file in staleFiles)
+            {
+                File.WriteAllText(file, "stale");
+                File.SetLastWriteTimeUtc(file, DateTime.UtcNow - TimeSpan.FromDays(8));
+            }
+
+            using (var logger = new FileLoggerService(Path.Combine(staleRoot, "batchcompress_fresh.log")))
+            {
+                logger.LogOperation("TEST", "触发清理");
+            }
+
+            for (var index = 0; index < staleFiles.Length - 1; index++)
+            {
+                Assert(!File.Exists(staleFiles[index]), $"过期文件必须被清理: {staleFiles[index]}");
+            }
+            Assert(File.Exists(staleFiles[^1]), "无关命名的旧文件不得被清理");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 7——从日志行 “[TEST] 多代轮转行 0007 …” 提取最大行号，
+    // 用于断言轮转代序（.1 最新、.3 最旧）。无匹配行时返回 -1。
+    private static int MaxLoggedLineNumber(string path)
+    {
+        var max = -1;
+        foreach (var line in File.ReadAllLines(path))
+        {
+            var marker = line.IndexOf("行 ", StringComparison.Ordinal);
+            if (marker < 0)
+            {
+                continue;
+            }
+
+            var rest = line[(marker + 2)..].Split(' ')[0];
+            if (int.TryParse(rest, out var number) && number > max)
+            {
+                max = number;
+            }
+        }
+
+        return max;
     }
 
     private static Task TestNdjsonOutputWriter()
