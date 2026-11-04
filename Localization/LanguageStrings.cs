@@ -346,6 +346,8 @@ public class LanguageStrings : INotifyPropertyChanged
     public string CliErrorPrefix { get; set; } = "参数错误: {0}";
     public string CliErrorSeeHelp { get; set; } = "使用 --help 查看完整用法。";
     public string CliErrorConcurrencyRange { get; set; } = "--concurrency 必须在 1 到 16 之间。";
+    // Antigravity, 2026-11-04：批次 10——日志保留天数校验错误提示。
+    public string CliErrorLogRetentionRange { get; set; } = "--log-retention-days 必须是大于等于 1 的整数。";
     public string MaxConcurrencyLabel { get; set; } = "并发数：";
     public string TooltipMaxConcurrency { get; set; } = "同时执行的归档任务数（1-16）；1 为串行，较大值会同时运行多个压缩/解压进程。";
 

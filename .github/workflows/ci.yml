@@ -1,5 +1,5 @@
 # GLM-5.3, 2026-11-03：三平台持续集成门禁。
-# build-test 在 ubuntu/windows/macos 上构建并运行 30 项回归测试（真实 7zz 冒烟测试仅在 macOS 执行，其余平台自动跳过）；
+# build-test 在 ubuntu/windows/macos 上构建并运行全量回归测试套件（真实 7zz 冒烟测试仅在 macOS 执行，其余平台自动跳过）；
 # macos-package 独立执行 macOS 应用包构建（输出到 .artifacts/ci，不安装到 /Applications），其失败不阻塞构建测试。
 name: CI
 

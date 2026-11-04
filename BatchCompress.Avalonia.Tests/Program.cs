@@ -61,6 +61,8 @@ internal static class Program
             ("日志多代轮转", TestLogMultiGenerationRotation),
             ("日志旧代Gzip压缩", TestLogGzipCompressionRotation),
             ("日志压缩异常降级兜底", TestLogGzipDegradedFallback),
+            ("日志自定义保留期清理", TestLogCustomRetentionPolicy),
+            ("CLI日志保留天数参数", TestCliLogRetentionOption),
             ("附件联系方式配置外置", TestEnclosureConfigService),
             ("附件配置多语言与词条完整性", TestEnclosureLocalizationAndTokens),
             ("并发批量执行", TestConcurrentBatchExecution),
@@ -2976,6 +2978,91 @@ internal static class Program
 
         // 恢复默认语言
         service.CurrentLanguage = "zh-CN";
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 10——日志自定义保留期清理测试：
+    // 验证自定义 retentionDays 属性生效、非法天数回退默认 7 天、多代过期文件按指定天数精准淘汰。
+    private static Task TestLogCustomRetentionPolicy()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-log-retention-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 1) 属性与回退校验
+            using (var loggerCustom = new FileLoggerService(Path.Combine(root, "batchcompress_custom.log"), retentionDays: 14))
+            {
+                AssertEqual(14, loggerCustom.RetentionDays);
+            }
+
+            using (var loggerDefault = new FileLoggerService(Path.Combine(root, "batchcompress_default.log"), retentionDays: -1))
+            {
+                AssertEqual(FileLoggerService.DefaultRetentionDays, loggerDefault.RetentionDays);
+            }
+
+            // 2) 预置过期与有效日志：
+            // - logRecent: 1 天前生成（不应被 3 天保留期清理）
+            // - logStale: 5 天前生成（应被 3 天保留期清理）
+            // - logStaleGz: 5 天前生成的 .gz 归档（应被 3 天保留期清理）
+            // - otherFile: 5 天前生成但非 batchcompress_*.log 前缀（必须保留，不得误删）
+            var logRecent = Path.Combine(root, "batchcompress_recent.log");
+            var logStale = Path.Combine(root, "batchcompress_stale.log.1");
+            var logStaleGz = Path.Combine(root, "batchcompress_stale.log.2.gz");
+            var otherFile = Path.Combine(root, "custom_other.log");
+
+            File.WriteAllText(logRecent, "recent log");
+            File.WriteAllText(logStale, "stale log");
+            File.WriteAllText(logStaleGz, "stale gz");
+            File.WriteAllText(otherFile, "other log");
+
+            File.SetLastWriteTimeUtc(logRecent, DateTime.UtcNow.AddDays(-1));
+            File.SetLastWriteTimeUtc(logStale, DateTime.UtcNow.AddDays(-5));
+            File.SetLastWriteTimeUtc(logStaleGz, DateTime.UtcNow.AddDays(-5));
+            File.SetLastWriteTimeUtc(otherFile, DateTime.UtcNow.AddDays(-5));
+
+            // 以 retentionDays: 3 启动 logger 触发 PruneExpiredLogs
+            var triggerPath = Path.Combine(root, "batchcompress_trigger.log");
+            using (var logger = new FileLoggerService(triggerPath, retentionDays: 3))
+            {
+                logger.LogOperation("INIT", "Triggering prune");
+            }
+
+            Assert(File.Exists(logRecent), "1 天前的日志不应被 3 天保留期清理");
+            Assert(!File.Exists(logStale), "5 天前的日志必须被 3 天保留期清理");
+            Assert(!File.Exists(logStaleGz), "5 天前的 .gz 归档必须被 3 天保留期清理");
+            Assert(File.Exists(otherFile), "非 batchcompress 前缀文件绝不得误删");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 10——CLI 日志保留天数参数解析与校验测试。
+    private static Task TestCliLogRetentionOption()
+    {
+        // 1) 正常参数解析
+        var result1 = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["compress", "-i", "a", "-o", "out", "-e", "7z", "--log-retention-days", "14"]);
+        AssertEqual(0, result1.Errors.Count);
+        AssertEqual(14, result1.Options.LogRetentionDays);
+
+        // 2) 别名解析 --log-retention
+        var result2 = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["compress", "-i", "a", "-o", "out", "-e", "7z", "--log-retention", "30"]);
+        AssertEqual(0, result2.Errors.Count);
+        AssertEqual(30, result2.Options.LogRetentionDays);
+
+        // 3) 非整数报错
+        var result3 = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["compress", "-i", "a", "-o", "out", "-e", "7z", "--log-retention-days", "abc"]);
+        Assert(result3.Errors.Any(e => e.Contains("--log-retention-days") && e.Contains("整数")),
+            $"非整数必须报错，实际 {string.Join(";", result3.Errors)}");
+
+        // 4) 小于 1 报错
+        var result4 = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["compress", "-i", "a", "-o", "out", "-e", "7z", "--log-retention-days", "0"]);
+        Assert(result4.Errors.Any(e => e.Contains("--log-retention-days")),
+            $"<= 0 必须触发校验错误，实际 {string.Join(";", result4.Errors)}");
+
         return Task.CompletedTask;
     }
 

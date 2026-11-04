@@ -4,6 +4,7 @@ using System.Globalization;
 using System.IO;
 using System.Linq;
 using BatchCompress.Avalonia.Core.Models;
+using BatchCompress.Avalonia.Core.Services;
 using BatchCompress.Avalonia.Localization;
 
 namespace BatchCompress.Avalonia;
@@ -45,6 +46,8 @@ public sealed class CommandLineOptions
     public string? EnclosureList { get; set; }
     public string[] EnclosurePaths { get; set; } = [];
     public string? LogFile { get; set; }
+    // Antigravity, 2026-11-04：批次 10——日志过期保留天数（默认 7 天，支持自定义）。
+    public int LogRetentionDays { get; set; } = FileLoggerService.DefaultRetentionDays;
     public bool Verbose { get; set; }
     public bool Quiet { get; set; }
     public bool DryRun { get; set; }
@@ -163,6 +166,7 @@ public static class CommandLineHandler
 
         日志:
           --log-file <文件>              日志文件路径
+          --log-retention-days <天数>    过期日志保留天数（默认 7，支持 --log-retention 别名）
           --verbose                      输出详细进度
           --quiet, -q                    仅向 stderr 输出错误
           --dry-run                      列出将处理的项目，不创建目录或归档
@@ -244,6 +248,7 @@ public static class CommandLineHandler
 
         日誌:
           --log-file <檔案>              日誌檔案路徑
+          --log-retention-days <天數>    過期日誌保留天數（預設 7，支援 --log-retention 別名）
           --verbose                      輸出詳細進度
           --quiet, -q                    僅向 stderr 輸出錯誤
           --dry-run                      列出將處理的項目，不建立目錄或封存
@@ -328,6 +333,7 @@ public static class CommandLineHandler
 
         Logging:
           --log-file <file>              Log file path
+          --log-retention-days <days>    Days to retain expired log files (default 7)
           --verbose                      Print detailed progress
           --quiet, -q                    Only print errors to stderr
           --dry-run                      List items without creating anything
@@ -615,6 +621,7 @@ public static class CommandLineHandler
         Add(definitions, "--enclosure-list", ValueKind.Single, "--enclosure-list");
         Add(definitions, "--enclosure", ValueKind.Multiple, "--enclosure");
         Add(definitions, "--log-file", ValueKind.Single, "--log-file");
+        Add(definitions, "--log-retention-days", ValueKind.Single, "--log-retention-days", "--log-retention");
         Add(definitions, "--verbose", ValueKind.Flag, "--verbose");
         Add(definitions, "--quiet", ValueKind.Flag, "--quiet", "-q");
         Add(definitions, "--dry-run", ValueKind.Flag, "--dry-run");
@@ -916,6 +923,9 @@ public static class CommandLineHandler
             case "--concurrency":
                 state.Options.MaxConcurrency = ParseInt(value, "--concurrency", state.Errors, 1);
                 break;
+            case "--log-retention-days":
+                state.Options.LogRetentionDays = ParseInt(value, "--log-retention-days", state.Errors, FileLoggerService.DefaultRetentionDays);
+                break;
         }
     }
 
@@ -1021,6 +1031,12 @@ public static class CommandLineHandler
         if (options.MaxConcurrency is < 1 or > 16)
         {
             errors.Add(L.CliErrorConcurrencyRange);
+        }
+
+        // Antigravity, 2026-11-04：批次 10——日志保留天数范围校验（>= 1）。
+        if (options.LogRetentionDays < 1)
+        {
+            errors.Add(L.CliErrorLogRetentionRange);
         }
 
         if (options.RecoveryRecord is < 0 or > 100)

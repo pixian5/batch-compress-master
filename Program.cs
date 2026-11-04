@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using System;
 using System.Linq;
 using System.Reflection;
@@ -90,7 +90,7 @@ sealed class Program
     /// </summary>
     private static async Task<int> RunHeadlessAsync(CommandLineOptions options)
     {
-        using var logger = new FileLoggerService(options.LogFile);
+        using var logger = new FileLoggerService(options.LogFile, retentionDays: options.LogRetentionDays);
 
         try
         {

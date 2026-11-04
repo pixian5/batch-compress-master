@@ -136,6 +136,10 @@ run_case cli-conflicting-postprocess 2 "${APP[@]}" compress -i "$FIXTURE/来源�
 run_case cli-conflicting-output 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict-output" -e 7z --verbose --quiet
 run_case cli-conflicting-lock-update 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/conflict-lock" -e rar --existing update --lock
 run_case cli-invalid-enclosure-file 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-enclosure" -e 7z --comment "$FIXTURE/missing-comment.txt"
+run_case cli-invalid-concurrency 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-concurrency" -e 7z --concurrency 0
+run_case cli-invalid-retention 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-retention" -e 7z --log-retention-days 0
+run_case cli-invalid-language 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-lang" -e 7z --lang fr
+run_case cli-invalid-output-format 2 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/invalid-outfmt" -e 7z --output-format xml
 
 # 来源扫描、跳过标记、元数据过滤和 dry-run 不落盘。
 run_case scan-default-skip 0 "${APP[@]}" compress --source "$FIXTURE/来源目录" -o "$OUT/scan-default" -e 7z --dry-run
@@ -292,6 +296,13 @@ run_case compress-verbose 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普�
 check_contains raw-password-in-log "$GEN/verbose.log" "raw log password"
 run_case compress-quiet-success 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/quiet" -e 7z --no-random-password --quiet
 check_file quiet-archive "$OUT/quiet/空文件.txt.7z"
+
+# 并发压缩与 NDJSON 结构化流。
+run_case compress-concurrency 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -i "$FIXTURE/来源目录/空文件.txt" -o "$OUT/concurrency" -e 7z --concurrency 2 --no-random-password
+run_case compress-ndjson 0 "${APP[@]}" compress -i "$FIXTURE/来源目录/普通文本.txt" -o "$OUT/ndjson" -e 7z --output-format json --no-random-password
+check_contains ndjson-progress "$GEN/compress-ndjson.stdout" '"type":"progress"'
+check_contains ndjson-item "$GEN/compress-ndjson.stdout" '"type":"item"'
+check_contains ndjson-summary "$GEN/compress-ndjson.stdout" '"type":"summary"'
 
 # 参数 --shutdown 只做帮助/解析和静态日志检查，禁止真实请求关机。
 check_contains shutdown-option-help "$GEN/cli-help.stdout" "--shutdown"

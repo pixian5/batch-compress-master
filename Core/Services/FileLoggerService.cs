@@ -28,10 +28,13 @@ public class FileLoggerService : ILogger, IDisposable
     // GLM-5.3, 2026-11-04：批次 7——默认保留的轮转代数（.1 至 .5），公开常量供测试与调用方对齐。
     public const int DefaultRotatedGenerations = 5;
 
+    // Antigravity, 2026-11-04：批次 10——默认日志保留天数常量，公开供命令行与测试对齐。
+    public const int DefaultRetentionDays = 7;
+
     // 每 64 次写入检查一次文件大小，避免高频日志路径上每次写都触碰文件系统元数据。
     private const int RotationCheckIntervalWrites = 64;
 
-    private static readonly TimeSpan LogRetention = TimeSpan.FromDays(7);
+    private readonly TimeSpan _logRetention;
 
     private readonly string _logFilePath;
     private readonly long _rotationBytes;
@@ -47,11 +50,13 @@ public class FileLoggerService : ILogger, IDisposable
     public FileLoggerService(
         string? logFilePath = null,
         long rotationBytes = DefaultRotationBytes,
-        int maxRotatedGenerations = DefaultRotatedGenerations)
+        int maxRotatedGenerations = DefaultRotatedGenerations,
+        int retentionDays = DefaultRetentionDays)
     {
         _logFilePath = logFilePath ?? GetDefaultLogPath();
         _rotationBytes = rotationBytes > 0 ? rotationBytes : DefaultRotationBytes;
         _maxRotatedGenerations = maxRotatedGenerations > 0 ? maxRotatedGenerations : DefaultRotatedGenerations;
+        _logRetention = TimeSpan.FromDays(retentionDays > 0 ? retentionDays : DefaultRetentionDays);
         EnsureLogDirectoryExists();
         PruneExpiredLogs();
         InitializeWriter();
@@ -247,7 +252,7 @@ public class FileLoggerService : ILogger, IDisposable
                 return;
             }
 
-            var cutoff = DateTime.UtcNow - LogRetention;
+            var cutoff = DateTime.UtcNow - _logRetention;
             // 通配符先粗筛（Windows 三字符扩展名匹配会放宽到 *.log 前缀），再用
             // IsBatchCompressLogName 精确锁定 “batchcompress_*.log” 与 “.log.<数字>”。
             foreach (var file in Directory.EnumerateFiles(directory, "batchcompress_*.log*"))
@@ -272,6 +277,7 @@ public class FileLoggerService : ILogger, IDisposable
         Regex.IsMatch(fileName, @"\.log(\.\d+)?(\.gz)?$", RegexOptions.CultureInvariant);
 
     public string LogFilePath => _logFilePath;
+    public int RetentionDays => (int)_logRetention.TotalDays;
 
     public IDisposable? BeginScope<TState>(TState state) where TState : notnull => null;
 

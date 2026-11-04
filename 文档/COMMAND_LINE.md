@@ -83,6 +83,7 @@ GLM-5.3，2026-11-04（批次 8 文档化）：`--concurrency/-j` 大于 1 时�
 - `--verbose`：逐项显示进度和完整归档进程 stdout/stderr。
 - `--quiet`：只向 stderr 输出错误；不能与 verbose 同时使用。
 - `--log-file PATH`：指定 UTF-8 日志文件；默认写入程序目录的 `logs/`。
+- `--log-retention-days DAYS` / `--log-retention`：指定过期日志文件的保留天数（默认 7，必须为 >= 1 的整数）；每次会话启动时自动清理超过该天数的活跃与压缩轮转日志。
 - `--language LANG` / `--lang LANG`：指定界面或命令行语言。支持 `zh-CN`、`zh-TW`、`en`、`ja`、`de`。仅传语言且不带批处理参数时，默认启动对应语言的桌面 GUI；带批处理参数时控制终端输出文案与错误信息语言。
 - `--output-format text|json` / `--format-output`：指定输出格式，默认 `text`；`json` 开启标准 NDJSON 事件流。
 

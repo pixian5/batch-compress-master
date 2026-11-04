@@ -1,6 +1,6 @@
 # GLM-5.3, 2026-11-04：批次 6——GitHub Releases 自动发布流。
 # 触发：推送 v* tag（如 v0.7.0）或 workflow_dispatch 手工触发。
-# 门禁：三平台（ubuntu/windows/macos）48 项单元测试全过是打包与发布的硬前置。
+# 门禁：三平台（ubuntu/windows/macos）全量单元测试门禁全过是打包与发布的硬前置。
 # 打包：macOS 在 macos runner 产出 .app.zip；Linux（tar.gz，含 7zz 与 tools/rarLinux
 # 官方完整包）与 Windows（win-x64 自包含 zip）在 ubuntu runner RID 交叉发布打包。
 # 发布：tag 与 VERSION 一致性校验后，用 runner 预装 gh CLI（GITHUB_TOKEN）创建
@@ -36,7 +36,7 @@ jobs:
       - name: 构建主程序（Release，0 警告基线）
         run: dotnet build BatchCompress.Avalonia.sln -c Release --nologo
 
-      - name: 运行 48 项单元测试
+      - name: 运行全量单元测试门禁
         run: dotnet run -c Release --project BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.csproj --nologo
 
   package-macos:
