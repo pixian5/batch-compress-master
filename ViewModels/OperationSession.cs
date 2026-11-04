@@ -26,6 +26,8 @@ internal sealed class OperationSession
     private DateTime _lastProgressNotification = DateTime.MinValue;
     private int _lastNotifiedCompletedCount;
     private double _lastNotifiedProcessedSizeGB;
+    // Antigravity, 2026-11-04：批次 11——会话待处理总条目数（支持在无总大小或解压场景下通过单项均速提供准确 ETA 估算）。
+    private int _totalItems;
 
     private static LanguageStrings L => LocalizationService.Instance.Strings;
 
@@ -33,6 +35,14 @@ internal sealed class OperationSession
     {
         _owner = owner;
         _systemIntegration = systemIntegration;
+    }
+
+    /// <summary>
+    /// 设置当前会话待处理的总条目数，用于在无预估字节大小时（如提取模式或列表模式）提供基于条目数的准确 ETA 估算。
+    /// </summary>
+    public void SetTotalItems(int totalItems)
+    {
+        _totalItems = Math.Max(0, totalItems);
     }
 
     /// <summary>
@@ -122,11 +132,29 @@ internal sealed class OperationSession
         }
 
         // 根据当前速度估算剩余时间和完成时刻。
+        // 优先路径：基于预估总字节大小与实时传输速度计算
         if (_owner.ProcessingSpeedMBPerSecond > 0.01 && _owner.TotalSizeGB > 0.01 && _owner.ProcessedSizeGB < _owner.TotalSizeGB)
         {
             double remainingSizeMB = (_owner.TotalSizeGB - _owner.ProcessedSizeGB) * 1024;
             _owner.RemainingTime = TimeSpan.FromSeconds(remainingSizeMB / _owner.ProcessingSpeedMBPerSecond);
             _owner.EstimatedCompletionTime = DateTime.Now + _owner.RemainingTime;
+        }
+        // Antigravity, 2026-11-04：批次 11——兜底路径：当未预估总大小（如解压或文件列表模式）时，根据平均单项耗时与剩余项数估算 ETA
+        else if (_totalItems > 0)
+        {
+            var completedCount = info.SuccessCount + info.FailCount + info.IgnoreCount;
+            if (completedCount > 0 && completedCount < _totalItems && _owner.ElapsedTime.TotalSeconds > 0.5)
+            {
+                var avgSecondsPerItem = _owner.ElapsedTime.TotalSeconds / completedCount;
+                var remainingItems = _totalItems - completedCount;
+                _owner.RemainingTime = TimeSpan.FromSeconds(avgSecondsPerItem * remainingItems);
+                _owner.EstimatedCompletionTime = DateTime.Now + _owner.RemainingTime;
+            }
+            else
+            {
+                _owner.RemainingTime = TimeSpan.Zero;
+                _owner.EstimatedCompletionTime = DateTime.MinValue;
+            }
         }
         else
         {

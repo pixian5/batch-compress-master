@@ -875,6 +875,8 @@ public partial class MainWindowViewModel : ViewModelBase
                 // GPT-5, 2026-08-05：在操作开始时快照选项，避免处理中修改影响在途任务。
                 var options = BuildBatchOperationOptions();
 
+                // Antigravity, 2026-11-04：批次 11——向会话注入待处理总条目数，用于提供精确 ETA 兜底估算。
+                session.SetTotalItems(sourcePaths.Count);
                 await _batchOperationService.BatchCompressAsync(
                     sourcePaths, options, session.CreateProgress(() => L.Compress), cancellationToken);
                 return options;
@@ -929,6 +931,8 @@ public partial class MainWindowViewModel : ViewModelBase
 
                 var options = BuildBatchOperationOptions();
 
+                // Antigravity, 2026-11-04：批次 11——向会话注入待处理总条目数，用于提供精确 ETA 兜底估算。
+                session.SetTotalItems(entries.Count);
                 await _batchOperationService.BatchDecompressAsync(
                     entries, options, session.CreateProgress(() => L.Decompress), cancellationToken);
                 return options;

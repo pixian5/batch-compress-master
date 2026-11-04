@@ -397,6 +397,7 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorSeeHelp = "使用 --help 查看完整用法。",
             CliErrorConcurrencyRange = "--concurrency 必须在 1 到 16 之间。",
             CliErrorLogRetentionRange = "--log-retention-days 必须是大于等于 1 的整数。",
+            CliErrorPasswordReadFailed = "无法从指定来源读取密码。",
             MaxConcurrencyLabel = "并发数：",
             TooltipMaxConcurrency = "同时执行的归档任务数（1-16）；1 为串行，较大值会同时运行多个压缩/解压进程。",
 
@@ -709,6 +710,7 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorSeeHelp = "使用 --help 查看完整用法。",
             CliErrorConcurrencyRange = "--concurrency 必須在 1 到 16 之間。",
             CliErrorLogRetentionRange = "--log-retention-days 必須是自 1 起的正整數。",
+            CliErrorPasswordReadFailed = "無法從指定來源讀取密碼。",
             MaxConcurrencyLabel = "並行數：",
             TooltipMaxConcurrency = "同時執行的封存任務數（1-16）；1 為串列，較大值會同時執行多個壓縮/解壓程序。",
 
@@ -1021,6 +1023,7 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorSeeHelp = "Use --help to see full usage.",
             CliErrorConcurrencyRange = "--concurrency must be between 1 and 16.",
             CliErrorLogRetentionRange = "--log-retention-days must be an integer greater than or equal to 1.",
+            CliErrorPasswordReadFailed = "Cannot read password from the specified source.",
             MaxConcurrencyLabel = "Concurrency:",
             TooltipMaxConcurrency = "Number of archive tasks to run at once (1-16); 1 is serial, larger values run multiple archiver processes.",
 
@@ -1333,6 +1336,7 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorSeeHelp = "完全な使用方法は --help を参照してください。",
             CliErrorConcurrencyRange = "--concurrency は 1～16 の範囲で指定してください。",
             CliErrorLogRetentionRange = "--log-retention-days は 1 以上の整数である必要があります。",
+            CliErrorPasswordReadFailed = "指定されたソースからパスワードを読み取ることができません。",
             MaxConcurrencyLabel = "並列数：",
             TooltipMaxConcurrency = "同時に実行するアーカイブタスク数（1-16）。1 は逐次実行、大きい値は複数プロセスを並行実行します。",
 
@@ -1646,6 +1650,7 @@ public class LocalizationService : INotifyPropertyChanged
             CliErrorSeeHelp = "Vollständige Verwendung mit --help anzeigen.",
             CliErrorConcurrencyRange = "--concurrency muss zwischen 1 und 16 liegen.",
             CliErrorLogRetentionRange = "--log-retention-days muss eine ganze Zahl größer oder gleich 1 sein.",
+            CliErrorPasswordReadFailed = "Das Passwort konnte nicht aus der angegebenen Quelle gelesen werden.",
             MaxConcurrencyLabel = "Parallelität:",
             TooltipMaxConcurrency = "Anzahl gleichzeitig laufender Archiv-Aufgaben (1-16); 1 ist seriell, größere Werte starten mehrere Prozesse.",
 

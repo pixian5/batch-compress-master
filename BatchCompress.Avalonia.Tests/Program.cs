@@ -63,6 +63,7 @@ internal static class Program
             ("日志压缩异常降级兜底", TestLogGzipDegradedFallback),
             ("日志自定义保留期清理", TestLogCustomRetentionPolicy),
             ("CLI日志保留天数参数", TestCliLogRetentionOption),
+            ("密码读取错误多语言与标准输入", TestPasswordReadErrorLocalization),
             ("附件联系方式配置外置", TestEnclosureConfigService),
             ("附件配置多语言与词条完整性", TestEnclosureLocalizationAndTokens),
             ("并发批量执行", TestConcurrentBatchExecution),
@@ -3063,6 +3064,31 @@ internal static class Program
         Assert(result4.Errors.Any(e => e.Contains("--log-retention-days")),
             $"<= 0 必须触发校验错误，实际 {string.Join(";", result4.Errors)}");
 
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 11——标准输入密码读取失败文案多语言完整性测试。
+    private static Task TestPasswordReadErrorLocalization()
+    {
+        var languages = new[] { "zh-CN", "zh-TW", "en", "ja", "de" };
+        var service = LocalizationService.Instance;
+
+        foreach (var lang in languages)
+        {
+            service.CurrentLanguage = lang;
+            var s = service.Strings;
+
+            Assert(!string.IsNullOrWhiteSpace(s.CliErrorPasswordReadFailed),
+                $"{lang} CliErrorPasswordReadFailed 不能为空");
+
+            if (lang is "en" or "de")
+            {
+                Assert(!Regex.IsMatch(s.CliErrorPasswordReadFailed, "[\u4e00-\u9fff]"),
+                    $"{lang} CliErrorPasswordReadFailed 不能包含中文字符，实际: {s.CliErrorPasswordReadFailed}");
+            }
+        }
+
+        service.CurrentLanguage = "zh-CN";
         return Task.CompletedTask;
     }
 

@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
 using BatchCompress.Avalonia.Core.Services;
+using BatchCompress.Avalonia.Localization;
 
 namespace BatchCompress.Avalonia;
 
@@ -237,7 +238,7 @@ public class HeadlessBatchRunner
 
             if (_options.ReadPasswordFromStandardInput && _options.Password == null)
             {
-                error = "无法从指定来源读取密码。";
+                error = LocalizationService.Instance.Strings.CliErrorPasswordReadFailed;
                 return false;
             }
 
