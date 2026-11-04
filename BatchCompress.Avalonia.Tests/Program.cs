@@ -74,7 +74,9 @@ internal static class Program
             ("本地化窗口标题", TestLocalizedWindowTitles),
             ("英文与德语资源不含中文", TestLocalizedTextHasNoChinese),
             ("服务消息跟随界面语言", TestServiceMessagesFollowLanguage),
-            ("界面本地化资源扫描", TestLocalizedUiResources)
+            ("界面本地化资源扫描", TestLocalizedUiResources),
+            ("CLI帮助文本折行与宽度计算", TestCliHelpTextWrapping),
+            ("无界面进度单行格式化", TestHeadlessProgressFormatting)
         };
 
         // GLM-5.3, 2026-11-03：跑完全部测试后统一输出失败汇总，CI 中一次可见所有失败项；
@@ -3089,6 +3091,88 @@ internal static class Program
         }
 
         service.CurrentLanguage = "zh-CN";
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 12——CLI 帮助文本自动折行与控制台宽度自适应。
+    private static Task TestCliHelpTextWrapping()
+    {
+        // 1) 帮助文本获取与回退测试
+        var zhCn = BatchCompress.Avalonia.CommandLineHandler.GetHelpText(null);
+        Assert(zhCn.Contains("批量压缩解压工具"), "默认帮助应为简体中文");
+        Assert(zhCn.Contains("--lock"), "简体帮助应包含 --lock 选项");
+
+        var zhTw = BatchCompress.Avalonia.CommandLineHandler.GetHelpText("zh-TW");
+        Assert(zhTw.Contains("批次壓縮解壓工具"), "zh-TW 帮助应为正体中文");
+
+        var en = BatchCompress.Avalonia.CommandLineHandler.GetHelpText("en");
+        Assert(en.Contains("Batch Compress & Extract Tool"), "en 帮助应为英文");
+
+        var ja = BatchCompress.Avalonia.CommandLineHandler.GetHelpText("ja");
+        Assert(ja == en, "ja 应回退到英文帮助");
+
+        var de = BatchCompress.Avalonia.CommandLineHandler.GetHelpText("de");
+        Assert(de == en, "de 应回退到英文帮助");
+
+        // 2) 显示宽度计算（中英混合与全半角字符）
+        AssertEqual(7, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("abc 123"));
+        AssertEqual(8, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("测试文本"));
+        AssertEqual(15, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("CLI 参数 --lang"));
+
+        // 3) 折行验证（maxWidth = 60 和 80）
+        foreach (var width in new[] { 60, 80 })
+        {
+            var wrappedEn = BatchCompress.Avalonia.CommandLineHandler.WrapHelpText(en, width);
+            var linesEn = wrappedEn.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var line in linesEn)
+            {
+                var displayWidth = BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth(line);
+                Assert(displayWidth <= width, $"英文折行后行宽 {displayWidth} 超过限制 {width}：'{line}'");
+            }
+            Assert(wrappedEn.Contains("--shutdown"), "折行后不应丢失 --shutdown 选项");
+            Assert(wrappedEn.Contains("--concurrency"), "折行后不应丢失 --concurrency 选项");
+
+            var wrappedZh = BatchCompress.Avalonia.CommandLineHandler.WrapHelpText(zhCn, width);
+            var linesZh = wrappedZh.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+            foreach (var line in linesZh)
+            {
+                var displayWidth = BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth(line);
+                Assert(displayWidth <= width, $"中文折行后行宽 {displayWidth} 超过限制 {width}：'{line}'");
+            }
+            Assert(wrappedZh.Contains("--shutdown"), "折行后不应丢失 --shutdown 选项");
+            Assert(wrappedZh.Contains("--existing"), "折行后不应丢失 --existing 选项");
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-04：批次 12——无界面批处理进度单行刷新格式测试。
+    private static Task TestHeadlessProgressFormatting()
+    {
+        // 1) 无 CurrentFile 时的单行格式（严格保持既有前缀与计数）
+        var infoWithoutFile = new OperationProgressInfo
+        {
+            SuccessCount = 2,
+            FailCount = 1,
+            PostProcessFailCount = 0,
+            IgnoreCount = 3
+        };
+        var line1 = BatchCompress.Avalonia.HeadlessBatchRunner.FormatProgressLine(infoWithoutFile);
+        AssertEqual("\rProcessed: 2 success, 1 failed, 0 post-process failed, 3 skipped    ", line1);
+
+        // 2) 携带 CurrentFile 时的单行格式（追加文件名与分隔符）
+        var infoWithFile = new OperationProgressInfo
+        {
+            SuccessCount = 5,
+            FailCount = 0,
+            PostProcessFailCount = 1,
+            IgnoreCount = 2,
+            CurrentFile = "/path/to/archive.tar.gz"
+        };
+        var line2 = BatchCompress.Avalonia.HeadlessBatchRunner.FormatProgressLine(infoWithFile);
+        Assert(line2.StartsWith("\rProcessed: 5 success, 0 failed, 1 post-process failed, 2 skipped | archive.tar.gz"),
+            $"应包含文件名后缀，实际为: {line2}");
+
         return Task.CompletedTask;
     }
 

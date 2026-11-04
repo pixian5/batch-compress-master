@@ -135,7 +135,7 @@ public class HeadlessBatchRunner
             else if (!_options.Quiet)
             {
                 // 非详细模式只显示一行可刷新的简要进度。
-                Console.Write($"\rProcessed: {info.SuccessCount} success, {info.FailCount} failed, {info.PostProcessFailCount} post-process failed, {info.IgnoreCount} skipped    ");
+                Console.Write(FormatProgressLine(info));
             }
         });
 
@@ -439,6 +439,18 @@ public class HeadlessBatchRunner
                     .ToArray()
                 : null
         };
+    }
+
+    /// <summary>
+    /// 格式化非详细模式下的单行刷新进度文本。
+    /// 保留既有 Processed 前缀契约，附带当前条目名称（若有）。
+    /// </summary>
+    public static string FormatProgressLine(OperationProgressInfo info)
+    {
+        var currentSuffix = !string.IsNullOrWhiteSpace(info.CurrentFile)
+            ? $" | {Path.GetFileName(info.CurrentFile)}"
+            : string.Empty;
+        return $"\rProcessed: {info.SuccessCount} success, {info.FailCount} failed, {info.PostProcessFailCount} post-process failed, {info.IgnoreCount} skipped{currentSuffix}    ";
     }
 }
 

@@ -12,6 +12,7 @@
   <ItemGroup>
     <Compile Include="Program.cs" />
     <Compile Include="..\CommandLineHandler.cs" Link="CommandLineHandler.cs" />
+    <Compile Include="..\HeadlessBatchRunner.cs" Link="HeadlessBatchRunner.cs" />
     <Compile Include="..\Core\Interfaces\IArchiveEngine.cs" Link="Core\Interfaces\IArchiveEngine.cs" />
     <Compile Include="..\Core\Services\WinRarCommandBuilder.cs" Link="Core\Services\WinRarCommandBuilder.cs" />
     <Compile Include="..\Core\Services\WinRarProcessRunner.cs" Link="Core\Services\WinRarProcessRunner.cs" />
