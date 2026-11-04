@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.IO.Compression;
 using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.Extensions.Logging;
@@ -14,8 +15,12 @@ namespace BatchCompress.Avalonia.Core.Services;
 // 1) Unix 下新建日志文件即收紧为 0600（仅当前用户读写），防止同机其他用户读取；
 // 2) 单文件超过 rotationBytes（默认 10MB）触发多代轮转；
 // GLM-5.3, 2026-11-04：批次 7——轮转升级为标准多代滚动：.1 → .2 → … → .N 依次后移，
-// 超过 maxRotatedGenerations（默认 5 代，含 .1.. .5）自动淘汰最旧一代，不再覆写 .1；
-// 3) 每次会话启动时清理 7 天前且匹配 batchcompress_*.log 模式的过期日志与全部轮转代副本。
+// 超过 maxRotatedGenerations（默认 5 代）自动淘汰最旧一代，不再覆写 .1；
+// GLM-5.3, 2026-11-04：批次 8——旧代 Gzip 压缩归档：当前日志与第 1 代 .log.1 保持纯文本
+// （cat/tail/less 直接查看最新历史），第 2 代起保存为 .log.<代次>.gz 压缩格式
+// （System.IO.Compression.GZipStream，BCL 内置零外部依赖，文本日志通常省 80% 以上空间）；
+// 3) 每次会话启动时清理 7 天前且匹配 batchcompress_*.log 模式的过期日志与全部轮转代副本
+//    （含 .gz 归档代）。
 public class FileLoggerService : ILogger, IDisposable
 {
     private const long DefaultRotationBytes = 10 * 1024 * 1024;
@@ -116,10 +121,11 @@ public class FileLoggerService : ILogger, IDisposable
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 7——多代轮转：当前文件超过阈值时先整体后移轮转代
-    // （.N-1 → .N、…、.1 → .2，最旧的 .N 先淘汰），随后当前文件改名为 .1 并新建同名日志
-    // 继续写入；失败不影响后续写入（尽力而为）。File.Move 保留原文件权限，
-    // 因此轮转副本继承此前收紧的 0600，新当前文件由 InitializeWriter 重新收紧。
+    // GLM-5.3, 2026-11-04：批次 7/8——多代轮转：当前文件超过阈值时先整体后移轮转代，
+    // 随后当前文件改名为 .1（纯文本）并新建同名日志继续写入；失败不影响后续写入（尽力而为）。
+    // 代次存储规则：.1 纯文本（直接 cat/tail 查看最新历史）；.2 起为 .log.<代次>.gz 压缩归档。
+    // File.Move 保留原文件权限，纯文本轮转副本继承此前收紧的 0600；
+    // 压缩副本由 CompressFileToGzip 显式收紧 0600；新当前文件由 InitializeWriter 重新收紧。
     private void RotateIfOversized()
     {
         try
@@ -146,29 +152,52 @@ public class FileLoggerService : ILogger, IDisposable
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 7——轮转代向上滚动：删除超限的最旧一代后，
-    // 从高代到低代依次后移一格；不存在的代直接跳过（首次/中间轮转无需补齐空洞）。
+    // GLM-5.3, 2026-11-04：批次 8——轮转代向上滚动（高代到低代依次处理，目标名先被释放）：
+    // 1) 最旧一代淘汰：.log.N.gz 与旧版纯文本 .log.N（若存在）一并删除；
+    // 2) .log.g.gz（g>=2）直接重命名为 .log.{g+1}.gz（内容不变，不重压缩）；
+    // 3) 纯文本 .log.g（第 1 代常态，或 0.7.1 版残留的旧代）压缩写入 .log.{g+1}.gz 后删除原文，
+    //    使任何历史布局在下一轮转后收敛到 “.1 纯文本 + .2+.gz” 的标准形态。
     private void ShiftRotatedGenerations()
     {
-        var oldestPath = $"{_logFilePath}.{_maxRotatedGenerations}";
-        if (File.Exists(oldestPath))
-        {
-            File.Delete(oldestPath);
-        }
+        File.Delete($"{_logFilePath}.{_maxRotatedGenerations}");
+        File.Delete($"{_logFilePath}.{_maxRotatedGenerations}.gz");
 
         for (var generation = _maxRotatedGenerations - 1; generation >= 1; generation--)
         {
-            var sourcePath = $"{_logFilePath}.{generation}";
-            if (File.Exists(sourcePath))
+            var gzPath = $"{_logFilePath}.{generation}.gz";
+            if (File.Exists(gzPath))
             {
-                File.Move(sourcePath, $"{_logFilePath}.{generation + 1}");
+                File.Move(gzPath, $"{_logFilePath}.{generation + 1}.gz", overwrite: true);
+                continue;
+            }
+
+            var plainPath = $"{_logFilePath}.{generation}";
+            if (File.Exists(plainPath))
+            {
+                CompressFileToGzip(plainPath, $"{_logFilePath}.{generation + 1}.gz");
+                File.Delete(plainPath);
             }
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 4/7——会话启动时清理过期日志：仅删除日志目录内
-    // 匹配 batchcompress_*.log（及其 .1.. .N 全部轮转代）且最后写入时间早于保留期的文件；
-    // 用户显式指定的其它路径模式不受影响。
+    // GLM-5.3, 2026-11-04：批次 8——单文件 Gzip 压缩（BCL 内置，零外部依赖）：
+    // Optimal 级别对文本日志的空间收益接近最大而 CPU 开销可忽略（每次轮转仅压缩一份旧代）。
+    private static void CompressFileToGzip(string sourcePath, string targetPath)
+    {
+        using (var input = new FileStream(sourcePath, FileMode.Open, FileAccess.Read, FileShare.Read))
+        using (var output = new FileStream(targetPath, FileMode.Create, FileAccess.Write, FileShare.None))
+        using (var gzip = new GZipStream(output, CompressionLevel.Optimal, leaveOpen: true))
+        {
+            input.CopyTo(gzip);
+        }
+
+        // 压缩生成的 .gz 归档同样收紧为 Unix 0600（内容源自含密码的日志）。
+        RestrictLogFilePermissions(targetPath);
+    }
+
+    // GLM-5.3, 2026-11-04：批次 4/7/8——会话启动时清理过期日志：仅删除日志目录内
+    // 匹配 batchcompress_*.log（及其 .1.. .N 全部轮转代，含 .gz 压缩归档代）且最后写入时间
+    // 早于保留期的文件；用户显式指定的其它路径模式不受影响。
     private void PruneExpiredLogs()
     {
         try
@@ -197,11 +226,11 @@ public class FileLoggerService : ILogger, IDisposable
         }
     }
 
-    // GLM-5.3, 2026-11-04：批次 7——精确匹配本工具的日志文件名：
-    // batchcompress_ 前缀 + .log 结尾或 .log.<纯数字代次> 结尾（多代轮转副本）。
+    // GLM-5.3, 2026-11-04：批次 7/8——精确匹配本工具的日志文件名：
+    // batchcompress_ 前缀 + .log / .log.<纯数字代次> / 及二者的 .gz 压缩形态结尾。
     private static bool IsBatchCompressLogName(string fileName) =>
         fileName.StartsWith("batchcompress_", StringComparison.OrdinalIgnoreCase) &&
-        Regex.IsMatch(fileName, @"\.log(\.\d+)?$", RegexOptions.CultureInvariant);
+        Regex.IsMatch(fileName, @"\.log(\.\d+)?(\.gz)?$", RegexOptions.CultureInvariant);
 
     public string LogFilePath => _logFilePath;
 

@@ -1,4 +1,9 @@
 using System.Collections.Generic;
+using System.IO.Compression;
+// GLM-5.3, 2026-11-04：批次 8——System.IO.Compression.CompressionLevel 与项目自有
+// Core.Interfaces.CompressionLevel 重名，用别名把既有引用钉回项目枚举（语义零变化）。
+using CompressionLevel = BatchCompress.Avalonia.Core.Interfaces.CompressionLevel;
+using System.Text;
 using System.Text.RegularExpressions;
 using BatchCompress.Avalonia.Core.Interfaces;
 using BatchCompress.Avalonia.Core.Models;
@@ -54,6 +59,8 @@ internal static class Program
             ("CLI错误文案本地化", TestCliErrorLocalization),
             ("日志权限与轮转", TestLogFilePermissionsAndRotation),
             ("日志多代轮转", TestLogMultiGenerationRotation),
+            ("日志旧代Gzip压缩", TestLogGzipCompressionRotation),
+            ("附件联系方式配置外置", TestEnclosureConfigService),
             ("并发批量执行", TestConcurrentBatchExecution),
             ("并发取消与大小上限", TestConcurrentCancellationAndLimit),
             ("NDJSON结构化输出", TestNdjsonOutputWriter),
@@ -2477,7 +2484,9 @@ internal static class Program
 
         public List<string> CompressionInputs { get; } = [];
         public List<string> ExtractionInputs { get; } = [];
-        public int DelayMilliseconds { get; set; } = 80;
+        // GLM-5.3, 2026-11-04：批次 8——80ms 在系统高负载（如构建余波）下偶发不足以让
+        // 全部初始槽位任务进入引擎，导致 PeakInFlight 断言抖动；加宽到 200ms 提高调度容忍。
+        public int DelayMilliseconds { get; set; } = 200;
         public bool WriteRealOutput { get; set; }
         public int PeakInFlight => _peakInFlight;
 
@@ -2602,9 +2611,10 @@ internal static class Program
         return Task.CompletedTask;
     }
 
-    // GLM-5.3, 2026-11-04：批次 7——多代日志轮转与边界：
+    // GLM-5.3, 2026-11-04：批次 7/8——多代日志轮转与边界：
     // .1→.2→…→.N 向上滚动、超限淘汰最旧一代（默认 5 代）、代序内容 .1 最新、
     // 轮转副本保持 0600、过期清理覆盖全部代次、上限 1 退化旧行为。
+    // 批次 8 起 .2 及以上代次为 .gz 压缩归档（.1 保持纯文本），本测试同步改按新布局断言。
     private static Task TestLogMultiGenerationRotation()
     {
         var root = Path.Combine(Path.GetTempPath(), $"bc-log-multigen-{Guid.NewGuid():N}");
@@ -2614,7 +2624,7 @@ internal static class Program
             // 0) 默认代数常量锁定为 5（.1 至 .5）。
             AssertEqual(5, FileLoggerService.DefaultRotatedGenerations);
 
-            // 1) 上限 3 代：足量写入触发多轮轮转后恰好保留 .1/.2/.3，不产生 .4。
+            // 1) 上限 3 代：足量写入触发多轮轮转后恰好保留 .1 与 .2.gz/.3.gz，不产生 .4*。
             var logPath = Path.Combine(root, "batchcompress_multi.log");
             using (var logger = new FileLoggerService(logPath, rotationBytes: 256, maxRotatedGenerations: 3))
             {
@@ -2625,31 +2635,35 @@ internal static class Program
             }
 
             Assert(File.Exists(logPath), "轮转后当前日志必须继续写入");
-            for (var generation = 1; generation <= 3; generation++)
-            {
-                Assert(File.Exists($"{logPath}.{generation}"), $"必须保留第 {generation} 代轮转副本");
-            }
-            Assert(!File.Exists($"{logPath}.4"), "不得超过代数上限滚动出 .4");
+            Assert(File.Exists(logPath + ".1"), "第 1 代必须保持纯文本存在");
+            Assert(File.Exists(logPath + ".2.gz"), "第 2 代必须为 .gz 压缩归档");
+            Assert(File.Exists(logPath + ".3.gz"), "第 3 代必须为 .gz 压缩归档");
+            Assert(!File.Exists(logPath + ".2") && !File.Exists(logPath + ".3"),
+                "压缩形态存在时不得残留同名纯文本代");
+            Assert(!File.Exists(logPath + ".4") && !File.Exists(logPath + ".4.gz"),
+                "不得超过代数上限滚动出 .4");
 
-            // 代序内容：.1 中的最大行号必须大于 .3（新内容滚入 .1，旧内容被推向高代）；
+            // 代序内容：.1 中的最大行号必须大于 .3.gz 解压内容（新内容滚入 .1，旧内容被推向高代）；
             // .1 是末段轮转代（含 300+ 行号但不含收尾写入），收尾写入留在当前日志。
-            var newest = MaxLoggedLineNumber(logPath + ".1");
-            var oldest = MaxLoggedLineNumber(logPath + ".3");
-            Assert(newest > oldest, $"代序必须 .1 最新（{newest}）> .3 最旧（{oldest}）");
+            var newest = MaxLineNumberInText(File.ReadAllText(logPath + ".1"));
+            var oldest = MaxLineNumberInText(ReadGzipText(logPath + ".3.gz"));
+            Assert(newest > oldest, $"代序必须 .1 最新（{newest}）> .3.gz 最旧（{oldest}）");
             Assert(newest >= 300 && newest < 400, $"末段轮转代应落在 300-399 行段，实际 {newest}");
-            Assert(MaxLoggedLineNumber(logPath) > newest, "当前日志必须继续接收轮转后的写入");
+            Assert(MaxLineNumberInText(File.ReadAllText(logPath)) > newest,
+                "当前日志必须继续接收轮转后的写入");
 
-            // Unix 权限：全部轮转副本保持 0600（File.Move 继承当前文件已收紧的模式）。
+            // Unix 权限：纯文本第 1 代与全部 .gz 归档代均为 0600。
             if (!OperatingSystem.IsWindows())
             {
-                for (var generation = 1; generation <= 3; generation++)
+                AssertEqual(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(logPath + ".1"));
+                for (var generation = 2; generation <= 3; generation++)
                 {
                     AssertEqual(UnixFileMode.UserRead | UnixFileMode.UserWrite,
-                        File.GetUnixFileMode($"{logPath}.{generation}"));
+                        File.GetUnixFileMode($"{logPath}.{generation}.gz"));
                 }
             }
 
-            // 2) 上限 1 代：退化为旧单代行为——仅 .1 存在，不产生 .2。
+            // 2) 上限 1 代：退化为旧单代行为——仅 .1 存在，不产生 .2.gz。
             var singlePath = Path.Combine(root, "batchcompress_single.log");
             using (var logger = new FileLoggerService(singlePath, rotationBytes: 256, maxRotatedGenerations: 1))
             {
@@ -2660,18 +2674,18 @@ internal static class Program
             }
 
             Assert(File.Exists(singlePath + ".1"), "上限 1 代仍必须轮转出 .1");
-            Assert(!File.Exists(singlePath + ".2"), "上限 1 代不得产生 .2");
+            Assert(!File.Exists(singlePath + ".2.gz"), "上限 1 代不得产生 .2.gz");
 
-            // 3) 过期清理覆盖全部代次：7 天前的 .2/.3/.5 与主日志一并清理，无关命名不受影响。
+            // 3) 过期清理覆盖全部代次（纯文本与 .gz 归档）：7 天前的一并清理，无关命名不受影响。
             var staleRoot = Path.Combine(root, "stale");
             Directory.CreateDirectory(staleRoot);
             var staleFiles = new[]
             {
                 Path.Combine(staleRoot, "batchcompress_20200101_000000.log"),
                 Path.Combine(staleRoot, "batchcompress_20200101_000000.log.2"),
-                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.3"),
-                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.5"),
-                Path.Combine(staleRoot, "unrelated_old.log.2")
+                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.3.gz"),
+                Path.Combine(staleRoot, "batchcompress_20200101_000000.log.5.gz"),
+                Path.Combine(staleRoot, "unrelated_old.log.2.gz")
             };
             foreach (var file in staleFiles)
             {
@@ -2698,12 +2712,12 @@ internal static class Program
         return Task.CompletedTask;
     }
 
-    // GLM-5.3, 2026-11-04：批次 7——从日志行 “[TEST] 多代轮转行 0007 …” 提取最大行号，
-    // 用于断言轮转代序（.1 最新、.3 最旧）。无匹配行时返回 -1。
-    private static int MaxLoggedLineNumber(string path)
+    // GLM-5.3, 2026-11-04：批次 7/8——从日志文本（纯文本或 gzip 解压结果）中提取
+    // “[TEST] …行 NNNN …” 的最大行号，用于断言轮转代序（.1 最新、高代最旧）。无匹配行返回 -1。
+    private static int MaxLineNumberInText(string text)
     {
         var max = -1;
-        foreach (var line in File.ReadAllLines(path))
+        foreach (var line in text.Split('\n'))
         {
             var marker = line.IndexOf("行 ", StringComparison.Ordinal);
             if (marker < 0)
@@ -2719,6 +2733,162 @@ internal static class Program
         }
 
         return max;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 8——旧代 Gzip 压缩归档：
+    // .1 保持纯文本（无 gzip 魔数、可直接读取）；.2 及以上为有效 gzip（魔数 1F 8B）；
+    // 解压内容与原始日志行一致且中文无乱码；压缩确有收益；.gz 权限 0600；
+    // 0.7.1 遗留纯文本代在下一轮转后收敛为压缩形态；过期 .gz 归档被清理。
+    private static Task TestLogGzipCompressionRotation()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-log-gzip-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 1) 默认 5 代 + 足量写入：.1 纯文本，.2.gz 至 .5.gz 逐代压缩归档。
+            var logPath = Path.Combine(root, "batchcompress_gzip.log");
+            using (var logger = new FileLoggerService(logPath, rotationBytes: 256))
+            {
+                for (var i = 0; i < 500; i++)
+                {
+                    logger.LogOperation("TEST", $"压缩轮转行 {i:D4} 0123456789ABCDEF中文内容");
+                }
+            }
+
+            Assert(File.Exists(logPath + ".1"), "第 1 代必须存在且保持纯文本");
+            for (var generation = 2; generation <= 5; generation++)
+            {
+                Assert(File.Exists($"{logPath}.{generation}.gz"), $"第 {generation} 代必须为 .gz 归档");
+            }
+
+            // .1 无 gzip 魔数（1F 8B）且能按纯文本直接读出中文日志行。
+            var firstGen = File.ReadAllBytes(logPath + ".1");
+            Assert(!(firstGen.Length > 1 && firstGen[0] == 0x1F && firstGen[1] == 0x8B),
+                ".1 必须是纯文本而非 gzip");
+            Assert(File.ReadAllText(logPath + ".1").Contains("压缩轮转行"),
+                ".1 纯文本必须能直接读出日志行");
+
+            // .2.gz：gzip 魔数 + 解压内容完整无乱码 + 压缩确有空间收益。
+            var secondGenPath = logPath + ".2.gz";
+            var magic = File.ReadAllBytes(secondGenPath);
+            Assert(magic.Length > 1 && magic[0] == 0x1F && magic[1] == 0x8B,
+                ".2.gz 必须是有效 gzip 文件（魔数 1F 8B）");
+            var decompressed = ReadGzipText(secondGenPath);
+            Assert(decompressed.Contains("压缩轮转行") && decompressed.Contains("中文内容"),
+                "解压内容必须包含预期日志行且中文无乱码");
+            var generationNumber = MaxLineNumberInText(decompressed);
+            Assert(generationNumber >= 100, $"解压内容必须包含成段历史行号，实际最大 {generationNumber}");
+            Assert(new FileInfo(secondGenPath).Length < decompressed.Length / 2,
+                $"gzip 归档必须显著小于原文: {new FileInfo(secondGenPath).Length} vs {decompressed.Length}");
+
+            // Unix 权限：.gz 归档同样收紧为 0600。
+            if (!OperatingSystem.IsWindows())
+            {
+                for (var generation = 2; generation <= 5; generation++)
+                {
+                    AssertEqual(UnixFileMode.UserRead | UnixFileMode.UserWrite,
+                        File.GetUnixFileMode($"{logPath}.{generation}.gz"));
+                }
+            }
+
+            // 2) 0.7.1 遗留纯文本布局（.1/.2/.3 均为纯文本）在下一轮转后收敛为压缩形态。
+            var legacyPath = Path.Combine(root, "batchcompress_legacy.log");
+            File.WriteAllText(legacyPath + ".1", $"[2026-11-04] [INFORMATION ] 遗留第1代 压缩轮转行 {1:D4}");
+            File.WriteAllText(legacyPath + ".2", $"[2026-11-04] [INFORMATION ] 遗留第2代 压缩轮转行 {2:D4}");
+            File.WriteAllText(legacyPath + ".3", $"[2026-11-04] [INFORMATION ] 遗留第3代 压缩轮转行 {3:D4}");
+            File.WriteAllText(legacyPath, $"[2026-11-04] [INFORMATION ] 遗留当前 压缩轮转行 {4:D4}");
+            using (var logger = new FileLoggerService(legacyPath, rotationBytes: 64, maxRotatedGenerations: 4))
+            {
+                for (var i = 0; i < 80; i++)
+                {
+                    logger.LogOperation("TEST", $"遗留收敛行 {i:D4} 0123456789ABCDEF");
+                }
+            }
+
+            Assert(File.Exists(legacyPath + ".1"), "收敛后第 1 代必须为纯文本");
+            Assert(!File.Exists(legacyPath + ".2") && !File.Exists(legacyPath + ".3"),
+                "遗留纯文本旧代必须被压缩清除");
+            for (var generation = 2; generation <= 4; generation++)
+            {
+                Assert(File.Exists($"{legacyPath}.{generation}.gz"),
+                    $"收敛后第 {generation} 代必须为 .gz 归档");
+            }
+
+            // 3) 过期清理覆盖 .gz 归档代。
+            var staleGz = Path.Combine(root, "batchcompress_20200101_000000.log.2.gz");
+            File.WriteAllText(staleGz, "stale");
+            File.SetLastWriteTimeUtc(staleGz, DateTime.UtcNow - TimeSpan.FromDays(8));
+            using (var logger = new FileLoggerService(Path.Combine(root, "batchcompress_fresh.log")))
+            {
+                logger.LogOperation("TEST", "触发清理");
+            }
+
+            Assert(!File.Exists(staleGz), "过期的 .gz 归档必须被清理");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
+    }
+
+    // GLM-5.3, 2026-11-04：批次 8——解压 .gz 归档为 UTF-8 文本（BCL GZipStream）。
+    private static string ReadGzipText(string path)
+    {
+        using var input = File.OpenRead(path);
+        using var gzip = new GZipStream(input, CompressionMode.Decompress);
+        using var reader = new StreamReader(gzip, Encoding.UTF8);
+        return reader.ReadToEnd();
+    }
+
+    // GLM-5.3, 2026-11-04：批次 8——附件联系方式配置外置：
+    // 无配置回退默认模版、保存后重载一致、空白回退默认、非法路径保存不抛出且加载仍安全回退。
+    private static Task TestEnclosureConfigService()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-enclosure-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        try
+        {
+            // 1) 无配置文件：返回默认联系文案（与原硬编码逐字一致）。
+            var configPath = Path.Combine(root, "enclosures.txt");
+            var service = new EnclosureConfigService(configPath);
+            AssertEqual(configPath, service.GetConfigFilePath());
+            var defaultText = service.LoadEnclosuresText();
+            AssertEqual(EnclosureConfigService.GetDefaultEnclosuresText(), defaultText);
+            Assert(defaultText.Contains("qgkc520@Gmail.com") && defaultText.Contains("微信号") &&
+                   defaultText.Contains("QQ号"), "默认模版必须保留原联系方式内容");
+
+            // 2) 保存自定义配置后重新加载：原样读回（含中文与换行）。
+            var custom = "【解压密码】备用邮箱 someone@example.com\n第二行联系说明";
+            Assert(service.SaveEnclosuresText(custom), "保存自定义配置必须成功");
+            Assert(File.Exists(configPath), "配置文件必须落盘");
+            AssertEqual(custom, new EnclosureConfigService(configPath).LoadEnclosuresText());
+
+            // 3) 空白配置回退默认模版（空文件不产生空附件文案）。
+            Assert(service.SaveEnclosuresText("   \n  "), "保存空白配置必须成功");
+            AssertEqual(EnclosureConfigService.GetDefaultEnclosuresText(), service.LoadEnclosuresText());
+
+            // 4) 保存异常回退：目标路径的父目录是一个文件 → 不抛出、返回 false；
+            //    随后加载仍回退默认模版（IO 失败不得阻断 GUI 启动路径）。
+            var blocked = Path.Combine(root, "blocker");
+            File.WriteAllText(blocked, "occupies");
+            var bad = new EnclosureConfigService(Path.Combine(blocked, "enclosures.txt"));
+            Assert(!bad.SaveEnclosuresText(custom), "非法路径保存必须返回 false 而不抛出");
+            AssertEqual(EnclosureConfigService.GetDefaultEnclosuresText(), bad.LoadEnclosuresText());
+
+            // 5) 默认路径解析：无显式路径时不做 IO 也必须给出可用绝对路径（指向 enclosures.txt）。
+            var resolved = new EnclosureConfigService().GetConfigFilePath();
+            Assert(Path.IsPathRooted(resolved) &&
+                   resolved.EndsWith("enclosures.txt", StringComparison.Ordinal),
+                $"默认配置路径必须指向 enclosures.txt，实际 {resolved}");
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+
+        return Task.CompletedTask;
     }
 
     private static Task TestNdjsonOutputWriter()

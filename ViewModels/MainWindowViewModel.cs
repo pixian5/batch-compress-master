@@ -485,10 +485,9 @@ public partial class MainWindowViewModel : ViewModelBase
         {
             // 直接设置字段，避免设计器加载时触发异步任务。
             _sourceMode = 1;
-            _enclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
-                           "【解压密码】微信号：i17269637581\n" +
-                           "【解压密码】QQ号：2027123419\n" +
-                           "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
+            // GLM-5.3, 2026-11-04：批次 8——联系方式外置到 EnclosureConfigService；
+            // 设计器只取默认模版（纯字符串，不做任何文件 IO）。
+            _enclosureList = EnclosureConfigService.GetDefaultEnclosuresText();
             return;
         }
 
@@ -497,10 +496,10 @@ public partial class MainWindowViewModel : ViewModelBase
 
         // 设置运行时默认值。
         SourceMode = 1;
-        EnclosureList = "【解压密码】发邮件给 qgkc520@Gmail.com\n" +
-                       "【解压密码】微信号：i17269637581\n" +
-                       "【解压密码】QQ号：2027123419\n" +
-                       "【解压密码】微信号可能会改名，如果搜不到，请通过邮箱联系";
+        // GLM-5.3, 2026-11-04：批次 8——附件联系方式不再硬编码：
+        // 优先读用户配置文件（~/.config/batchcompress/enclosures.txt 或应用目录相邻），
+        // 不存在或为空时回退默认联系文案模版。
+        EnclosureList = new EnclosureConfigService().LoadEnclosuresText();
 
         // GPT-5, 2026-08-05：仅在剪贴板文本是现有目录时采用，绝不把任意复制文本作为路径。
         Dispatcher.UIThread.Post(async () =>

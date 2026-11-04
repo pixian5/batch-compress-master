@@ -29,6 +29,8 @@
     <Compile Include="..\Core\Services\SourceCollector.cs" Link="Core\Services\SourceCollector.cs" />
     <Compile Include="..\Core\Services\NdjsonOutputWriter.cs" Link="Core\Services\NdjsonOutputWriter.cs" />
     <Compile Include="..\Core\Services\FileLoggerService.cs" Link="Core\Services\FileLoggerService.cs" />
+    <!-- GLM-5.3, 2026-11-04：批次 8——附件联系方式配置外置服务（EnableDefaultCompileItems=false，须显式链接）。 -->
+    <Compile Include="..\Core\Services\EnclosureConfigService.cs" Link="Core\Services\EnclosureConfigService.cs" />
     <Compile Include="..\Core\Services\Pipeline\IBatchItemAdapter.cs" Link="Core\Services\Pipeline\IBatchItemAdapter.cs" />
     <Compile Include="..\Core\Services\Pipeline\PreparedBatchItem.cs" Link="Core\Services\Pipeline\PreparedBatchItem.cs" />
     <Compile Include="..\Core\Services\Pipeline\BatchExecutionPipeline.cs" Link="Core\Services\Pipeline\BatchExecutionPipeline.cs" />
