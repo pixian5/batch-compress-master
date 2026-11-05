@@ -43,8 +43,8 @@
 
 - 所有平台：`BATCHCOMPRESS_RAR_PATH` 可指定一个完整的、用户已获授权的 `rar` 可执行文件，并优先于默认查找路径。
 - Windows：安装 WinRAR。程序随后检查注册表和标准安装目录。
-- macOS：项目内含官方 7-Zip 26.02 universal `7zz`；RAR 可安装到系统。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`；若要私有注入 RAR，设置 `BATCHCOMPRESS_RAR_DIR` 为同时含 `rar`、`unrar` 的目录。
-- Linux：项目内分别包含官方 7-Zip 25.01 x64、ARM64 `7zz`；RAR 可安装到系统。
+- macOS：项目内含官方 7-Zip 26.05 universal `7zz`；RAR 可安装到系统。Apple Silicon 应用包由 `scripts/package-macos.sh` 生成并安装到 `/Applications`；若要私有注入 RAR，设置 `BATCHCOMPRESS_RAR_DIR` 为同时含 `rar`、`unrar` 的目录。
+- Linux：项目内分别包含官方 7-Zip 26.05 x64、ARM64 `7zz`；RAR 可安装到系统。
 
 **RAR 二进制许可风险（已知并保留）**：仓库内仍保留一份历史提交的 Linux x64 单文件 `rar`（`tools/rarLinux/rar`）。它不属于 win.rar GmbH 许可协议允许分发的“完整且未修改的官方分发包”，按该协议第 3a、3b 条，对外分发与打包进其它软件包均需书面许可。当前构建不会把它复制到输出目录，运行时不依赖它。风险事实、协议原文依据与可选处置见 [docs/20260929-2351-RAR二进制许可风险说明-未标注.md](docs/20260929-2351-RAR二进制许可风险说明-未标注.md)。
 
