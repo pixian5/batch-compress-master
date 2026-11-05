@@ -169,6 +169,34 @@ if [[ "$sln_projects" == "1" ]]; then r=0; else r=1; fi
 report "解决方案只含主项目（$sln_projects 个），测试需单独指定 csproj" "$r"
 
 echo ""
+echo "=== 13. Ctrl+C 协作式取消返回 130 ==="
+# 关键：非交互 shell 启动的后台作业默认忽略 SIGINT（中断信号），直接 kill -INT 会被丢弃、
+# 压缩会照常跑完并返回 0。必须在子进程里先重置信号处置再 exec，取消才会被程序捕获。
+# 用三份较大文件串行压缩，保证发出信号时任务仍在途；产物全部落在临时目录。
+if [[ "${SKIP_CANCEL_TEST:-0}" == "1" ]]; then
+  echo "SKIP  按 SKIP_CANCEL_TEST=1 跳过取消用例"
+else
+  dd if=/dev/urandom of="$work/big1.bin" bs=1m count=180 2>/dev/null
+  cp "$work/big1.bin" "$work/big2.bin"
+  cp "$work/big1.bin" "$work/big3.bin"
+  mkdir -p "$work/out-cancel"
+  zsh -c 'trap - INT; exec "$@"' _ "$dotnet_bin" "$app" compress \
+    --input "$work/big1.bin" --input "$work/big2.bin" --input "$work/big3.bin" \
+    --output "$work/out-cancel" --format 7z --log-file "$work/cancel.log" \
+    > "$work/cancel.out" 2> "$work/cancel.err" &
+  cancel_pid=$!
+  sleep 0.6
+  kill -INT "$cancel_pid" 2>/dev/null
+  wait "$cancel_pid"
+  cancel_rc=$?
+  leftover="$(pgrep -x 7zz 2>/dev/null || true)"
+  if [[ "$cancel_rc" -eq 130 ]] \
+     && grep -qi "Operation cancelled by user" "$work/cancel.log" \
+     && [[ -z "$leftover" ]]; then r=0; else r=1; fi
+  report "Ctrl+C 返回 130、日志有取消记录、无残留 7zz 进程（实际 $cancel_rc）" "$r"
+fi
+
+echo ""
 echo "=== 汇总 ==="
 echo "PASS=$pass FAIL=$fail"
 echo "临时目录：$work（退出时自动清理）"
