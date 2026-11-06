@@ -254,7 +254,16 @@ public sealed class BatchExecutionPipeline<TInput>
                     }
 
                     // —— 执行段（锁外）：引擎并发是并行的意义所在。 ——
-                    var result = await _adapter.ExecuteAsync(item, engineCts.Token);
+                    ArchiveResult result;
+                    try
+                    {
+                        result = await _adapter.ExecuteAsync(item, engineCts.Token);
+                    }
+                    catch (Exception)
+                    {
+                        _adapter.OnExecutionFailed(item);
+                        throw;
+                    }
                     lock (gate)
                     {
                         ReportArchiveOutput(item.CommandLabel, result, progressInfo, progress);

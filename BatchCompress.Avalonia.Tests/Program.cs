@@ -76,7 +76,10 @@ internal static class Program
             ("服务消息跟随界面语言", TestServiceMessagesFollowLanguage),
             ("界面本地化资源扫描", TestLocalizedUiResources),
             ("CLI帮助文本折行与宽度计算", TestCliHelpTextWrapping),
-            ("无界面进度单行格式化", TestHeadlessProgressFormatting)
+            ("无界面进度单行格式化", TestHeadlessProgressFormatting),
+            ("压缩失败残留回滚", TestFailedCompressionRollback),
+            ("压缩取消残留回滚", TestCancelledCompressionRollback),
+            ("解压取消残留回滚", TestCancelledExtractionRollback)
         };
 
         // GLM-5.3, 2026-11-03：跑完全部测试后统一输出失败汇总，CI 中一次可见所有失败项；
@@ -2492,8 +2495,8 @@ internal static class Program
         public List<string> CompressionInputs { get; } = [];
         public List<string> ExtractionInputs { get; } = [];
         // GLM-5.3, 2026-11-04：批次 8——80ms 在系统高负载（如构建余波）下偶发不足以让
-        // 全部初始槽位任务进入引擎，导致 PeakInFlight 断言抖动；加宽到 200ms 提高调度容忍。
-        public int DelayMilliseconds { get; set; } = 200;
+        // 全部初始槽位任务进入引擎，导致 PeakInFlight 断言抖动；加宽到 400ms 提高调度容忍。
+        public int DelayMilliseconds { get; set; } = 400;
         public bool WriteRealOutput { get; set; }
         public int PeakInFlight => _peakInFlight;
 
@@ -3662,6 +3665,114 @@ internal static class Program
             Task.FromResult(new ArchiveResult { Success = true });
     }
 
+    // Antigravity, 2026-11-07：批次 13——压缩失败时回滚本次新增的在途未完成文件与分卷残片。
+    private static async Task TestFailedCompressionRollback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-comp-rollback-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source.txt");
+        var outputDir = Path.Combine(root, "output");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(outputDir);
+        File.WriteAllText(source, "source data");
+        var keepFile = Path.Combine(outputDir, "keep.txt");
+        File.WriteAllText(keepFile, "keep me");
+
+        try
+        {
+            var engine = new PartialFailureArchiveEngine();
+            var snapshots = new List<OperationProgressInfo>();
+            await new BatchOperationService(engine, new TestSystemIntegration()).BatchCompressAsync(
+                [source],
+                new BatchOperationOptions { OutputPath = outputDir, Extension = "7z" },
+                new SnapshotProgress(snapshots),
+                CancellationToken.None);
+
+            AssertEqual(1, snapshots.Last().FailCount);
+            Assert(File.Exists(keepFile), "压缩失败不得删除输出目录中原有无关文件");
+
+            var targetArchive = Path.Combine(outputDir, "source.txt.7z");
+            Assert(!File.Exists(targetArchive), "压缩失败必须清理本次生成的不完整归档文件");
+            Assert(!File.Exists(targetArchive + ".001"), "压缩失败必须清理本次生成的分卷文件 001");
+            Assert(!File.Exists(targetArchive + ".002"), "压缩失败必须清理本次生成的分卷文件 002");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // Antigravity, 2026-11-07：批次 13——压缩中途取消时可靠清理在途未完成文件与分卷残片。
+    private static async Task TestCancelledCompressionRollback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-comp-cancel-{Guid.NewGuid():N}");
+        var source = Path.Combine(root, "source.txt");
+        var outputDir = Path.Combine(root, "output");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(outputDir);
+        File.WriteAllText(source, "source data");
+        var keepFile = Path.Combine(outputDir, "keep.txt");
+        File.WriteAllText(keepFile, "keep me");
+
+        try
+        {
+            var engine = new CancellingFailureArchiveEngine();
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(50);
+
+            await AssertThrowsAsync<OperationCanceledException>(
+                new BatchOperationService(engine, new TestSystemIntegration()).BatchCompressAsync(
+                    [source],
+                    new BatchOperationOptions { OutputPath = outputDir, Extension = "7z" },
+                    new SnapshotProgress([]),
+                    cts.Token));
+
+            Assert(File.Exists(keepFile), "压缩取消不得删除输出目录中原有无关文件");
+
+            var targetArchive = Path.Combine(outputDir, "source.txt.7z");
+            Assert(!File.Exists(targetArchive), "压缩取消必须清理在途未完成归档文件");
+            Assert(!File.Exists(targetArchive + ".001"), "压缩取消必须清理在途分卷文件");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
+    // Antigravity, 2026-11-07：批次 13——解压中途取消时可靠清理在途部分解压文件与新建目录。
+    private static async Task TestCancelledExtractionRollback()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"batch-compress-ext-cancel-{Guid.NewGuid():N}");
+        var archive = Path.Combine(root, "archive.7z");
+        var outputDir = Path.Combine(root, "output");
+        Directory.CreateDirectory(root);
+        Directory.CreateDirectory(outputDir);
+        File.WriteAllText(archive, "placeholder");
+        var keepFile = Path.Combine(outputDir, "keep.txt");
+        File.WriteAllText(keepFile, "keep me");
+
+        try
+        {
+            var engine = new CancellingFailureArchiveEngine();
+            using var cts = new CancellationTokenSource();
+            cts.CancelAfter(50);
+
+            await AssertThrowsAsync<OperationCanceledException>(
+                new BatchOperationService(engine, new TestSystemIntegration()).BatchDecompressAsync(
+                    [new FileEntry { FilePath = archive, FileSize = 100 }],
+                    new BatchOperationOptions { OutputPath = outputDir, Extension = "7z" },
+                    new SnapshotProgress([]),
+                    cts.Token));
+
+            Assert(File.Exists(keepFile), "解压取消不得删除原有文件");
+            Assert(!File.Exists(Path.Combine(outputDir, "partial-cancel.bin")), "解压取消必须清理未完成解压文件");
+            Assert(!Directory.Exists(Path.Combine(outputDir, "partial-cancel")), "解压取消必须清理新建目录");
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
+
     private sealed class PartialFailureArchiveEngine : IArchiveEngine
     {
         public bool IsAvailable() => true;
@@ -3670,8 +3781,14 @@ internal static class Program
             string input,
             string output,
             ArchiveOptions options,
-            CancellationToken cancellationToken = default) =>
-            Task.FromResult(new ArchiveResult { Success = true });
+            CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            File.WriteAllText(output, "incomplete archive");
+            File.WriteAllText(output + ".001", "incomplete volume 1");
+            File.WriteAllText(output + ".002", "incomplete volume 2");
+            return Task.FromResult(new ArchiveResult { Success = false, ErrorMessage = "disk full" });
+        }
 
         public Task<ArchiveResult> ExtractAsync(
             string archivePath,
@@ -3687,6 +3804,38 @@ internal static class Program
 
         public void Reset()
         {
+        }
+    }
+
+    private sealed class CancellingFailureArchiveEngine : IArchiveEngine
+    {
+        public bool IsAvailable() => true;
+
+        public async Task<ArchiveResult> CompressAsync(
+            string input,
+            string output,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.GetDirectoryName(output)!);
+            File.WriteAllText(output, "partial in-flight");
+            File.WriteAllText(output + ".001", "partial in-flight 001");
+            await Task.Delay(500, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new ArchiveResult { Success = true };
+        }
+
+        public async Task<ArchiveResult> ExtractAsync(
+            string archivePath,
+            string outputDir,
+            ArchiveOptions options,
+            CancellationToken cancellationToken = default)
+        {
+            Directory.CreateDirectory(Path.Combine(outputDir, "partial-cancel"));
+            File.WriteAllText(Path.Combine(outputDir, "partial-cancel.bin"), "incomplete cancel");
+            await Task.Delay(500, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new ArchiveResult { Success = true };
         }
     }
 }

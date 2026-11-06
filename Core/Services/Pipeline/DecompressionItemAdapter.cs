@@ -222,9 +222,22 @@ internal sealed class DecompressionItemAdapter : IBatchItemAdapter<FileEntry>
         prepared.OutputDirectoryExisted = outputDirectoryExisted;
         prepared.OutputSnapshot = outputSnapshot;
 
-        // 调用归档引擎执行解压。
-        return await _archiveEngine.ExtractAsync(
-            prepared.ArchivePath, outputDirectory, prepared.Options, cancellationToken);
+        try
+        {
+            // 调用归档引擎执行解压。
+            var result = await _archiveEngine.ExtractAsync(
+                prepared.ArchivePath, outputDirectory, prepared.Options, cancellationToken);
+            if (!result.Success)
+            {
+                OnExecutionFailed(prepared);
+            }
+            return result;
+        }
+        catch (Exception)
+        {
+            OnExecutionFailed(prepared);
+            throw;
+        }
     }
 
     public long MeasuredBytes(PreparedBatchItem item, double processedSizeGBBefore)

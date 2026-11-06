@@ -28,6 +28,7 @@ report() {
 
 echo "=== 0. 开测前重新构建，确认被测产物是最新的 ==="
 "$dotnet_bin" build "$repo_root/BatchCompress.Avalonia.sln" --nologo > "$work/build.log" 2>&1
+"$dotnet_bin" build "$repo_root/BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.csproj" --nologo >> "$work/build.log" 2>&1
 if [[ $? -ne 0 ]]; then
   echo "构建失败，测试结论不成立："
   tail -20 "$work/build.log"
@@ -190,10 +191,12 @@ else
   wait "$cancel_pid"
   cancel_rc=$?
   leftover="$(pgrep -x 7zz 2>/dev/null || true)"
+  leftover_files="$(find "$work/out-cancel" -type f \( -name "*.7z*" -o -name "*.tmp*" \) | wc -l | tr -d ' ')"
   if [[ "$cancel_rc" -eq 130 ]] \
      && grep -qi "Operation cancelled by user" "$work/cancel.log" \
-     && [[ -z "$leftover" ]]; then r=0; else r=1; fi
-  report "Ctrl+C 返回 130、日志有取消记录、无残留 7zz 进程（实际 $cancel_rc）" "$r"
+     && [[ -z "$leftover" ]] \
+     && [[ "$leftover_files" -eq 0 ]]; then r=0; else r=1; fi
+  report "Ctrl+C 返回 130、日志有取消记录、无残留 7zz 进程且输出目录零残片（实际 $cancel_rc，残片数 $leftover_files）" "$r"
 fi
 
 echo ""

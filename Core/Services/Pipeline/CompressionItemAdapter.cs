@@ -25,6 +25,9 @@ internal sealed class PreparedCompressionItem : PreparedBatchItem
     /// <summary>附件暂存目录；无附件或附件全部存在时为 null。</summary>
     public required string? StagingDirectory { get; init; }
 
+    /// <summary>执行前已存在的输出文件集合（失败或取消时避免误删既有文件）。</summary>
+    public IReadOnlySet<string>? PreExistingOutputFiles { get; set; }
+
     public override string BuildFailedLogMessage(string? errorMessage) =>
         $"Compression failed: {DisplayName} - {errorMessage}";
 }
@@ -190,10 +193,25 @@ internal sealed class CompressionItemAdapter : IBatchItemAdapter<string>
     public async Task<ArchiveResult> ExecuteAsync(PreparedBatchItem item, CancellationToken cancellationToken)
     {
         var prepared = (PreparedCompressionItem)item;
+        var preExistingFiles = SnapshotOutputFiles(prepared.OutputPath);
+        prepared.PreExistingOutputFiles = preExistingFiles;
+
         try
         {
-            return await _archiveEngine.CompressAsync(
+            var result = await _archiveEngine.CompressAsync(
                 prepared.SourcePath, prepared.OutputPath, prepared.Options, cancellationToken);
+
+            if (!result.Success)
+            {
+                CleanupFailedCompressionOutput(prepared.OutputPath, prepared.PreExistingOutputFiles);
+            }
+
+            return result;
+        }
+        catch (Exception)
+        {
+            CleanupFailedCompressionOutput(prepared.OutputPath, prepared.PreExistingOutputFiles);
+            throw;
         }
         finally
         {
@@ -233,9 +251,101 @@ internal sealed class CompressionItemAdapter : IBatchItemAdapter<string>
             PreflightWholeGroup: false);
     }
 
-    // 压缩失败没有输出回滚需求；引擎自身的失败输出清理由命令层处理。
+    // Antigravity, 2026-11-07：批次 13——压缩失败或取消时回滚本次新增的在途未完成文件与分卷残片。
     public void OnExecutionFailed(PreparedBatchItem item)
     {
+        var prepared = (PreparedCompressionItem)item;
+        CleanupFailedCompressionOutput(prepared.OutputPath, prepared.PreExistingOutputFiles);
+    }
+
+    private static IReadOnlySet<string> SnapshotOutputFiles(string outputPath)
+    {
+        try
+        {
+            var files = new List<string>();
+            files.AddRange(ArchiveVolumeResolver.ResolveOutputFiles(outputPath));
+            var fullPath = Path.GetFullPath(outputPath);
+            var directory = Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory();
+            var name = Path.GetFileName(fullPath);
+
+            if (File.Exists(fullPath + ".tmp"))
+            {
+                files.Add(fullPath + ".tmp");
+            }
+            if (Directory.Exists(directory))
+            {
+                foreach (var tmpFile in Directory.EnumerateFiles(directory, $"{name}.tmp*"))
+                {
+                    files.Add(tmpFile);
+                }
+                foreach (var tmpFile in Directory.EnumerateFiles(directory, $"{name}*.tmp*"))
+                {
+                    files.Add(tmpFile);
+                }
+            }
+
+            return files.Where(File.Exists).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        }
+        catch
+        {
+            return new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        }
+    }
+
+    private void CleanupFailedCompressionOutput(string outputPath, IReadOnlySet<string>? preExistingFiles)
+    {
+        try
+        {
+            var filesToCheck = new List<string>();
+            filesToCheck.AddRange(ArchiveVolumeResolver.ResolveOutputFiles(outputPath));
+
+            var fullPath = Path.GetFullPath(outputPath);
+            var directory = Path.GetDirectoryName(fullPath) ?? Directory.GetCurrentDirectory();
+            var name = Path.GetFileName(fullPath);
+
+            // 7zz 等归档工具在写入过程中会生成 <outputPath>.tmp 临时文件，中断时可能残留
+            if (File.Exists(fullPath + ".tmp"))
+            {
+                filesToCheck.Add(fullPath + ".tmp");
+            }
+
+            if (Directory.Exists(directory))
+            {
+                foreach (var tmpFile in Directory.EnumerateFiles(directory, $"{name}.tmp*"))
+                {
+                    filesToCheck.Add(tmpFile);
+                }
+                foreach (var tmpFile in Directory.EnumerateFiles(directory, $"{name}*.tmp*"))
+                {
+                    filesToCheck.Add(tmpFile);
+                }
+            }
+
+            var currentFiles = filesToCheck
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+
+            foreach (var file in currentFiles)
+            {
+                if (preExistingFiles == null || !preExistingFiles.Contains(file))
+                {
+                    try
+                    {
+                        File.Delete(file);
+                        Log(LogLevel.Information, $"已清理失败或取消的在途归档残片: {file}");
+                    }
+                    catch (Exception ex)
+                    {
+                        Log(LogLevel.Warning, $"清理在途归档残片失败: {file}，错误: {ex.Message}");
+                    }
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Log(LogLevel.Warning, $"扫描待清理归档残片异常: {outputPath}，错误: {ex.Message}");
+        }
     }
 
     private static string? CreateAttachmentInputs(BatchOperationOptions options, out string[] inputs)
