@@ -31,13 +31,20 @@ jobs:
       - name: 安装 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: 构建主程序（Release，0 警告基线）
         run: dotnet build BatchCompress.Avalonia.sln -c Release --nologo
 
       - name: 运行全量单元测试门禁
         run: dotnet run -c Release --project BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.csproj --nologo
+
+      - name: 快速冒烟自检（三平台）
+        run: bash scripts/smoke-test.sh
+
+      - name: 经验库实测验证（仅 macOS）
+        if: matrix.os == 'macos-latest'
+        run: zsh 测试夹具/经验验证/verify.sh
 
   package-macos:
     name: 打包·macOS 应用包
@@ -51,7 +58,7 @@ jobs:
       - name: 安装 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: 构建 .app 并输出 zip（版本绑定 VERSION）
         run: zsh scripts/package-macos.sh --dist
@@ -75,7 +82,7 @@ jobs:
       - name: 安装 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: 打包 Linux 便携版（tar.gz，含官方 7zz 与完整 RAR 分发包）
         run: bash scripts/package-linux.sh --dist
@@ -130,6 +137,29 @@ jobs:
           test -f ".artifacts/release/BatchCompress.Avalonia_${app_version}_win-x64.zip"
           test -f ".artifacts/release/BatchCompress.Avalonia_${app_version}_linux-x64.tar.gz"
 
+      - name: 生成 SHA-256 校验和清单
+        run: |
+          (cd .artifacts/release && sha256sum BatchCompress.Avalonia_* > SHA256SUMS.txt)
+          cat .artifacts/release/SHA256SUMS.txt
+
+      - name: 发布产物安全扫描（防日志/临时文件混入）
+        run: |
+          for tar_file in .artifacts/release/*.tar.gz; do
+            echo "Scanning $tar_file..."
+            if tar -tzf "$tar_file" | grep -E '(\.log|\.tmp|enclosures\.txt)$'; then
+              echo "Error: Leaked temporary/log/sensitive file detected in $tar_file" >&2
+              exit 1
+            fi
+          done
+          for zip_file in .artifacts/release/*.zip; do
+            echo "Scanning $zip_file..."
+            if unzip -l "$zip_file" | grep -E '(\.log|\.tmp|enclosures\.txt)$'; then
+              echo "Error: Leaked temporary/log/sensitive file detected in $zip_file" >&2
+              exit 1
+            fi
+          done
+          echo "Safety scan passed: zero leaked logs or temp files in distribution archives."
+
       - name: 创建 GitHub Release 并上传附件
         env:
           GH_TOKEN: ${{ github.token }}
@@ -140,4 +170,5 @@ jobs:
                  --title "BatchCompress.Avalonia ${tag#v}" \
                  --generate-notes
           gh release upload "$tag" --repo "$GITHUB_REPOSITORY" \
-            .artifacts/release/BatchCompress.Avalonia_* --clobber
+            .artifacts/release/BatchCompress.Avalonia_* \
+            .artifacts/release/SHA256SUMS.txt --clobber

@@ -127,7 +127,18 @@ if [[ -n "$rar_source" ]]; then
   chmod +x "$app_path/Contents/MacOS/tools/rarmacOS/rar" "$app_path/Contents/MacOS/tools/rarmacOS/unrar"
 fi
 touch "$app_path"
-codesign --force --deep --sign - "$app_path" >/dev/null
+sign_identity="${APPLE_SIGNING_IDENTITY:-}"
+entitlements_file="$repo_root/macos/entitlements.plist"
+
+if [[ -n "$sign_identity" ]]; then
+  print "Signing with identity: $sign_identity (hardened runtime + entitlements)"
+  codesign --force --deep --options runtime --entitlements "$entitlements_file" --sign "$sign_identity" "$app_path"
+  codesign --verify --deep --strict "$app_path"
+else
+  codesign --force --deep --sign - "$app_path" >/dev/null
+  print "Notice: Signed with ad-hoc signature (-). macOS Gatekeeper will block direct launch of downloaded releases."
+  print "        Users must right-click -> Open, or run: xattr -d com.apple.quarantine <AppPath>"
+fi
 
 # GLM-5.3, 2026-11-04：批次 6——dist 模式输出 zip 归档（ditto 保留符号链接与可执行位），
 # 产物名与 VERSION 严格绑定；完成后清理 stage 目录，dist 下只留归档。

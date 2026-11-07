@@ -79,7 +79,8 @@ internal static class Program
             ("无界面进度单行格式化", TestHeadlessProgressFormatting),
             ("压缩失败残留回滚", TestFailedCompressionRollback),
             ("压缩取消残留回滚", TestCancelledCompressionRollback),
-            ("解压取消残留回滚", TestCancelledExtractionRollback)
+            ("解压取消残留回滚", TestCancelledExtractionRollback),
+            ("五语言CLI帮助选项完整性", TestAllHelpTextsContainAllOptions)
         };
 
         // GLM-5.3, 2026-11-03：跑完全部测试后统一输出失败汇总，CI 中一次可见所有失败项；
@@ -3097,10 +3098,10 @@ internal static class Program
         return Task.CompletedTask;
     }
 
-    // Antigravity, 2026-11-04：批次 12——CLI 帮助文本自动折行与控制台宽度自适应。
+    // Antigravity, 2026-11-04 / 2026-11-07：批次 12/14——CLI 五语言帮助文本获取、零中文断言、宽度计算与自动折行。
     private static Task TestCliHelpTextWrapping()
     {
-        // 1) 帮助文本获取与回退测试
+        // 1) 帮助文本获取与各语言特征测试
         var zhCn = BatchCompress.Avalonia.CommandLineHandler.GetHelpText(null);
         Assert(zhCn.Contains("批量压缩解压工具"), "默认帮助应为简体中文");
         Assert(zhCn.Contains("--lock"), "简体帮助应包含 --lock 选项");
@@ -3112,38 +3113,110 @@ internal static class Program
         Assert(en.Contains("Batch Compress & Extract Tool"), "en 帮助应为英文");
 
         var ja = BatchCompress.Avalonia.CommandLineHandler.GetHelpText("ja");
-        Assert(ja == en, "ja 应回退到英文帮助");
+        Assert(ja.Contains("バッチ圧縮解凍ツール"), "ja 帮助应为日文");
+        Assert(ja.Contains("--quick-open"), "ja 帮助应包含 --quick-open 选项");
 
         var de = BatchCompress.Avalonia.CommandLineHandler.GetHelpText("de");
-        Assert(de == en, "de 应回退到英文帮助");
+        Assert(de.Contains("Batch-Komprimierungs- und Entpackungstool"), "de 帮助应为德文");
+        Assert(de.Contains("--volume-size"), "de 帮助应包含 --volume-size 选项");
 
-        // 2) 显示宽度计算（中英混合与全半角字符）
+        // 德文帮助严格零中文字符断言
+        var deChineseCount = de.Count(c => c >= 0x4e00 && c <= 0x9fff);
+        AssertEqual(0, deChineseCount);
+
+        // 2) 显示宽度计算（中英日混合与全半角字符）
         AssertEqual(7, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("abc 123"));
         AssertEqual(8, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("测试文本"));
         AssertEqual(15, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("CLI 参数 --lang"));
+        // 日文片假名（全角 2 列）
+        AssertEqual(6, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("バッチ"));
+        AssertEqual(10, BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth("テスト abc"));
 
-        // 3) 折行验证（maxWidth = 60 和 80）
+        // 3) 折行验证（maxWidth = 60 和 80，覆盖 en, zh-CN, ja, de）
         foreach (var width in new[] { 60, 80 })
         {
-            var wrappedEn = BatchCompress.Avalonia.CommandLineHandler.WrapHelpText(en, width);
-            var linesEn = wrappedEn.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            foreach (var line in linesEn)
+            foreach (var (langName, text) in new[] { ("en", en), ("zh-CN", zhCn), ("ja", ja), ("de", de) })
             {
-                var displayWidth = BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth(line);
-                Assert(displayWidth <= width, $"英文折行后行宽 {displayWidth} 超过限制 {width}：'{line}'");
+                var wrapped = BatchCompress.Avalonia.CommandLineHandler.WrapHelpText(text, width);
+                var lines = wrapped.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
+                foreach (var line in lines)
+                {
+                    var displayWidth = BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth(line);
+                    Assert(displayWidth <= width, $"{langName} 折行后行宽 {displayWidth} 超过限制 {width}：'{line}'");
+                }
+                Assert(wrapped.Contains("--shutdown"), $"{langName} 折行后不应丢失 --shutdown 选项");
+                Assert(wrapped.Contains("--concurrency"), $"{langName} 折行后不应丢失 --concurrency 选项");
+                Assert(wrapped.Contains("--existing"), $"{langName} 折行后不应丢失 --existing 选项");
             }
-            Assert(wrappedEn.Contains("--shutdown"), "折行后不应丢失 --shutdown 选项");
-            Assert(wrappedEn.Contains("--concurrency"), "折行后不应丢失 --concurrency 选项");
+        }
 
-            var wrappedZh = BatchCompress.Avalonia.CommandLineHandler.WrapHelpText(zhCn, width);
-            var linesZh = wrappedZh.Split(new[] { "\r\n", "\n" }, StringSplitOptions.None);
-            foreach (var line in linesZh)
+        return Task.CompletedTask;
+    }
+
+    // Antigravity, 2026-11-07：批次 14——验证全部 5 种语言的 CLI 帮助文本均包含完整 40+ 项选项名。
+    private static Task TestAllHelpTextsContainAllOptions()
+    {
+        string[] requiredOptionTokens =
+        [
+            "compress",
+            "extract",
+            "gui",
+            "--source",
+            "--input",
+            "--output",
+            "--text-file",
+            "--extension",
+            "--level",
+            "--solid",
+            "--no-solid",
+            "--volume-size",
+            "--volume-unit",
+            "--recovery",
+            "--quick-open",
+            "--test",
+            "--comment",
+            "--temp-dir",
+            "--random-password",
+            "--no-random-password",
+            "--password",
+            "--password-file",
+            "--password-stdin",
+            "--password-name",
+            "--existing",
+            "--lock",
+            "--skip-processed",
+            "--no-skip-processed",
+            "--delete-source",
+            "--move-source",
+            "--max-size",
+            "--shutdown",
+            "--concurrency",
+            "--add-enclosures",
+            "--no-add-enclosures",
+            "--enclosure",
+            "--log-file",
+            "--log-retention-days",
+            "--verbose",
+            "--quiet",
+            "--dry-run",
+            "--help",
+            "--version",
+            "--language",
+            "--output-format"
+        ];
+
+        string[] languages = ["zh-CN", "zh-TW", "en", "ja", "de"];
+
+        foreach (var lang in languages)
+        {
+            var helpText = BatchCompress.Avalonia.CommandLineHandler.GetHelpText(lang);
+            Assert(!string.IsNullOrWhiteSpace(helpText), $"{lang} 帮助文本不应为空");
+
+            foreach (var token in requiredOptionTokens)
             {
-                var displayWidth = BatchCompress.Avalonia.CommandLineHandler.GetDisplayWidth(line);
-                Assert(displayWidth <= width, $"中文折行后行宽 {displayWidth} 超过限制 {width}：'{line}'");
+                Assert(helpText.Contains(token),
+                    $"语言 [{lang}] 的 CLI 帮助文本缺少必要选项名 token: '{token}'");
             }
-            Assert(wrappedZh.Contains("--shutdown"), "折行后不应丢失 --shutdown 选项");
-            Assert(wrappedZh.Contains("--existing"), "折行后不应丢失 --existing 选项");
         }
 
         return Task.CompletedTask;

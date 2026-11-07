@@ -36,7 +36,11 @@ run_linux() {
 
 case "$target" in
   --check)
-    zsh "$repo_root/scripts/package-macos.sh" --check
+    if [[ "$(uname -s)" == "Darwin" ]]; then
+      zsh "$repo_root/scripts/package-macos.sh" --check
+    else
+      echo "跳过 macOS 检查：当前宿主不是 macOS。"
+    fi
     bash "$repo_root/scripts/package-windows.sh" --check
     bash "$repo_root/scripts/package-linux.sh" --check
     echo "all packaging scripts check ok"

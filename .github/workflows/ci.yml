@@ -30,7 +30,7 @@ jobs:
       - name: 安装 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: 还原依赖
         run: dotnet restore BatchCompress.Avalonia.sln --nologo
@@ -41,6 +41,13 @@ jobs:
       - name: 构建并运行测试控制台
         # 测试项目不在解决方案内，单独构建运行；测试输出 PASS/SKIP/FAIL 与失败汇总，任一失败退出码为 1。
         run: dotnet run -c Release --project BatchCompress.Avalonia.Tests/BatchCompress.Avalonia.Tests.csproj --nologo
+
+      - name: 快速冒烟自检（三平台）
+        run: bash scripts/smoke-test.sh
+
+      - name: 经验库实测验证（仅 macOS）
+        if: matrix.os == 'macos-latest'
+        run: zsh 测试夹具/经验验证/verify.sh
 
   macos-package:
     name: macOS 应用包构建
@@ -53,7 +60,7 @@ jobs:
       - name: 安装 .NET 10 SDK
         uses: actions/setup-dotnet@v4
         with:
-          dotnet-version: '10.0.x'
+          global-json-file: global.json
 
       - name: 构建应用包（不安装到 /Applications）
         run: |

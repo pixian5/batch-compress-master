@@ -9,23 +9,34 @@ set -euo pipefail
 #   要求整包携带，不得只挑二进制；详见 docs/20260929-2351 RAR 许可风险说明“已落实方案 B”）；
 # - MIT LICENSE。
 # 产物名与根目录 VERSION 严格绑定：BatchCompress.Avalonia_<版本>_linux-x64.tar.gz。
-# 用法：package-linux.sh [--dist|--check]；默认 dist 模式，输出到 .artifacts/dist。
+# 用法：package-linux.sh [--dist|--check] [--no-rar]；默认 dist 模式，输出到 .artifacts/dist。
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-mode="${1:---dist}"
+mode="--dist"
+no_rar=0
+
+for arg in "$@"; do
+  case "$arg" in
+    --check) mode="--check" ;;
+    --dist) mode="--dist" ;;
+    --no-rar) no_rar=1 ;;
+    *)
+      echo "usage: package-linux.sh [--dist|--check] [--no-rar]" >&2
+      exit 2
+      ;;
+  esac
+done
 
 if [[ "$mode" == "--check" ]]; then
   command -v dotnet >/dev/null 2>&1 || { echo "check failed: dotnet missing" >&2; exit 1; }
   [[ -f "$repo_root/VERSION" ]] || { echo "check failed: VERSION missing" >&2; exit 1; }
-  for f in rar unrar license.txt readme.txt; do
-    [[ -f "$repo_root/tools/rarLinux/$f" ]] || { echo "check failed: tools/rarLinux/$f missing" >&2; exit 1; }
-  done
+  if [[ "$no_rar" == 0 ]]; then
+    for f in rar unrar license.txt readme.txt; do
+      [[ -f "$repo_root/tools/rarLinux/$f" ]] || { echo "check failed: tools/rarLinux/$f missing" >&2; exit 1; }
+    done
+  fi
   [[ -f "$repo_root/tools/7zip/linux-x64/7zz" ]] || { echo "check failed: tools/7zip/linux-x64/7zz missing" >&2; exit 1; }
-  echo "check ok: dotnet/VERSION/rarLinux/7zip ready"
+  echo "check ok: dotnet/VERSION/7zip ready (no_rar=$no_rar)"
   exit 0
-fi
-if [[ "$mode" != "--dist" ]]; then
-  echo "usage: package-linux.sh [--dist|--check]" >&2
-  exit 2
 fi
 
 app_version="$(tr -d '[:space:]' < "$repo_root/VERSION")"
@@ -36,7 +47,11 @@ fi
 
 dist_dir="${BATCHCOMPRESS_DIST_DIR:-$repo_root/.artifacts/dist}"
 publish_dir="$repo_root/.artifacts/linux-publish"
-archive_path="$dist_dir/BatchCompress.Avalonia_${app_version}_linux-x64.tar.gz"
+if [[ "$no_rar" == 1 ]]; then
+  archive_path="$dist_dir/BatchCompress.Avalonia_${app_version}_linux-x64-no-rar.tar.gz"
+else
+  archive_path="$dist_dir/BatchCompress.Avalonia_${app_version}_linux-x64.tar.gz"
+fi
 
 # 自包含单文件发布：csproj 的 RID 条件会把 tools/7zip/linux-x64/** 与 tools/rarLinux/**
 # 整体复制进产物（Content 项），脚本只做存在性核验，不自行挑选文件。
@@ -59,6 +74,10 @@ mkdir -p "$dist_dir/stage/BatchCompress.Avalonia"
 cp "$publish_dir/BatchCompress.Avalonia" "$dist_dir/stage/BatchCompress.Avalonia/"
 chmod +x "$dist_dir/stage/BatchCompress.Avalonia/BatchCompress.Avalonia"
 cp -R "$publish_dir/tools" "$dist_dir/stage/BatchCompress.Avalonia/tools"
+if [[ "$no_rar" == 1 ]]; then
+  rm -rf "$dist_dir/stage/BatchCompress.Avalonia/tools/rarLinux"
+  echo "Stripped tools/rarLinux for --no-rar distribution"
+fi
 cp "$repo_root/LICENSE" "$dist_dir/stage/BatchCompress.Avalonia/"
 rm -f "$archive_path"
 (cd "$dist_dir/stage" && tar -czf "${archive_path##*/}" "BatchCompress.Avalonia")

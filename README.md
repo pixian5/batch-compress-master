@@ -4,11 +4,20 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.7.7`（正确性与残片清理批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
+当前版本：`0.7.8`（CI 门禁与五语言帮助批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
 
 ## 当前开发进度
 
-汇总见 [当前开发进度](docs/20261107-0120-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261107-0120-下一步待实现-Antigravity.md)。
+汇总见 [当前开发进度](docs/20261107-1715-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261107-1715-下一步待实现-Antigravity.md)。
+
+`0.7.8` 完成批次 14（2026-11-07）：**持续集成深度强化、发布安全扫描与 CLI 五语言帮助完整化**
+- **P1-5 锁定 .NET SDK**：根目录新增 `global.json`（锁定 SDK `10.0.403`，rollForward 为 `latestFeature`），CI 与 Release 工作流统一使用 `global-json-file: global.json`，根治云端与本地环境差异；
+- **P0-2 Release 校验和清单与安全扫描**：`release.yml` 自动生成并上传 `SHA256SUMS.txt` 校验和文件，发布前对全部平台归档执行解包安全扫描，严禁 `.log`、`.tmp`、`enclosures.txt` 等敏感文件混入发布产物；
+- **P1-6 本地测试资产深度接入持续集成**：`ci.yml` 与 `release.yml` 全面接入 `scripts/smoke-test.sh`（三平台）与 `测试夹具/经验验证/verify.sh`（macOS 门禁）；
+- **P0-1 macOS 签名强化与硬化运行时支持**：新增 `macos/entitlements.plist`，`package-macos.sh` 支持证书注入 Hardened Runtime 签名；无证书时清晰提示 Gatekeeper 隔离绕过指引；
+- **P0-3 Linux `--no-rar` 纯净版打包选项**：`package-linux.sh` 增加 `--no-rar` 开关，提供完全规避第三方二进制许可争议的开源发行版；
+- **P2-8 & P2-9 日德帮助补全与超千行文件拆分**：多语言帮助文本独立拆分至 `CommandLineHandler.HelpTexts.cs`，实现完整的日文（`ja`）与德文（`de`，严格 0 中文字符）CLI 帮助与假名终端显示宽度计算；
+- 测试套件扩充 62 → **63 项**全过；`verify.sh` 16 项全过；端到端夹具 149 项全过。详细内容见 [docs/20261107-1715-批次14完成报告-Antigravity.md](docs/20261107-1715-批次14完成报告-Antigravity.md)。
 
 `0.7.7` 完成批次 13（2026-11-07）：**压缩与解压取消/异常在途残片回滚清理**——`CompressionItemAdapter` 引入执行前输出快照（覆盖主归档、所有分卷与 7zz 的 `.tmp` 临时文件），在任务失败或取消时精准回滚新增残片，保留无关既有文件，彻底解决残留破损归档引发 `--skip-processed` 静默跳过并损坏数据的严重隐患；`BatchExecutionPipeline` 对 `ExecuteAsync` 增加通用异常捕获并触发 `OnExecutionFailed`；测试套件扩充 59 → **62 项**全过；`verify.sh` 实测 Ctrl+C 取消零残片通过。详细内容见 [docs/20261107-0120-批次13完成报告-Antigravity.md](docs/20261107-0120-批次13完成报告-Antigravity.md)。
 
@@ -28,16 +37,21 @@
 
 ## 下一步待实现
 
-批次 13 已收口（`0.7.7`，已攻坚完成 P1-4 取消与失败在途残片回滚）。后续按阶段继续推进：
-**P0** 发布可用性与合规（macOS 正式签名与公证、产物校验清单、RAR 分发合规复核）、
-**P1** 正确性与持续集成门禁（锁定 SDK、本地测试资产接入 CI、产物实机验证）、
-**P2** 可维护性（语言资源外置、拆分大文件、平台能力一致性）、
-**P3** 体验演进（分卷子进度、NDJSON 机器可读契约）。
-详细任务、改动点、验收标准见 [下一步待实现](docs/20261107-0120-下一步待实现-Antigravity.md) 及 [Claude-Opus 待办索引](docs/20261105-2354-下一步待实现-Claude-Opus.md)，
+批次 14 已收口（`0.7.8`，已攻坚完成 P1-5、P0-2、P1-6、P0-1、P0-3、P2-8 及 P2-9 帮助拆分）。后续按阶段继续推进：
+- **P1-7 目标平台产物实机验证**：在 Release 工作流中增加 Windows/Linux 真实 runner 环境下载各自交叉编译产物，执行 `--version` 与压缩往返验证；
+- **P2-10 Linux ARM64 与 x64 的 RAR 差异明确化**：在文档与运行时为 ARM64 明确提供无内置 RAR 提示；
+- **P3-11 分卷压缩实时子进度**：从 7zz/RAR 输出流解析卷切换并换算为子进度；
+- **P3-12 NDJSON 机器可读契约**：发布 `schemas/ndjson-schema-v1.json` 并增加诊断导出确认。
+
+详细任务、改动点、验收标准见 [下一步待实现](docs/20261107-1715-下一步待实现-Antigravity.md) 及 [Claude-Opus 待办索引](docs/20261105-2354-下一步待实现-Claude-Opus.md)，
 分析依据与需拍板事项见 [整体分析与下一步开发建议](docs/20261105-2354-整体分析与下一步开发建议-Claude-Opus.md)。
 
-发布通道：建议先完成 P0 再推送 `v0.7.7` tag（或在 Actions 页手工触发 Release 工作流），
-否则首批 Release 会带着 macOS 被系统拦截、无校验清单的问题。
+发布通道：当前核心门禁与校验清单已完备，可推送 `v0.7.8` tag 触发正式自动化发布。用户下载后可通过：
+```bash
+# 校验发布归档完整性
+sha256sum -c SHA256SUMS.txt       # Linux
+shasum -a 256 -c SHA256SUMS.txt   # macOS
+```
 
 ## 功能
 
@@ -116,9 +130,9 @@ open /Applications/BatchCompress.Avalonia.app
 
 `docs/` 保存按 `YYYYMMDD-HHMM-标题-模型名.md` 命名的进度、决策与风险记录。下面只登记**当前有效**的几份：
 
-- [当前开发进度](docs/20261104-1155-当前开发进度-Antigravity.md)：`0.7.6` 进度汇总与版本一览表。
-- [下一步待实现](docs/20261104-1155-下一步待实现-Antigravity.md)：发布执行指引与后续演进建议。
-- [批次 12 完成报告](docs/20261104-1155-批次12完成报告-Antigravity.md)：最新一版的改动与验证结果。
+- [当前开发进度](docs/20261107-1715-当前开发进度-Antigravity.md)：`0.7.8` 进度汇总与版本一览表。
+- [下一步待实现](docs/20261107-1715-下一步待实现-Antigravity.md)：发布执行指引与后续演进建议。
+- [批次 14 完成报告](docs/20261107-1715-批次14完成报告-Antigravity.md)：最新一版的改动与验证结果。
 - [项目运行机制分析](docs/20261105-2243-项目运行机制分析-Claude-Opus.md)：启动、分层、执行链与发布运行的全链路说明。
 - [RAR 二进制许可风险说明](docs/20260929-2351-RAR二进制许可风险说明-未标注.md)：官方协议依据与已落实的决策 B。
 - 其余 `docs/YYYYMMDD-HHMM-*.md` 是历史记录，保留原文但**可能已被后续版本推翻**；完整清单见 [文档索引.md](文档索引.md)。
