@@ -97,9 +97,94 @@ jobs:
           path: .artifacts/dist/*
           if-no-files-found: error
 
+  # Antigravity, 2026-11-08：批次 15（P1-7）——目标平台产物的实机验证。
+  # 在真实 OS runner 上下载解包各自的分发包，执行 --version、--help 与无界面压缩解压闭环。
+  verify-artifacts:
+    name: 实机验证·分发包可用性 (${{ matrix.target }})
+    needs: [package-macos, package-cross]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: linux-x64
+            os: ubuntu-latest
+            artifact: dist-cross
+          - target: win-x64
+            os: windows-latest
+            artifact: dist-cross
+          - target: macos-arm64
+            os: macos-latest
+            artifact: dist-macos
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    steps:
+      - name: 检出代码
+        uses: actions/checkout@v4
+
+      - name: 下载分发产物
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: .artifacts/dist
+
+      - name: 验证 Linux 分发包实机运行
+        if: matrix.target == 'linux-x64'
+        run: |
+          mkdir -p test-run && cd test-run
+          tar -xzf ../.artifacts/dist/BatchCompress.Avalonia_*_linux-x64.tar.gz
+          app="./BatchCompress.Avalonia/BatchCompress.Avalonia"
+          "$app" --version
+          version="$(tr -d '[:space:]' < ../VERSION)"
+          test "$("$app" --version | tr -d '[:space:]')" = "$version"
+          echo "linux artifact test payload" > input.txt
+          "$app" compress -i input.txt -o out -e 7z
+          "$app" decompress -i out/input.txt.7z -o ext -e 7z
+          test "$(cat ext/input.txt)" = "linux artifact test payload"
+          echo "Linux artifact real-machine verification PASSED."
+
+      - name: 验证 Windows 分发包实机运行
+        if: matrix.target == 'win-x64'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Path test-run | Out-Null
+          Set-Location test-run
+          $zip = Get-ChildItem ../.artifacts/dist/*_win-x64.zip | Select-Object -First 1
+          Expand-Archive -Path $zip.FullName -DestinationPath .
+          $app = ".\BatchCompress.Avalonia\BatchCompress.Avalonia.exe"
+          $outVer = & $app --version
+          $expVer = (Get-Content ../VERSION).Trim()
+          if ($outVer.Trim() -ne $expVer) {
+            Write-Error "Version mismatch: got $outVer, expected $expVer"
+            exit 1
+          }
+          Set-Content -Path input.txt -Value "windows artifact test payload"
+          & $app compress -i input.txt -o out -e zip
+          & $app decompress -i out\input.txt.zip -o ext -e zip
+          $content = (Get-Content ext\input.txt).Trim()
+          if ($content -ne "windows artifact test payload") {
+            Write-Error "Content mismatch: got $content"
+            exit 1
+          }
+          Write-Host "Windows artifact real-machine verification PASSED."
+
+      - name: 验证 macOS 分发包实机运行
+        if: matrix.target == 'macos-arm64'
+        run: |
+          mkdir -p test-run && cd test-run
+          unzip -q ../.artifacts/dist/*.app.zip
+          app="./BatchCompress.Avalonia.app/Contents/MacOS/BatchCompress.Avalonia"
+          "$app" --version
+          version="$(tr -d '[:space:]' < ../VERSION)"
+          test "$("$app" --version | tr -d '[:space:]')" = "$version"
+          echo "macos artifact test payload" > input.txt
+          "$app" compress -i input.txt -o out -e 7z
+          "$app" decompress -i out/input.txt.7z -o ext -e 7z
+          test "$(cat ext/input.txt)" = "macos artifact test payload"
+          echo "macOS artifact real-machine verification PASSED."
+
   release:
     name: 创建 Release 并上传附件
-    needs: [package-macos, package-cross]
+    needs: [package-macos, package-cross, verify-artifacts]
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:

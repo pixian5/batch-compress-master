@@ -1,0 +1,75 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://github.com/x/compress/schemas/ndjson-schema-v1.json",
+  "title": "BatchCompress NDJSON Event Stream Schema v1",
+  "description": "JSON schema for newline-delimited JSON (NDJSON) progress and event records emitted by BatchCompress CLI (--output-format json).",
+  "type": "object",
+  "required": ["type"],
+  "oneOf": [
+    {
+      "description": "In-flight operation progress event",
+      "properties": {
+        "type": { "type": "string", "const": "progress" },
+        "phase": { "type": "string" },
+        "source": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] }
+      },
+      "required": ["type", "phase"],
+      "additionalProperties": false
+    },
+    {
+      "description": "Per-item completion event",
+      "properties": {
+        "type": { "type": "string", "const": "item" },
+        "status": { "type": "string", "enum": ["success", "fail", "skip"] },
+        "source": { "type": ["string", "null"] },
+        "message": { "type": ["string", "null"] },
+        "successCount": { "type": "integer", "minimum": 0 },
+        "failCount": { "type": "integer", "minimum": 0 },
+        "postProcessFailCount": { "type": "integer", "minimum": 0 },
+        "ignoreCount": { "type": "integer", "minimum": 0 },
+        "nonexistentCount": { "type": "integer", "minimum": 0 },
+        "incompleteVolumes": { "type": "integer", "minimum": 0 },
+        "ambiguous": { "type": "integer", "minimum": 0 }
+      },
+      "required": [
+        "type",
+        "status",
+        "successCount",
+        "failCount",
+        "postProcessFailCount",
+        "ignoreCount",
+        "nonexistentCount",
+        "incompleteVolumes",
+        "ambiguous"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "description": "Batch completion summary event",
+      "properties": {
+        "type": { "type": "string", "const": "summary" },
+        "success": { "type": "integer", "minimum": 0 },
+        "failed": { "type": "integer", "minimum": 0 },
+        "postProcessFailed": { "type": "integer", "minimum": 0 },
+        "ignored": { "type": "integer", "minimum": 0 },
+        "nonexistent": { "type": "integer", "minimum": 0 },
+        "incompleteVolumes": { "type": "integer", "minimum": 0 },
+        "ambiguous": { "type": "integer", "minimum": 0 },
+        "elapsedSeconds": { "type": "number", "minimum": 0 }
+      },
+      "required": [
+        "type",
+        "success",
+        "failed",
+        "postProcessFailed",
+        "ignored",
+        "nonexistent",
+        "incompleteVolumes",
+        "ambiguous",
+        "elapsedSeconds"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

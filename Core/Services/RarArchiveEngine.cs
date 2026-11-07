@@ -477,6 +477,19 @@ public class RarArchiveEngine : IArchiveEngine
         return true;
     }
     
+    // Antigravity, 2026-11-08：批次 15（P2-10）——针对 Linux ARM64（自带 RAR 仅针对 Linux x64 提供）
+    // 输出明确的架构诊断提示，引导使用系统 rar 或切换为 7z/zip 格式。
+    internal static string GetMissingRarMessage()
+    {
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux) &&
+            RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+        {
+            return "RAR executable not found on Linux ARM64 (bundled RAR binary is provided for Linux x64 only). Please install system rar or use 7z/zip format.";
+        }
+
+        return "RAR executable not found. Please install WinRAR or RAR.";
+    }
+
     public async Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
     {
         if (!EnsureRarExecutableAvailable())
@@ -485,7 +498,7 @@ public class RarArchiveEngine : IArchiveEngine
             {
                 Success = false,
                 ExitCode = -2,
-                ErrorMessage = "RAR executable not found. Please install WinRAR or RAR."
+                ErrorMessage = GetMissingRarMessage()
             };
         }
 
@@ -517,7 +530,7 @@ public class RarArchiveEngine : IArchiveEngine
             {
                 Success = false,
                 ExitCode = -2,
-                ErrorMessage = "RAR executable not found. Please install WinRAR or RAR."
+                ErrorMessage = GetMissingRarMessage()
             };
         }
 

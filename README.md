@@ -4,11 +4,18 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.7.8`（CI 门禁与五语言帮助批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
+当前版本：`0.7.9`（文件解耦拆分、RAR 7zz 回退与产物实机验证批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
 
 ## 当前开发进度
 
-汇总见 [当前开发进度](docs/20261107-1715-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261107-1715-下一步待实现-Antigravity.md)。
+汇总见 [当前开发进度](docs/20261108-0410-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261108-0410-下一步待实现-Antigravity.md)。
+
+`0.7.9` 完成批次 15（2026-11-08）：**超千行文件全面解耦拆分、RAR 7zz 解压回退、NDJSON 契约 Schema 与发布产物实机验证**
+- **P2-9 拆分超千行大文件**：`MainWindowViewModel.cs` 从 1,491 行精简至 841 行，按领域拆分出 BrowsingAndFiles、Execution、Enclosures 三个分部类；`BatchCompress.Avalonia.Tests/Program.cs` 从 3,914 行精简至 558 行，按测试领域拆分成 CliTests、EngineTests、PipelineTests、LoggingAndConfigTests、LocalizationTests 五个分部类；
+- **P2-10 RAR 7zz 解压回退与 Linux ARM64 专属诊断**：`ArchiveEngineRouter.cs` 在解压 RAR 时遇到未安装 RAR/WinRAR 环境（如 macOS 或 Linux ARM64），自动路由至 7zz 引擎解压；`RarArchiveEngine.cs` 针对 Linux ARM64 输出明确的架构差异与格式建议诊断文案；
+- **P3-12 NDJSON 机器可读契约 Schema**：新增 `schemas/ndjson-schema-v1.json`（基于 JSON Schema Draft-07），严格规范 progress、item 与 summary 三类事件模型，并在单元测试中执行全字段契约校验；
+- **P1-7 目标平台产物实机验证**：`.github/workflows/release.yml` 新增 `verify-artifacts` 作业，对 Linux x64、Windows x64、macOS arm64 分发包在各自真实 runner 上解包运行 `--version` 与执行单文件压缩解压往返闭环验证；
+- 测试套件扩充 63 → **65 项**全过；`verify.sh` 16 项全过；端到端夹具 149 项全过。详细内容见 [docs/20261108-0410-批次15完成报告-Antigravity.md](docs/20261108-0410-批次15完成报告-Antigravity.md)。
 
 `0.7.8` 完成批次 14（2026-11-07）：**持续集成深度强化、发布安全扫描与 CLI 五语言帮助完整化**
 - **P1-5 锁定 .NET SDK**：根目录新增 `global.json`（锁定 SDK `10.0.403`，rollForward 为 `latestFeature`），CI 与 Release 工作流统一使用 `global-json-file: global.json`，根治云端与本地环境差异；

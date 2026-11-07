@@ -44,6 +44,9 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
         };
     }
 
+    // GPT-5, 2026-08-06：路由层只决定归档后端，不改变任一后端的参数或输出。
+    // Antigravity, 2026-11-08：批次 15（P2-10）——解压 RAR 时若 RAR 引擎不可用（如 macOS 或 Linux ARM64 未装 RAR），
+    // 自动回退至支持 RAR/RAR5 解压的 7zz 引擎，避免直接报找不到可执行文件。
     public Task<ArchiveResult> ExtractAsync(
         string archivePath,
         string outputDir,
@@ -54,7 +57,12 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
         var detectedKind = ArchiveVolumeResolver.DetectArchiveKind(archivePath);
         if (detectedKind == ArchiveKind.Rar)
         {
-            return _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+            if (_rarEngine.IsAvailable() || !_sevenZipEngine.IsAvailable())
+            {
+                return _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+            }
+
+            return _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
         }
 
         if (detectedKind != ArchiveKind.Unknown)
@@ -62,8 +70,16 @@ public sealed class ArchiveEngineRouter : IArchiveEngine
             return _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
         }
 
-        return ArchiveFormatCatalog.Normalize(options.ArchiveFormat) == "rar"
-            ? _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken)
-            : _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+        if (ArchiveFormatCatalog.Normalize(options.ArchiveFormat) == "rar")
+        {
+            if (_rarEngine.IsAvailable() || !_sevenZipEngine.IsAvailable())
+            {
+                return _rarEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+            }
+
+            return _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
+        }
+
+        return _sevenZipEngine.ExtractAsync(archivePath, outputDir, options, cancellationToken);
     }
 }

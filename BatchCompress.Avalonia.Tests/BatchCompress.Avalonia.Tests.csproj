@@ -9,8 +9,14 @@
   </PropertyGroup>
 
   <!-- GPT-5, 2026-08-05：直接链接生产源码，以测试应用实际交付的同一套命令和进程代码。 -->
+  <!-- Antigravity, 2026-11-08：批次 15——将超三千行测试程序按领域拆分为 partial class。 -->
   <ItemGroup>
     <Compile Include="Program.cs" />
+    <Compile Include="Program.CliTests.cs" />
+    <Compile Include="Program.EngineTests.cs" />
+    <Compile Include="Program.PipelineTests.cs" />
+    <Compile Include="Program.LoggingAndConfigTests.cs" />
+    <Compile Include="Program.LocalizationTests.cs" />
     <Compile Include="..\CommandLineHandler.cs" Link="CommandLineHandler.cs" />
     <Compile Include="..\CommandLineHandler.HelpTexts.cs" Link="CommandLineHandler.HelpTexts.cs" />
     <Compile Include="..\HeadlessBatchRunner.cs" Link="HeadlessBatchRunner.cs" />
