@@ -4,11 +4,17 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.7.9`（文件解耦拆分、RAR 7zz 回退与产物实机验证批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
+当前版本：`0.8.0`（安全诊断脱敏导出、分卷子进度解析与并发加固批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
 
 ## 当前开发进度
 
-汇总见 [当前开发进度](docs/20261108-0410-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261108-0410-下一步待实现-Antigravity.md)。
+汇总见 [当前开发进度](docs/20261108-0430-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261108-0430-下一步待实现-Antigravity.md)。
+
+`0.8.0` 完成批次 16（2026-11-08）：**安全诊断脱敏导出服务、分卷子进度解析器与并发测试线程安全加固**
+- **P3-13 安全诊断日志脱敏导出服务**：新建 `DiagnosticsExportService.cs`，实现精准正则脱敏（严防 `-p`、`-hp`、`--password` 明文泄露且无误伤普通参数），支持多代纯文本与 `.gz` 日志解包脱敏，打包生成包含系统与引擎摘要清单的 `diagnostics_summary.zip`；CLI 新增 `--export-diagnostics`（5 语言帮助与参数校验齐备）；
+- **P3-11 分卷与归档实时子进度解析器**：新建 `ArchiveSubProgressParser.cs`，支持从 7zz 与 WinRAR 控制台输出流解析实时进度百分比（0-100）及 7z/RAR 分卷序号；`OperationProgressInfo` 扩充 `SubProgressPercent` 属性；
+- **并发测试桩线程安全加固**：排查并彻底修复 `ConcurrentTrackingEngine` 与 `SnapshotProgress` 测试桩内非线程安全 `List<T>` 并发读写冲突，多线程并发回归测试 100% 稳定可靠；
+- 测试套件扩充 65 → **68 项**全过；`verify.sh` 16 项全过；端到端夹具 149 项全过。详细内容见 [docs/20261108-0430-批次16完成报告-Antigravity.md](docs/20261108-0430-批次16完成报告-Antigravity.md)。
 
 `0.7.9` 完成批次 15（2026-11-08）：**超千行文件全面解耦拆分、RAR 7zz 解压回退、NDJSON 契约 Schema 与发布产物实机验证**
 - **P2-9 拆分超千行大文件**：`MainWindowViewModel.cs` 从 1,491 行精简至 841 行，按领域拆分出 BrowsingAndFiles、Execution、Enclosures 三个分部类；`BatchCompress.Avalonia.Tests/Program.cs` 从 3,914 行精简至 558 行，按测试领域拆分成 CliTests、EngineTests、PipelineTests、LoggingAndConfigTests、LocalizationTests 五个分部类；

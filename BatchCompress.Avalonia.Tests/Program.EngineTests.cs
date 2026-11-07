@@ -680,4 +680,22 @@ internal static partial class Program
             ExtractCalls = 0;
         }
     }
+
+    // Antigravity, 2026-11-08：批次 16（P3-11）——验证 7zz 与 RAR 分卷与进度百分比解析。
+    private static Task TestArchiveSubProgressParser()
+    {
+        AssertEqual(15, ArchiveSubProgressParser.TryParsePercentage("  15% 3 + test.txt"));
+        AssertEqual(98, ArchiveSubProgressParser.TryParsePercentage("Creating archive ... 98%"));
+        AssertEqual(0, ArchiveSubProgressParser.TryParsePercentage("0%"));
+        AssertEqual(100, ArchiveSubProgressParser.TryParsePercentage("100%"));
+        AssertEqual(null, ArchiveSubProgressParser.TryParsePercentage("no percent"));
+        AssertEqual(null, ArchiveSubProgressParser.TryParsePercentage(""));
+
+        AssertEqual(1, ArchiveSubProgressParser.TryParseVolumeNumber("archive.7z.001"));
+        AssertEqual(42, ArchiveSubProgressParser.TryParseVolumeNumber("archive.7z.042"));
+        AssertEqual(3, ArchiveSubProgressParser.TryParseVolumeNumber("archive.part03.rar"));
+        AssertEqual(null, ArchiveSubProgressParser.TryParseVolumeNumber("archive.zip"));
+
+        return Task.CompletedTask;
+    }
 }

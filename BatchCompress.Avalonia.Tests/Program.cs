@@ -82,7 +82,10 @@ internal static partial class Program
             ("解压取消残留回滚", TestCancelledExtractionRollback),
             ("五语言CLI帮助选项完整性", TestAllHelpTextsContainAllOptions),
             ("RAR解压7zz回退与ARM64诊断", TestRarExtractionFallbackToSevenZip),
-            ("NDJSON契约模式验证", TestNdjsonSchemaValidation)
+            ("NDJSON契约模式验证", TestNdjsonSchemaValidation),
+            ("分卷与子进度输出解析", TestArchiveSubProgressParser),
+            ("CLI诊断包导出参数", TestCliDiagnosticsOption),
+            ("安全诊断日志脱敏导出", TestDiagnosticsExportRedaction)
         };
 
         // GLM-5.3, 2026-11-03：跑完全部测试后统一输出失败汇总，CI 中一次可见所有失败项；
@@ -142,6 +145,7 @@ internal static partial class Program
     // 可配置延迟（保证初始槽位全部启动）与真实输出（驱动大小上限统计）。
     private sealed class ConcurrentTrackingEngine : IArchiveEngine
     {
+        private readonly object _inputsLock = new();
         private int _inFlight;
         private int _peakInFlight;
 
@@ -158,7 +162,10 @@ internal static partial class Program
         public async Task<ArchiveResult> CompressAsync(
             string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
         {
-            CompressionInputs.Add(Path.GetFileName(input));
+            lock (_inputsLock)
+            {
+                CompressionInputs.Add(Path.GetFileName(input));
+            }
             TrackEntered();
             try
             {
@@ -180,7 +187,10 @@ internal static partial class Program
         public async Task<ArchiveResult> ExtractAsync(
             string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default)
         {
-            ExtractionInputs.Add(Path.GetFileName(archivePath));
+            lock (_inputsLock)
+            {
+                ExtractionInputs.Add(Path.GetFileName(archivePath));
+            }
             TrackEntered();
             try
             {
@@ -222,7 +232,14 @@ internal static partial class Program
 
     private sealed class SnapshotProgress(List<OperationProgressInfo> snapshots) : IProgress<OperationProgressInfo>
     {
-        public void Report(OperationProgressInfo value) => snapshots.Add(value);
+        private readonly object _lock = new();
+        public void Report(OperationProgressInfo value)
+        {
+            lock (_lock)
+            {
+                snapshots.Add(value);
+            }
+        }
     }
 
     // GLM-5.3, 2026-11-04：批次 3——NDJSON 端到端测试用。服务层循环复用同一个可变进度对象，
@@ -247,7 +264,8 @@ internal static partial class Program
             IsError = source.IsError,
             IsCommandOutput = source.IsCommandOutput,
             StartTime = source.StartTime,
-            Elapsed = source.Elapsed
+            Elapsed = source.Elapsed,
+            SubProgressPercent = source.SubProgressPercent
         };
     }
 

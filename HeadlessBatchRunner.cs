@@ -43,6 +43,26 @@ public class HeadlessBatchRunner
     /// </summary>
     public async Task<int> RunAsync()
     {
+        if (!string.IsNullOrWhiteSpace(_options.ExportDiagnosticsPath))
+        {
+            var exporter = new DiagnosticsExportService(
+                Path.GetDirectoryName(_logger.LogFilePath),
+                new RarArchiveEngine(),
+                new SevenZipArchiveEngine());
+            try
+            {
+                var zip = await exporter.ExportAsync(_options.ExportDiagnosticsPath).ConfigureAwait(false);
+                Console.WriteLine($"Diagnostics report exported to: {zip}");
+                return 0;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError("Failed to export diagnostics", ex);
+                Console.Error.WriteLine($"Error exporting diagnostics: {ex.Message}");
+                return 1;
+            }
+        }
+
         _logger.LogOperation("START", $"Starting headless batch operation");
         _logger.LogOperation("MODE", _options.Compress ? "Compress" : "Decompress");
         _logger.LogOperation("SOURCE", _options.SourcePath ?? "Not specified");

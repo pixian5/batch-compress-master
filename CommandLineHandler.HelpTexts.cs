@@ -65,6 +65,7 @@ public static partial class CommandLineHandler
         日志:
           --log-file <文件>              日志文件路径
           --log-retention-days <天数>    过期日志保留天数（默认 7，支持 --log-retention 别名）
+          --export-diagnostics <zip路径> 导出脱敏诊断报告包（包含脱敏日志与系统环境）
           --verbose                      输出详细进度
           --quiet, -q                    仅向 stderr 输出错误
           --dry-run                      列出将处理的项目，不创建目录或归档
@@ -147,6 +148,7 @@ public static partial class CommandLineHandler
         日誌:
           --log-file <檔案>              日誌檔案路徑
           --log-retention-days <天數>    過期日誌保留天數（預設 7，支援 --log-retention 別名）
+          --export-diagnostics <zip路徑> 匯出脫敏診斷報告包（包含脫敏日誌與系統環境）
           --verbose                      輸出詳細進度
           --quiet, -q                    僅向 stderr 輸出錯誤
           --dry-run                      列出將處理的項目，不建立目錄或封存
@@ -233,6 +235,7 @@ public static partial class CommandLineHandler
         Logging:
           --log-file <file>              Log file path
           --log-retention-days <days>    Days to retain expired log files (default 7, --log-retention supported)
+          --export-diagnostics <zip>     Export redacted diagnostics zip bundle (logs and system summary)
           --verbose                      Print detailed progress
           --quiet, -q                    Only print errors to stderr
           --dry-run                      List items without creating anything
@@ -321,6 +324,7 @@ public static partial class CommandLineHandler
         ログ:
           --log-file <ファイル>         ログファイルのパス
           --log-retention-days <日数>   期限切れログの保持日数（デフォルト 7、--log-retention エイリアス対応）
+          --export-diagnostics <zipパス> 診断レポートを安全にエクスポート（ログと環境要約）
           --verbose                     詳細な進捗を出力
           --quiet, -q                   エラーのみ stderr に出力
           --dry-run                     処理対象項目を一覧表示し、ディレクトリやアーカイブを作成しない
@@ -407,6 +411,7 @@ public static partial class CommandLineHandler
         Protokollierung:
           --log-file <Datei>            Pfad zur Protokolldatei
           --log-retention-days <Tage>   Aufbewahrungsdauer abgelaufener Protokolle (Standard 7, Alias --log-retention)
+          --export-diagnostics <zip>    Exportiert bereinigten Diagnosebericht (Protokolle und Systembericht)
           --verbose                     Detaillierten Fortschritt ausgeben
           --quiet, -q                   Nur Fehler nach stderr ausgeben
           --dry-run                     Zu verarbeitende Elemente auflisten, keine Verzeichnisse/Archive anlegen

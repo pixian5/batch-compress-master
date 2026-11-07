@@ -780,4 +780,63 @@ internal static partial class Program
 
         return Task.CompletedTask;
     }
+
+    // Antigravity, 2026-11-08：批次 16（P3-13）——验证安全诊断包脱敏导出服务。
+    private static async Task TestDiagnosticsExportRedaction()
+    {
+        var tempDir = Path.Combine(Path.GetTempPath(), $"diag-test-{Guid.NewGuid():N}");
+        var logsDir = Path.Combine(tempDir, "logs");
+        var exportZip = Path.Combine(tempDir, "diagnostics.zip");
+        Directory.CreateDirectory(logsDir);
+
+        const string rawPassword = "SuperSecretPassword123";
+        const string rawHp = "HpSecret456";
+
+        var logContent = $"2026-11-08 12:00:00 [INFO] Command: rar a -hp\"{rawHp}\" out.rar in.txt\n" +
+                         $"2026-11-08 12:00:01 [INFO] Command: 7zz a -t7z -p{rawPassword} out.7z in.txt\n" +
+                         $"2026-11-08 12:00:02 [INFO] Command: app compress -i in -o out --password \"{rawPassword}\" -e 7z\n";
+
+        var logFile = Path.Combine(logsDir, "batchcompress_20261108_120000.log");
+        File.WriteAllText(logFile, logContent);
+
+        try
+        {
+            var exporter = new DiagnosticsExportService(logsDir);
+            await exporter.ExportAsync(exportZip);
+
+            Assert(File.Exists(exportZip), "导出的诊断 zip 必须存在");
+
+            using var zip = ZipFile.OpenRead(exportZip);
+            var summaryEntry = zip.GetEntry("diagnostics_summary.json");
+            Assert(summaryEntry != null, "诊断包必须包含 diagnostics_summary.json");
+
+            using (var summaryDoc = System.Text.Json.JsonDocument.Parse(summaryEntry!.Open()))
+            {
+                var root = summaryDoc.RootElement;
+                Assert(root.TryGetProperty("OSDescription", out _), "摘要必须包含 OSDescription");
+                Assert(root.TryGetProperty("DotNetRuntime", out _), "摘要必须包含 DotNetRuntime");
+                Assert(root.TryGetProperty("AppVersion", out _), "摘要必须包含 AppVersion");
+            }
+
+            var logEntry = zip.GetEntry("logs/batchcompress_20261108_120000.log");
+            Assert(logEntry != null, "诊断包必须包含 logs/batchcompress_20261108_120000.log");
+
+            using var reader = new StreamReader(logEntry!.Open(), Encoding.UTF8);
+            var exportedLogText = await reader.ReadToEndAsync();
+
+            Assert(!exportedLogText.Contains(rawPassword), "导出的日志中绝不能出现明文密码 rawPassword");
+            Assert(!exportedLogText.Contains(rawHp), "导出的日志中绝不能出现明文密码 rawHp");
+            Assert(exportedLogText.Contains("***"), "脱敏后的日志必须包含 *** 替代占位符");
+            Assert(exportedLogText.Contains("-hp\"***\""), "WinRAR 加密头参数必须被脱敏为 -hp\"***\"");
+            Assert(exportedLogText.Contains("-p***"), "7zz 密码参数必须被脱敏为 -p***");
+            Assert(exportedLogText.Contains("--password \"***\""), "--password 选项必须被脱敏为 --password \"***\"");
+        }
+        finally
+        {
+            if (Directory.Exists(tempDir))
+            {
+                Directory.Delete(tempDir, recursive: true);
+            }
+        }
+    }
 }

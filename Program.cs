@@ -69,7 +69,7 @@ sealed class Program
         LocalizationService.Instance.CurrentLanguage = options.Language;
 
         // GPT-5, 2026-08-05：无界面模式同步等待异步任务，确保 Main 返回真实的批处理退出码。
-        if (options.Compress || options.Decompress)
+        if (options.Compress || options.Decompress || !string.IsNullOrWhiteSpace(options.ExportDiagnosticsPath))
         {
             return RunHeadlessAsync(options).GetAwaiter().GetResult();
         }

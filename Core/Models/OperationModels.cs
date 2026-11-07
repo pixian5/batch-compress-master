@@ -27,6 +27,8 @@ public class OperationProgressInfo
     public bool IsCommandOutput { get; set; }
     public DateTime StartTime { get; set; }
     public TimeSpan Elapsed { get; set; }
+    // Antigravity, 2026-11-08：批次 16（P3-11）——分卷压缩/归档实时子进度百分比（0-100）。
+    public int? SubProgressPercent { get; set; }
 }
 
 /// <summary>

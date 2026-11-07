@@ -444,6 +444,7 @@ internal static partial class Program
             "--enclosure",
             "--log-file",
             "--log-retention-days",
+            "--export-diagnostics",
             "--verbose",
             "--quiet",
             "--dry-run",
@@ -530,4 +531,15 @@ internal static partial class Program
         return Task.CompletedTask;
     }
 
+    // Antigravity, 2026-11-08：批次 16（P3-13）——验证 CLI --export-diagnostics 命令行解析与校验。
+    private static Task TestCliDiagnosticsOption()
+    {
+        var outcome = BatchCompress.Avalonia.CommandLineHandler.ParseArguments(["--export-diagnostics", "/tmp/test-diag.zip"]);
+        Assert(outcome.Success, "有效 --export-diagnostics 应成功解析");
+        AssertEqual("/tmp/test-diag.zip", outcome.Options.ExportDiagnosticsPath);
+        Assert(!outcome.Options.Gui, "导出诊断模式必须为无界面");
+
+        AssertCommandLineFails(["--export-diagnostics"], "缺少参数值");
+        return Task.CompletedTask;
+    }
 }

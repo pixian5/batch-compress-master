@@ -48,6 +48,8 @@ public sealed class CommandLineOptions
     public string? LogFile { get; set; }
     // Antigravity, 2026-11-04：批次 10——日志过期保留天数（默认 7 天，支持自定义）。
     public int LogRetentionDays { get; set; } = FileLoggerService.DefaultRetentionDays;
+    // Antigravity, 2026-11-08：批次 16（P3-13）——安全诊断包导出路径（.zip）。
+    public string? ExportDiagnosticsPath { get; set; }
     public bool Verbose { get; set; }
     public bool Quiet { get; set; }
     public bool DryRun { get; set; }
@@ -547,6 +549,8 @@ public static partial class CommandLineHandler
         Add(definitions, "--language", ValueKind.Single, "--language", "--lang");
         Add(definitions, "--output-format", ValueKind.Single, "--output-format");
         Add(definitions, "--concurrency", ValueKind.Single, "--concurrency", "-j");
+        // Antigravity, 2026-11-08：批次 16（P3-13）——脱敏诊断报告导出选项。
+        Add(definitions, "--export-diagnostics", ValueKind.Single, "--export-diagnostics");
 
         return definitions;
     }
@@ -843,6 +847,9 @@ public static partial class CommandLineHandler
             case "--log-retention-days":
                 state.Options.LogRetentionDays = ParseInt(value, "--log-retention-days", state.Errors, FileLoggerService.DefaultRetentionDays);
                 break;
+            case "--export-diagnostics":
+                state.Options.ExportDiagnosticsPath = value;
+                break;
         }
     }
 
@@ -904,7 +911,7 @@ public static partial class CommandLineHandler
             errors.Add(L.CliErrorGuiWithMode);
         }
 
-        var isHeadless = options.Compress || options.Decompress;
+        var isHeadless = options.Compress || options.Decompress || !string.IsNullOrWhiteSpace(options.ExportDiagnosticsPath);
         if (!isHeadless && !explicitGui && effectiveArgs.Length > 0 &&
             !ShouldDefaultToGui(options, languageRequested))
         {
@@ -917,6 +924,11 @@ public static partial class CommandLineHandler
         }
 
         options.Gui = false;
+        if (!string.IsNullOrWhiteSpace(options.ExportDiagnosticsPath))
+        {
+            return;
+        }
+
         if (string.IsNullOrWhiteSpace(options.OutputPath))
         {
             errors.Add(L.CliErrorOutputRequired);
