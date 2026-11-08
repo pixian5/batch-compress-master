@@ -24,10 +24,11 @@ public sealed class WinRarProcessRunner
 
     public async Task<WinRarProcessResult> RunAsync(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<string>? onOutputLine = null)
     {
         var result = await new ArchiveProcessRunner(_executablePath, "WinRAR/RAR")
-            .RunAsync(arguments, cancellationToken)
+            .RunAsync(arguments, cancellationToken, onOutputLine)
             .ConfigureAwait(false);
 
         return new WinRarProcessResult(

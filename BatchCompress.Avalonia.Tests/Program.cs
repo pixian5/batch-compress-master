@@ -85,7 +85,9 @@ internal static partial class Program
             ("NDJSON契约模式验证", TestNdjsonSchemaValidation),
             ("分卷与子进度输出解析", TestArchiveSubProgressParser),
             ("CLI诊断包导出参数", TestCliDiagnosticsOption),
-            ("安全诊断日志脱敏导出", TestDiagnosticsExportRedaction)
+            ("安全诊断日志脱敏导出", TestDiagnosticsExportRedaction),
+            ("进程输出流式回调", TestArchiveProcessRunnerStreaming),
+            ("管线子进度实时流式上报", TestPipelineSubProgressStreaming)
         };
 
         // GLM-5.3, 2026-11-03：跑完全部测试后统一输出失败汇总，CI 中一次可见所有失败项；

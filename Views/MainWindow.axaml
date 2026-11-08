@@ -267,6 +267,7 @@
                             <Button Content="{Binding L.ClearSuccess}" Command="{Binding ClearSuccessLogCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearSuccessTooltip}" Margin="0,2,10,8"/>
                             <Button Content="{Binding L.ClearFail}" Command="{Binding ClearFailLogCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearFailTooltip}" Margin="0,2,10,8"/>
                             <Button Content="{Binding L.ClearCommand}" Command="{Binding ClearCommandLogCommand}" Width="76" Height="32" ToolTip.Tip="{Binding L.ClearCommandTooltip}" Margin="0,2,10,8"/>
+                            <Button Content="{Binding L.ExportDiagnostics}" Command="{Binding ExportDiagnosticsCommand}" Height="32" ToolTip.Tip="{Binding L.TooltipExportDiagnostics}" Margin="0,2,10,8"/>
                             <Button Content="{Binding L.OpenOutput}" Command="{Binding OpenOutputFolderCommand}" Width="90" Height="32" ToolTip.Tip="{Binding L.TooltipOpenOutput}" Margin="0,2,10,8"/>
                             <Button Content="{Binding L.OpenSource}" Command="{Binding OpenSourceFolderCommand}" Width="90" Height="32" ToolTip.Tip="{Binding L.TooltipOpenSource}" Margin="0,2,10,8"/>
                             <Button Content="{Binding L.Help}" Command="{Binding ShowHelpCommand}" Width="70" Height="32" ToolTip.Tip="{Binding L.TooltipHelp}" Margin="0,2,10,8"/>
@@ -317,6 +318,13 @@
                                 <TextBlock Text="{Binding EstimatedCompletionTime, StringFormat={}{0:HH\:mm\:ss}}" Foreground="Blue" FontSize="16"/>
                             </StackPanel>
                         </WrapPanel>
+
+                        <!-- Dual Progress Display -->
+                        <Grid Margin="0,6,0,0" ColumnDefinitions="Auto,*,Auto" IsVisible="{Binding IsOperating}">
+                            <TextBlock Grid.Column="0" Text="{Binding L.SubProgress}" FontWeight="SemiBold" VerticalAlignment="Center" Margin="0,0,8,0" IsVisible="{Binding HasSubProgress}"/>
+                            <ProgressBar Grid.Column="1" Value="{Binding SubProgressPercent}" Minimum="0" Maximum="100" Height="10" CornerRadius="5" VerticalAlignment="Center" IsVisible="{Binding HasSubProgress}"/>
+                            <TextBlock Grid.Column="2" Text="{Binding SubProgressDisplay}" Margin="8,0,0,0" VerticalAlignment="Center" IsVisible="{Binding HasSubProgress}"/>
+                        </Grid>
                     </StackPanel>
                 </Border>
 

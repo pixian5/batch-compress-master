@@ -297,6 +297,12 @@ public class LanguageStrings : INotifyPropertyChanged
     public string TooltipZoom { get; set; } = "在普通窗口和最大化窗口之间切换";
     public string HideToTray { get; set; } = "隐藏到托盘";
     public string TooltipHideToTray { get; set; } = "隐藏窗口，程序继续在后台运行";
+    public string ExportDiagnostics { get; set; } = "导出诊断";
+    public string TooltipExportDiagnostics { get; set; } = "安全脱敏并打包导出系统诊断信息与历史日志";
+    public string DiagnosticsExportSuccess { get; set; } = "诊断日志已成功导出至：{0}";
+    public string DiagnosticsExportFailed { get; set; } = "导出诊断日志失败：{0}";
+    public string SubProgress { get; set; } = "子项进度";
+    public string BatchProgress { get; set; } = "批次进度";
 
     // 帮助对话框与关机确认。
     public string HelpBody { get; set; } = "快捷键：F5 刷新列表，Esc 取消操作，Ctrl+L 清空日志，Ctrl+H 隐藏到托盘。\n\nRAR 使用 RAR，ZIP 和 7z 使用 7-Zip；恢复记录仅对 RAR 生效。附件目录每行一个，也可以使用浏览按钮选择多个目录。\n\n系统通知、托盘和关机功能由当前操作系统提供，Linux 需要 notify-send，关机可能需要管理员权限。\n\n关闭窗口会真正退出程序；需要后台运行时请使用“隐藏到托盘”，再通过托盘菜单显示/隐藏或退出。";

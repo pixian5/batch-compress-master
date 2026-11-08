@@ -92,14 +92,30 @@ public sealed class NdjsonOutputWriter
         }
         else
         {
-            // 计数未变化的过程消息（条目启动、大小上限提示等）。
-            Write(new
+            // 计数未变化的过程消息（条目启动、大小上限提示、分卷实时子进度等）。
+            var isSubProgress = info.SubProgressPercent.HasValue;
+            var phase = isSubProgress ? "progress" : "start";
+            if (isSubProgress)
             {
-                type = "progress",
-                phase = "start",
-                source = info.CurrentFile,
-                message = info.Message
-            });
+                Write(new
+                {
+                    type = "progress",
+                    phase,
+                    source = info.CurrentFile,
+                    message = info.Message,
+                    subProgressPercent = info.SubProgressPercent
+                });
+            }
+            else
+            {
+                Write(new
+                {
+                    type = "progress",
+                    phase,
+                    source = info.CurrentFile,
+                    message = info.Message
+                });
+            }
         }
     }
 
@@ -111,6 +127,7 @@ public sealed class NdjsonOutputWriter
         Write(new
         {
             type = "summary",
+            schemaVersion = 1,
             success = _successCount,
             failed = _failCount,
             postProcessFailed = _postProcessFailCount,

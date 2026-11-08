@@ -698,4 +698,30 @@ internal static partial class Program
 
         return Task.CompletedTask;
     }
+
+    // Antigravity, 2026-11-08：批次 17（P3-11）——验证 ArchiveProcessRunner 输出行流式回调及原始输出完整性。
+    private static async Task TestArchiveProcessRunnerStreaming()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            Console.WriteLine("SKIP 进程输出流式回调: Windows 使用单独的进程行为测试");
+            return;
+        }
+
+        var runner = new ArchiveProcessRunner("/bin/sh", "sh");
+        var receivedLines = new List<string>();
+        // 模拟 7zz 进度：使用 \r 和 \n 输出
+        var script = "printf 'line1\\rline2\\nline3'; exit 0";
+        var result = await runner.RunAsync(
+            ["-c", script],
+            CancellationToken.None,
+            onOutputLine: line => receivedLines.Add(line));
+
+        AssertEqual(0, result.ExitCode);
+        AssertEqual("line1\rline2\nline3", result.StandardOutput);
+        AssertEqual(3, receivedLines.Count);
+        AssertEqual("line1", receivedLines[0]);
+        AssertEqual("line2", receivedLines[1]);
+        AssertEqual("line3", receivedLines[2]);
+    }
 }

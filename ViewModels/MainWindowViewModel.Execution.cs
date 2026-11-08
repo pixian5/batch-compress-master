@@ -297,6 +297,8 @@ public partial class MainWindowViewModel
         IncompleteVolumeCount = 0;
         AmbiguousArchiveCount = 0;
         ProcessedSizeGB = 0;
+        SubProgressPercent = 0;
+        HasSubProgress = false;
 
         // 重置处理统计。
         ElapsedTime = TimeSpan.Zero;
@@ -347,5 +349,38 @@ public partial class MainWindowViewModel
             EnclosureDirectories = AddEnclosures ?
                 EnclosureList.Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries) : null
         };
+    }
+
+    // Antigravity, 2026-11-08：批次 17（P3-14）——GUI 一键导出脱敏诊断包至桌面并提示。
+    [RelayCommand]
+    private async Task ExportDiagnosticsAsync()
+    {
+        try
+        {
+            var desktopDir = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            if (string.IsNullOrWhiteSpace(desktopDir) || !Directory.Exists(desktopDir))
+            {
+                desktopDir = Path.GetTempPath();
+            }
+
+            var timestamp = DateTime.Now.ToString("yyyyMMdd-HHmmss");
+            var zipPath = Path.Combine(desktopDir, $"batchcompress-diagnostics-{timestamp}.zip");
+
+            var exporter = new DiagnosticsExportService(
+                Path.Combine(AppContext.BaseDirectory, "logs"),
+                new RarArchiveEngine(),
+                new SevenZipArchiveEngine());
+
+            var exportedPath = await exporter.ExportAsync(zipPath);
+            var message = string.Format(L.DiagnosticsExportSuccess, exportedPath);
+            CommandLog += $"[{L.ExportDiagnostics}] {message}\n";
+            _systemIntegration.ShowNotification(L.ExportDiagnostics, message);
+        }
+        catch (Exception ex)
+        {
+            var error = string.Format(L.DiagnosticsExportFailed, ex.Message);
+            CommandLog += $"[{L.ExportDiagnostics}] {error}\n";
+            _systemIntegration.ShowNotification(L.ExportDiagnostics, error);
+        }
     }
 }

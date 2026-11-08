@@ -1,3 +1,4 @@
+using System;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -47,6 +48,8 @@ public class ArchiveOptions
     public string[]? RarStoreOnlyExtensions { get; set; }
     public bool LockArchive { get; set; }
     public string[]? AdditionalInputs { get; set; }
+    // Antigravity, 2026-11-08：批次 17（P3-11）——归档引擎原始输出行流式回调，用于解析实时分卷与任务子进度。
+    public Action<string>? OutputLineHandler { get; set; }
 }
 
 /// <summary>

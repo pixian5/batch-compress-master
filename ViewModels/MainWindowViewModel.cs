@@ -422,6 +422,16 @@ public partial class MainWindowViewModel : ViewModelBase
     [ObservableProperty]
     private bool _isOperating = false;
 
+    // Antigravity, 2026-11-08：批次 17（P3-11/P3-14）——当前子项/分卷实时进度百分比（0-100）及显示文本。
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(SubProgressDisplay))]
+    private int _subProgressPercent = 0;
+
+    [ObservableProperty]
+    private bool _hasSubProgress = false;
+
+    public string SubProgressDisplay => $"{SubProgressPercent}%";
+
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(SourceFileListTabHeader))]
     private string _sourceFileList = string.Empty;

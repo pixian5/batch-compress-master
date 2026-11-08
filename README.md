@@ -4,11 +4,17 @@
 
 跨平台桌面批处理工具，使用 Avalonia UI 和 .NET 10 构建。应用通过 RAR/WinRAR 与官方 7-Zip 命令行程序执行压缩和解压，界面与业务逻辑均可运行于 Windows、macOS 和 Linux。
 
-当前版本：`0.8.0`（安全诊断脱敏导出、分卷子进度解析与并发加固批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
+当前版本：`0.8.1`（归档实时子进度管线流式贯通、NDJSON 契约版本化与 GUI 诊断导出体验演进批次）。版本号唯一来源为仓库根目录 `VERSION` 文件，csproj、程序集信息、CLI 版本查询、macOS Info.plist 与打包产物命名均读取它。
 
 ## 当前开发进度
 
-汇总见 [当前开发进度](docs/20261108-0430-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261108-0430-下一步待实现-Antigravity.md)。
+汇总见 [当前开发进度](docs/20261108-0950-当前开发进度-Antigravity.md)，待办见 [下一步待实现](docs/20261108-0950-下一步待实现-Antigravity.md)。
+
+`0.8.1` 完成批次 17（2026-11-08）：**归档实时子进度管线流式贯通、NDJSON 契约版本化与 GUI 诊断导出体验演进**
+- **P3-11 归档实时子进度管线端到端流式贯通**：`ArchiveProcessRunner.RunAsync` 支持逐行流式监听与字符级无损保留（支持 `\r` 刷新行）；7zz 全面注入 `-bsp1` 进度流输出开关；`BatchExecutionPipeline` 在串行与受控并发模式下均无缝注入 `OutputLineHandler`，由 `ArchiveSubProgressParser` 实时提取百分比并通过 `OperationProgressInfo.SubProgressPercent` 上报，任务完成确定性重置为 `null`；
+- **P3-12 NDJSON 事件契约演进与版本锁定**：`schemas/ndjson-schema-v1.json` 与 `NdjsonOutputWriter.cs` 对齐升级：summary 明确增加必填 `schemaVersion: 1` 标头；progress 增加可选 `subProgressPercent`（0-100 整数），保证机器可读与下游解析版本兼容；
+- **P3-14 GUI 诊断一键导出与双进度条沉浸式呈现**：主界面操作区新增“导出诊断”按钮（多语言 Tooltip 齐备），点击一键脱敏打包至桌面并弹窗通知；运行状态区新增子项实时进度条（`SubProgressPercent`），实现“条目子进度 + 批次总体积”双层进度沉浸式反馈；
+- **本地化与测试套件扩充**：5 语言字典（zh-CN、zh-TW、en、ja、de）无死角对齐；测试套件扩充 68 → **70 项**全过；`smoke-test.sh`、`verify.sh`（16 项）及 `run-all-tests.sh`（149 项）全量通过。详细内容见 [docs/20261108-0950-批次17完成报告-Antigravity.md](docs/20261108-0950-批次17完成报告-Antigravity.md)。
 
 `0.8.0` 完成批次 16（2026-11-08）：**安全诊断脱敏导出服务、分卷子进度解析器与并发测试线程安全加固**
 - **P3-13 安全诊断日志脱敏导出服务**：新建 `DiagnosticsExportService.cs`，实现精准正则脱敏（严防 `-p`、`-hp`、`--password` 明文泄露且无误伤普通参数），支持多代纯文本与 `.gz` 日志解包脱敏，打包生成包含系统与引擎摘要清单的 `diagnostics_summary.zip`；CLI 新增 `--export-diagnostics`（5 语言帮助与参数校验齐备）；

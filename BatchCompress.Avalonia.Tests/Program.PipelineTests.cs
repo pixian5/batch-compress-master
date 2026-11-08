@@ -1354,4 +1354,65 @@ internal static partial class Program
         }
     }
 
+    // Antigravity, 2026-11-08：批次 17（P3-11）——模拟输出行进度回调的测试引擎。
+    private sealed class StreamingMockArchiveEngine : IArchiveEngine
+    {
+        public bool IsAvailable() => true;
+
+        public Task<ArchiveResult> CompressAsync(string input, string output, ArchiveOptions options, CancellationToken cancellationToken = default)
+        {
+            // 触发 35% 与 80% 进度流
+            options.OutputLineHandler?.Invoke("  35% 1 + test.txt");
+            options.OutputLineHandler?.Invoke("  80% 1 + test.txt");
+            return Task.FromResult(new ArchiveResult
+            {
+                Success = true,
+                ExitCode = 0,
+                StandardOutput = "Everything is Ok\n"
+            });
+        }
+
+        public Task<ArchiveResult> ExtractAsync(string archivePath, string outputDir, ArchiveOptions options, CancellationToken cancellationToken = default)
+        {
+            options.OutputLineHandler?.Invoke("  50%");
+            return Task.FromResult(new ArchiveResult
+            {
+                Success = true,
+                ExitCode = 0,
+                StandardOutput = "Everything is Ok\n"
+            });
+        }
+    }
+
+    // Antigravity, 2026-11-08：批次 17（P3-11）——验证管线在归档引擎调用期间实时解析并上报子进度。
+    private static async Task TestPipelineSubProgressStreaming()
+    {
+        var root = Path.Combine(Path.GetTempPath(), $"bc-subprog-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        var src = Path.Combine(root, "input.txt");
+        File.WriteAllText(src, "test content");
+
+        try
+        {
+            var progressSnapshots = new List<OperationProgressInfo>();
+            var engine = new StreamingMockArchiveEngine();
+            var service = new BatchOperationService(engine, new TestSystemIntegration());
+            var progress = new CloningProgress(progressSnapshots);
+
+            await service.BatchCompressAsync(
+                [src],
+                new BatchOperationOptions { Extension = "7z" },
+                progress,
+                CancellationToken.None);
+
+            Assert(progressSnapshots.Any(p => p.SubProgressPercent == 35), "管线必须捕获并上报引擎 35% 子进度");
+            Assert(progressSnapshots.Any(p => p.SubProgressPercent == 80), "管线必须捕获并上报引擎 80% 子进度");
+            Assert(progressSnapshots.Last().SubProgressPercent == null, "条目完成后子进度必须重置为 null");
+            AssertEqual(1, progressSnapshots.Last().SuccessCount);
+        }
+        finally
+        {
+            if (Directory.Exists(root)) Directory.Delete(root, recursive: true);
+        }
+    }
 }

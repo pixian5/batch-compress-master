@@ -99,10 +99,22 @@ public sealed class BatchExecutionPipeline<TInput>
             Log(LogLevel.Information, item.StartedLogMessage);
             progressInfo.Message = item.StartedMessage;
             progressInfo.IsError = false;
+            progressInfo.SubProgressPercent = null;
             progress.Report(progressInfo);
+
+            item.Options.OutputLineHandler = line =>
+            {
+                var percent = ArchiveSubProgressParser.TryParsePercentage(line);
+                if (percent.HasValue && percent.Value != progressInfo.SubProgressPercent)
+                {
+                    progressInfo.SubProgressPercent = percent.Value;
+                    progress.Report(CloneProgress(progressInfo));
+                }
+            };
 
             // 调用归档引擎执行；异常（含取消）由适配器的 finally 语义负责清理暂存资源。
             var result = await _adapter.ExecuteAsync(item, cancellationToken);
+            progressInfo.SubProgressPercent = null;
             ReportArchiveOutput(item.CommandLabel, result, progressInfo, progress);
 
             if (result.Success)
@@ -250,8 +262,25 @@ public sealed class BatchExecutionPipeline<TInput>
                         progressInfo.CurrentSourcePath = item.CurrentSourcePath;
                         progressInfo.Message = item.StartedMessage;
                         progressInfo.IsError = false;
+                        progressInfo.SubProgressPercent = null;
                         progress.Report(CloneProgress(progressInfo));
                     }
+
+                    item.Options.OutputLineHandler = line =>
+                    {
+                        var percent = ArchiveSubProgressParser.TryParsePercentage(line);
+                        if (percent.HasValue)
+                        {
+                            lock (gate)
+                            {
+                                if (percent.Value != progressInfo.SubProgressPercent)
+                                {
+                                    progressInfo.SubProgressPercent = percent.Value;
+                                    progress.Report(CloneProgress(progressInfo));
+                                }
+                            }
+                        }
+                    };
 
                     // —— 执行段（锁外）：引擎并发是并行的意义所在。 ——
                     ArchiveResult result;
@@ -266,6 +295,7 @@ public sealed class BatchExecutionPipeline<TInput>
                     }
                     lock (gate)
                     {
+                        progressInfo.SubProgressPercent = null;
                         ReportArchiveOutput(item.CommandLabel, result, progressInfo, progress);
                     }
 
@@ -433,7 +463,8 @@ public sealed class BatchExecutionPipeline<TInput>
         IsError = isError,
         IsCommandOutput = isCommandOutput,
         StartTime = source.StartTime,
-        Elapsed = source.Elapsed
+        Elapsed = source.Elapsed,
+        SubProgressPercent = source.SubProgressPercent
     };
 
     // GPT-5, 2026-09-30：后处理失败既计入统计、写入诊断日志，也把原因回传给调用方并入失败记录消息。

@@ -104,6 +104,8 @@ internal sealed class OperationSession
         {
             _owner.IsOperating = false;
             _owner.CurrentSourcePath = string.Empty;
+            _owner.SubProgressPercent = 0;
+            _owner.HasSubProgress = false;
             _owner.EndOperationCancellation();
         }
     }
@@ -121,6 +123,17 @@ internal sealed class OperationSession
         _owner.IncompleteVolumeCount = info.IncompleteVolumeCount;
         _owner.AmbiguousArchiveCount = info.AmbiguousArchiveCount;
         _owner.ProcessedSizeGB = info.ProcessedSizeGB;
+
+        if (info.SubProgressPercent.HasValue)
+        {
+            _owner.SubProgressPercent = info.SubProgressPercent.Value;
+            _owner.HasSubProgress = true;
+        }
+        else
+        {
+            _owner.SubProgressPercent = 0;
+            _owner.HasSubProgress = false;
+        }
 
         // 更新处理统计。
         _owner.ElapsedTime = DateTime.Now - _startTime;

@@ -30,6 +30,7 @@ public static class SevenZipCommandBuilder
         var arguments = new List<string>
         {
             "a",
+            "-bsp1",
             $"-t{definition.ToolFormat}",
             $"-mx={MapCompressionLevel(options.CompressionLevel)}"
         };
@@ -78,7 +79,7 @@ public static class SevenZipCommandBuilder
         ArgumentException.ThrowIfNullOrWhiteSpace(outputDirectory);
         ArgumentNullException.ThrowIfNull(options);
 
-        var arguments = new List<string> { "x" };
+        var arguments = new List<string> { "x", "-bsp1" };
         arguments.Add(options.ExistingFileMode switch
         {
             ExistingFileMode.Skip => "-aos",
@@ -95,7 +96,7 @@ public static class SevenZipCommandBuilder
     public static IReadOnlyList<string> BuildTestArguments(string archivePath, string? password)
     {
         ArgumentException.ThrowIfNullOrWhiteSpace(archivePath);
-        var arguments = new List<string> { "t" };
+        var arguments = new List<string> { "t", "-bsp1" };
         AddPassword(arguments, password, encryptFileNames: false);
         arguments.Add(archivePath);
         return arguments;

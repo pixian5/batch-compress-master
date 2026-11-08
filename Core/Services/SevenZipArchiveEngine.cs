@@ -42,7 +42,7 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
         try
         {
             var arguments = SevenZipCommandBuilder.BuildCompressionArguments(input, output, options);
-            var result = await ExecuteAsync(arguments, cancellationToken).ConfigureAwait(false);
+            var result = await ExecuteAsync(arguments, cancellationToken, options.OutputLineHandler).ConfigureAwait(false);
             if (!result.Success || !options.TestArchive)
             {
                 return result;
@@ -52,7 +52,7 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
             // 7zz 分卷不会保留基础输出文件，必须使用实际首卷作为 t 命令入口。
             var testPath = ResolveTestPath(output);
             var testArguments = SevenZipCommandBuilder.BuildTestArguments(testPath, options.Password);
-            var testResult = await ExecuteAsync(testArguments, cancellationToken).ConfigureAwait(false);
+            var testResult = await ExecuteAsync(testArguments, cancellationToken, options.OutputLineHandler).ConfigureAwait(false);
             // GPT-5, 2026-08-06：创建和校验是两次进程，返回时合并两者原始输出，避免丢失第一阶段诊断信息。
             testResult.CommandLine = string.Join(
                 Environment.NewLine,
@@ -91,7 +91,7 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
         try
         {
             var arguments = SevenZipCommandBuilder.BuildExtractionArguments(archivePath, outputDir, options);
-            return await ExecuteAsync(arguments, cancellationToken).ConfigureAwait(false);
+            return await ExecuteAsync(arguments, cancellationToken, options.OutputLineHandler).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -209,10 +209,11 @@ public sealed class SevenZipArchiveEngine : IArchiveEngine
 
     private async Task<ArchiveResult> ExecuteAsync(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<string>? onOutputLine = null)
     {
         var result = await new ArchiveProcessRunner(_executablePath!, "7-Zip")
-            .RunAsync(arguments, cancellationToken)
+            .RunAsync(arguments, cancellationToken, onOutputLine)
             .ConfigureAwait(false);
         var success = SevenZipExitCodes.IsSuccess(result.ExitCode);
 

@@ -12,7 +12,8 @@
         "type": { "type": "string", "const": "progress" },
         "phase": { "type": "string" },
         "source": { "type": ["string", "null"] },
-        "message": { "type": ["string", "null"] }
+        "message": { "type": ["string", "null"] },
+        "subProgressPercent": { "type": ["integer", "null"], "minimum": 0, "maximum": 100 }
       },
       "required": ["type", "phase"],
       "additionalProperties": false
@@ -49,6 +50,7 @@
       "description": "Batch completion summary event",
       "properties": {
         "type": { "type": "string", "const": "summary" },
+        "schemaVersion": { "type": "integer", "const": 1 },
         "success": { "type": "integer", "minimum": 0 },
         "failed": { "type": "integer", "minimum": 0 },
         "postProcessFailed": { "type": "integer", "minimum": 0 },
@@ -60,6 +62,7 @@
       },
       "required": [
         "type",
+        "schemaVersion",
         "success",
         "failed",
         "postProcessFailed",

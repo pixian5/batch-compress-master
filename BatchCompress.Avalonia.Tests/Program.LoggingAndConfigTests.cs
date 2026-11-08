@@ -643,6 +643,7 @@ internal static partial class Program
 
         var summary = documents[5].RootElement;
         AssertEqual("summary", summary.GetProperty("type").GetString());
+        AssertEqual(1, summary.GetProperty("schemaVersion").GetInt32());
         AssertEqual(2, summary.GetProperty("success").GetInt32());
         AssertEqual(1, summary.GetProperty("failed").GetInt32());
         AssertEqual(1, summary.GetProperty("postProcessFailed").GetInt32());
@@ -738,13 +739,14 @@ internal static partial class Program
         var stringWriter = new StringWriter();
         var ndjson = new NdjsonOutputWriter(stringWriter);
         ndjson.Report(new OperationProgressInfo { CurrentFile = "test.txt", Message = "starting" });
+        ndjson.Report(new OperationProgressInfo { CurrentFile = "test.txt", Message = "running", SubProgressPercent = 45 });
         ndjson.Report(new OperationProgressInfo { CurrentFile = "test.txt", Message = "done", SuccessCount = 1 });
         ndjson.WriteSummary(TimeSpan.FromSeconds(1.234));
 
         var lines = stringWriter.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
-        AssertEqual(3, lines.Length);
+        AssertEqual(4, lines.Length);
 
-        // 校验 1: progress 事件
+        // 校验 1: progress (start) 事件
         using (var progressDoc = System.Text.Json.JsonDocument.Parse(lines[0]))
         {
             var elem = progressDoc.RootElement;
@@ -753,8 +755,17 @@ internal static partial class Program
             AssertEqual("test.txt", elem.GetProperty("source").GetString());
         }
 
+        // 校验 1b: progress (sub-progress) 事件
+        using (var progressDoc2 = System.Text.Json.JsonDocument.Parse(lines[1]))
+        {
+            var elem = progressDoc2.RootElement;
+            AssertEqual("progress", elem.GetProperty("type").GetString());
+            AssertEqual("progress", elem.GetProperty("phase").GetString());
+            AssertEqual(45, elem.GetProperty("subProgressPercent").GetInt32());
+        }
+
         // 校验 2: item 事件
-        using (var itemDoc = System.Text.Json.JsonDocument.Parse(lines[1]))
+        using (var itemDoc = System.Text.Json.JsonDocument.Parse(lines[2]))
         {
             var elem = itemDoc.RootElement;
             AssertEqual("item", elem.GetProperty("type").GetString());
@@ -769,10 +780,11 @@ internal static partial class Program
         }
 
         // 校验 3: summary 事件
-        using (var summaryDoc = System.Text.Json.JsonDocument.Parse(lines[2]))
+        using (var summaryDoc = System.Text.Json.JsonDocument.Parse(lines[3]))
         {
             var elem = summaryDoc.RootElement;
             AssertEqual("summary", elem.GetProperty("type").GetString());
+            AssertEqual(1, elem.GetProperty("schemaVersion").GetInt32());
             AssertEqual(1, elem.GetProperty("success").GetInt32());
             AssertEqual(0, elem.GetProperty("failed").GetInt32());
             AssertEqual(1.234, elem.GetProperty("elapsedSeconds").GetDouble());

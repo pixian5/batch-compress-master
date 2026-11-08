@@ -505,7 +505,7 @@ public class RarArchiveEngine : IArchiveEngine
         try
         {
             var arguments = WinRarCommandBuilder.BuildCompressionArguments(input, output, options);
-            return await ExecuteRarCommand(arguments, cancellationToken).ConfigureAwait(false);
+            return await ExecuteRarCommand(arguments, cancellationToken, options.OutputLineHandler).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -537,7 +537,7 @@ public class RarArchiveEngine : IArchiveEngine
         try
         {
             var arguments = WinRarCommandBuilder.BuildExtractionArguments(archivePath, outputDir, options);
-            return await ExecuteRarCommand(arguments, cancellationToken).ConfigureAwait(false);
+            return await ExecuteRarCommand(arguments, cancellationToken, options.OutputLineHandler).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
         {
@@ -556,10 +556,11 @@ public class RarArchiveEngine : IArchiveEngine
     
     private async Task<ArchiveResult> ExecuteRarCommand(
         IReadOnlyList<string> arguments,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        Action<string>? onOutputLine = null)
     {
         var result = await new WinRarProcessRunner(_rarExecutablePath!)
-            .RunAsync(arguments, cancellationToken)
+            .RunAsync(arguments, cancellationToken, onOutputLine)
             .ConfigureAwait(false);
 
         var success = WinRarExitCodes.IsSuccess(result.ExitCode);
